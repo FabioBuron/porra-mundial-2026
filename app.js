@@ -187,6 +187,13 @@ const App = (() => {
             success = true;
           } else if (resJson && resJson.error) {
             errorMsg = `Error del servidor: ${resJson.error}`;
+            // Si el error es de contraseña incorrecta, la borramos del localStorage para que pueda volver a introducirla
+            if (resJson.error.toLowerCase().includes("contraseña incorrecta")) {
+              localStorage.removeItem("porra_password_" + name.trim().toLowerCase());
+            }
+            showLoading(false);
+            showToast(errorMsg, "error");
+            return; // Detenemos aquí, no hacemos fallback a Google Forms
           }
         }
       } catch (err) {
