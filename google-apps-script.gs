@@ -488,6 +488,7 @@ function processDraft(ss, draft) {
         savePredictions(ss, participantId, predictionsArray, now);
       } catch (err) {
         Logger.log("Error guardando predicciones de partidos: " + err.toString());
+        throw err;
       }
     }
   }
@@ -506,6 +507,7 @@ function processDraft(ss, draft) {
           }, now);
         } catch (err) {
           Logger.log("Error guardando goleador para " + roundKey + ": " + err.toString());
+          throw err;
         }
       }
     }
@@ -525,6 +527,7 @@ function processDraft(ss, draft) {
           }, now);
         } catch (err) {
           Logger.log("Error guardando portero para " + roundKey + ": " + err.toString());
+          throw err;
         }
       }
     }
@@ -542,6 +545,7 @@ function processDraft(ss, draft) {
           }, now);
         } catch (err) {
           Logger.log("Error guardando evento especial " + eventId + ": " + err.toString());
+          throw err;
         }
       }
     }
@@ -633,4 +637,50 @@ function findJsonInRow(sheet, row) {
   }
   return null;
 }
+
+/**
+ * Crea las pestañas necesarias en la hoja de cálculo si no existen,
+ * con sus correspondientes cabeceras.
+ * Ejecuta esta función desde el editor de Apps Script para preparar tu hoja.
+ */
+function setupSpreadsheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var sheetsToCreate = [
+    {
+      name: "match_predictions",
+      headers: ["participant_id", "match_id", "predicted_home", "predicted_away", "submitted_at", "points_earned"]
+    },
+    {
+      name: "scorer_picks",
+      headers: ["participant_id", "round_key", "player_id", "submitted_at", "deadline_utc", "points_earned"]
+    },
+    {
+      name: "goalkeeper_picks",
+      headers: ["participant_id", "round_key", "player_id", "submitted_at", "deadline_utc", "points_earned"]
+    },
+    {
+      name: "special_event_picks",
+      headers: ["participant_id", "event_id", "pick_value", "submitted_at", "points_earned"]
+    },
+    {
+      name: "Respuestas de formulario 1",
+      headers: ["Timestamp", "Borrador"]
+    }
+  ];
+  
+  sheetsToCreate.forEach(function(sheetConf) {
+    var sheet = ss.getSheetByName(sheetConf.name);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetConf.name);
+      sheet.appendRow(sheetConf.headers);
+      Logger.log("Creada pestaña: " + sheetConf.name);
+    } else {
+      Logger.log("La pestaña ya existe: " + sheetConf.name);
+    }
+  });
+  
+  Logger.log("Configuración completada.");
+}
+
 
