@@ -548,6 +548,9 @@ function processDraft(ss, draft, skipAppendResponse) {
           throw err;
         }
       }
+    }
+  }
+  
   // 6. Guardar copia del borrador en la pestaña de respuestas (Respuestas de formulario 1) para que el frontend lo lea
   if (!skipAppendResponse) {
     var sheetResponse = ss.getSheetByName("Respuestas de formulario 1");
