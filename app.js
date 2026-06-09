@@ -358,7 +358,7 @@ const App = (() => {
       "dr congo": "🇨🇩",
       "ecuador": "🇪🇨",
       "egypt": "🇪🇬",
-      "england": "🏴%A0%A0%A0%A0󠁧󠁢󠁥󠁮󠁧󠁿", // We will output the raw England flag
+      "england": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
       "france": "🇫🇷",
       "germany": "🇩🇪",
       "ghana": "🇬🇭",
@@ -545,7 +545,7 @@ const App = (() => {
       return parseCSV(text);
     } catch (err) {
       console.error("Error fetching sheet:", url, err);
-      return [];
+      throw err;
     }
   }
 
@@ -859,7 +859,8 @@ const App = (() => {
     const kickoffs = roundMatches
       .map(m => m.kickoff_utc)
       .filter(Boolean)
-      .map(k => new Date(k).getTime());
+      .map(k => new Date(k).getTime())
+      .filter(t => !isNaN(t));
     if (kickoffs.length === 0) return false;
     const earliestKickoff = Math.min(...kickoffs);
     return earliestKickoff > Date.now();
@@ -876,7 +877,7 @@ const App = (() => {
       `;
     }
     if (ev.id === "E3") {
-      const gks = _data.players.filter(p => p.position === "goalkeeper").sort((a,b) => a.name.localeCompare(b.name));
+      const gks = _data.players.filter(p => p.position === "goalkeeper").sort((a,b) => (a.name || "").localeCompare(b.name || ""));
       return `
         <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
           <option value="">-- Seleccionar Portero --</option>
@@ -885,7 +886,7 @@ const App = (() => {
       `;
     }
     if (ev.id === "E5") {
-      const players = _data.players.filter(p => p.position === "outfield").sort((a,b) => a.name.localeCompare(b.name));
+      const players = _data.players.filter(p => p.position === "outfield").sort((a,b) => (a.name || "").localeCompare(b.name || ""));
       return `
         <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
           <option value="">-- Seleccionar Jugador --</option>
@@ -1069,8 +1070,8 @@ const App = (() => {
       const selectedScorerId = draft.scorerPicks[_currentRound] || "";
       const selectedGKId = draft.goalkeeperPicks[_currentRound] || "";
 
-      const outfieldPlayers = _data.players.filter(p => p.position === "outfield" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => a.name.localeCompare(b.name));
-      const goalkeeperPlayers = _data.players.filter(p => p.position === "goalkeeper" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => a.name.localeCompare(b.name));
+      const outfieldPlayers = _data.players.filter(p => p.position === "outfield" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+      const goalkeeperPlayers = _data.players.filter(p => p.position === "goalkeeper" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
 
       userSelectionHtml = `
         <div class="card fade-in mb-2" style="border: 1px solid var(--color-green);">
@@ -1680,6 +1681,12 @@ const App = (() => {
   }
 
   function handleRoute() {
+    if (!_loaded) {
+      const hasUrls = Object.values(CONFIG.googleSheets).every(url => url && !url.startsWith("URL_CSV"));
+      if (hasUrls) {
+        return; // Preserve the error screen shown by loadAllData()
+      }
+    }
     setActiveNav();
     
     // Close mobile menu if open
@@ -1784,7 +1791,7 @@ const App = (() => {
     };
     document.head.appendChild(musicScript);
 
-    const hasUrls = Object.values(CONFIG.googleSheets).some(url => url && !url.startsWith("URL_CSV"));
+    const hasUrls = Object.values(CONFIG.googleSheets).every(url => url && !url.startsWith("URL_CSV"));
 
     if (hasUrls) {
       await loadAllData();
