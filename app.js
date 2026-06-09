@@ -782,6 +782,76 @@ const App = (() => {
     }
   }
 
+  function initSPA() {
+    // Intercept clicks on navbar links
+    document.addEventListener("click", (e) => {
+      const link = e.target.closest(".navbar__link");
+      if (link) {
+        const href = link.getAttribute("href");
+        if (href) {
+          try {
+            // Push state. If this throws (e.g. file:/// protocol), catch it
+            history.pushState({}, "", href);
+            e.preventDefault(); // only prevent default if pushState succeeds!
+            // Re-route and render
+            handleRoute();
+          } catch (err) {
+            console.warn("SPA navigation not supported in this environment (likely file:/// protocol). Falling back to standard navigation.", err);
+            // Do NOT prevent default, let the browser navigate normally
+          }
+        }
+      }
+    });
+
+    // Handle browser back/forward buttons
+    window.addEventListener("popstate", () => {
+      handleRoute();
+    });
+  }
+
+  function handleRoute() {
+    setActiveNav();
+    
+    // Close mobile menu if open
+    const menu = $(".navbar__menu");
+    const toggle = $(".navbar__toggle");
+    if (menu && toggle) {
+      menu.classList.remove("navbar__menu--open");
+      toggle.classList.remove("navbar__toggle--active");
+    }
+
+    const page = detectCurrentPage();
+    
+    // Show skeleton loaders to simulate a transition
+    const container = $("#app-content");
+    if (container) {
+      container.innerHTML = `
+        <div class="skeleton-loader">
+          <div class="skeleton skeleton--title"></div>
+          <div class="skeleton skeleton--card"></div>
+        </div>
+      `;
+    }
+
+    // Render corresponding view
+    switch (page) {
+      case "partidos":
+        renderMatches();
+        break;
+      case "goleador-portero":
+        renderScorerGoalkeeper();
+        break;
+      case "eventos":
+        renderSpecialEvents();
+        break;
+      case "admin":
+        renderAdmin();
+        break;
+      default:
+        renderLeaderboard();
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------------
@@ -789,6 +859,7 @@ const App = (() => {
   async function init() {
     setActiveNav();
     initMobileMenu();
+    initSPA();
 
     // Cargar y arrancar la música ambientación del mundial
     const musicScript = document.createElement("script");
@@ -810,23 +881,8 @@ const App = (() => {
       loadDemoData();
     }
 
-    const page = detectCurrentPage();
-    switch (page) {
-      case "partidos":
-        renderMatches();
-        break;
-      case "goleador-portero":
-        renderScorerGoalkeeper();
-        break;
-      case "eventos":
-        renderSpecialEvents();
-        break;
-      case "admin":
-        renderAdmin();
-        break;
-      default:
-        renderLeaderboard();
-    }
+    // Initial render
+    handleRoute();
   }
 
   // ---------------------------------------------------------------------------

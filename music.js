@@ -433,14 +433,11 @@ const PorraMusic = (() => {
           <h1 class="music-welcome-title">🏆 La Porra del Mundial 2026</h1>
           <h2 class="music-welcome-subtitle">¡Bienvenido al juego de los 8 amigos!</h2>
           <p class="music-welcome-desc">
-            Siente el ambiente del torneo con la playlist de himnos históricos del mundial (Waka Waka, Wavin' Flag, La Copa de la Vida y más) mientras revisas las predicciones.
+            Siente el ambiente del torneo con la playlist de himnos históricos del mundial (Waka Waka, Wavin' Flag, La Copa de la Vida y más).
           </p>
           <div class="music-welcome-buttons">
             <button id="music-welcome-play" class="music-welcome-btn-play">
-              🔊 ENTRAR CON MÚSICA
-            </button>
-            <button id="music-welcome-silent" class="music-welcome-btn-silent">
-              Entrar en silencio
+              ⚽ ENTRAR A LA PORRA
             </button>
           </div>
         </div>
@@ -449,9 +446,6 @@ const PorraMusic = (() => {
 
       document.getElementById("music-welcome-play").addEventListener("click", () => {
         closeWelcomeOverlay(true);
-      });
-      document.getElementById("music-welcome-silent").addEventListener("click", () => {
-        closeWelcomeOverlay(false);
       });
     }
   }
