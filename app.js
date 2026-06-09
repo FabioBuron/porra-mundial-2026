@@ -681,75 +681,136 @@ const App = (() => {
   function convertSelectToSearchable(selectEl) {
     if (!selectEl || selectEl.dataset.searchableInitialized) return;
 
-    // Save original options
-    const options = Array.from(selectEl.options).map(opt => ({
-      value: opt.value,
-      text: opt.textContent,
-      html: opt.innerHTML
-    }));
-
     selectEl.dataset.searchableInitialized = "true";
-    selectEl.dataset.selectedValue = selectEl.value;
+
+    // Hide original select
+    selectEl.style.display = "none";
 
     // Wrap select in a container
     const wrapper = document.createElement("div");
-    wrapper.className = "searchable-select-wrapper";
+    wrapper.className = "custom-select-wrapper";
     selectEl.parentNode.insertBefore(wrapper, selectEl);
     wrapper.appendChild(selectEl);
+
+    // Create trigger element
+    const trigger = document.createElement("div");
+    trigger.className = "custom-select-trigger";
+    
+    const updateTriggerText = () => {
+      const selectedOption = selectEl.options[selectEl.selectedIndex];
+      trigger.textContent = selectedOption ? selectedOption.textContent : "";
+    };
+    
+    updateTriggerText();
+    wrapper.appendChild(trigger);
+
+    // Create dropdown container
+    const dropdown = document.createElement("div");
+    dropdown.className = "custom-select-dropdown";
+    dropdown.style.display = "none";
 
     // Create search input
     const searchInput = document.createElement("input");
     searchInput.type = "text";
-    searchInput.className = "form-input searchable-select-input";
+    searchInput.className = "custom-select-search";
     searchInput.placeholder = "🔍 Buscar...";
-    searchInput.style.marginBottom = "8px";
-    wrapper.insertBefore(searchInput, selectEl);
+    dropdown.appendChild(searchInput);
 
-    // Track select element changes (if user selects something)
-    selectEl.addEventListener("change", () => {
-      selectEl.dataset.selectedValue = selectEl.value;
+    // Create options list container
+    const optionsList = document.createElement("div");
+    optionsList.className = "custom-select-options-list";
+    dropdown.appendChild(optionsList);
 
-      // Clear search input and restore all options
-      if (searchInput.value !== "") {
-        searchInput.value = "";
-        const currentSelected = selectEl.value;
-        selectEl.innerHTML = "";
-        options.forEach(opt => {
-          const optEl = document.createElement("option");
-          optEl.value = opt.value;
-          optEl.innerHTML = opt.html;
-          if (opt.value === currentSelected) {
-            optEl.selected = true;
-          }
-          selectEl.appendChild(optEl);
-        });
-      }
-    });
+    wrapper.appendChild(dropdown);
+
+    // Track original select change events
+    selectEl.addEventListener("change", updateTriggerText);
 
     const cleanStr = str => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // Search event listener
-    searchInput.addEventListener("input", (e) => {
-      const query = cleanStr(e.target.value);
-      const currentSelected = selectEl.dataset.selectedValue;
+    // Render list of filtered option elements
+    const renderOptions = (filterQuery = "") => {
+      optionsList.innerHTML = "";
+      const normalizedQuery = cleanStr(filterQuery);
 
-      selectEl.innerHTML = "";
+      Array.from(selectEl.options).forEach(opt => {
+        const text = opt.textContent;
+        const matchesQuery = cleanStr(text).includes(normalizedQuery);
 
-      options.forEach(opt => {
-        const isPlaceholder = opt.value === "";
-        const matchesQuery = cleanStr(opt.text).includes(query);
-
-        if (isPlaceholder || matchesQuery) {
-          const optEl = document.createElement("option");
-          optEl.value = opt.value;
-          optEl.innerHTML = opt.html;
-          if (opt.value === currentSelected) {
-            optEl.selected = true;
+        if (matchesQuery) {
+          const item = document.createElement("div");
+          item.className = "custom-select-option-item";
+          if (opt.value === selectEl.value) {
+            item.classList.add("custom-select-option-item--selected");
           }
-          selectEl.appendChild(optEl);
+          item.textContent = text;
+
+          item.addEventListener("click", (e) => {
+            e.stopPropagation();
+            selectEl.value = opt.value;
+            selectEl.dispatchEvent(new Event("change"));
+            closeDropdown();
+          });
+
+          optionsList.appendChild(item);
         }
       });
+    };
+
+    const openDropdown = () => {
+      // Close other open custom dropdowns
+      document.querySelectorAll(".custom-select-dropdown").forEach(d => {
+        if (d !== dropdown) {
+          d.style.display = "none";
+          d.parentNode.querySelector(".custom-select-trigger")?.classList.remove("custom-select-trigger--active");
+        }
+      });
+
+      dropdown.style.display = "block";
+      trigger.classList.add("custom-select-trigger--active");
+      searchInput.value = "";
+      renderOptions("");
+      
+      // Auto-focus search input
+      setTimeout(() => {
+        searchInput.focus();
+      }, 0);
+    };
+
+    const closeDropdown = () => {
+      dropdown.style.display = "none";
+      trigger.classList.remove("custom-select-trigger--active");
+    };
+
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isVisible = dropdown.style.display === "block";
+      if (isVisible) {
+        closeDropdown();
+      } else {
+        openDropdown();
+      }
     });
+
+    searchInput.addEventListener("input", (e) => {
+      renderOptions(e.target.value);
+    });
+
+    searchInput.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    // Close on click outside
+    const handleDocumentClick = (e) => {
+      if (!document.body.contains(wrapper)) {
+        document.removeEventListener("click", handleDocumentClick);
+        return;
+      }
+      if (!wrapper.contains(e.target)) {
+        closeDropdown();
+      }
+    };
+    document.addEventListener("click", handleDocumentClick);
   }
 
   function showLoading(show) {
