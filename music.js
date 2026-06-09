@@ -22,6 +22,7 @@ const PorraMusic = (() => {
   let _player = null;
   let _isMuted = false;
   let _saveInterval = null;
+  let _consecutiveErrors = 0;
 
   // CSS injection to keep style.css clean and this module self-contained
   function injectStyles() {
@@ -382,9 +383,9 @@ const PorraMusic = (() => {
       playerDiv.style.position = "absolute";
       playerDiv.style.top = "-9999px";
       playerDiv.style.left = "-9999px";
-      playerDiv.style.width = "1px";
-      playerDiv.style.height = "1px";
-      playerDiv.style.opacity = "0";
+      playerDiv.style.width = "200px";
+      playerDiv.style.height = "200px";
+      playerDiv.style.opacity = "0.01";
       playerDiv.style.pointerEvents = "none";
       document.body.appendChild(playerDiv);
     }
@@ -567,9 +568,8 @@ const PorraMusic = (() => {
     _isMuted = savedMute;
 
     _player = new YT.Player("youtube-audio-player", {
-      height: "0",
-      width: "0",
-      host: "https://www.youtube-nocookie.com",
+      height: "200",
+      width: "200",
       playerVars: {
         playlist: PLAYLIST_IDS.join(","),
         loop: 1,
@@ -588,10 +588,20 @@ const PorraMusic = (() => {
         onStateChange: onPlayerStateChange,
         onError: (e) => {
           console.error("YouTube Player Error (code " + e.data + "):", e);
-          const trackTitle = document.getElementById("music-track-title");
-          if (trackTitle) {
-            trackTitle.textContent = "Error de carga (adblock?)";
-            trackTitle.title = "Si tienes un bloqueador de publicidad o usas Brave, desactívalo o permite la reproducción para escuchar la música.";
+          _consecutiveErrors++;
+          if (_consecutiveErrors < PLAYLIST_IDS.length) {
+            console.log("YouTube track error, trying to skip to next video...");
+            setTimeout(() => {
+              if (_player && typeof _player.nextVideo === "function") {
+                _player.nextVideo();
+              }
+            }, 500);
+          } else {
+            const trackTitle = document.getElementById("music-track-title");
+            if (trackTitle) {
+              trackTitle.textContent = "Error de carga (adblock?)";
+              trackTitle.title = "Todos los videos de la playlist han fallado. Si tienes un bloqueador de publicidad o usas Brave, desactívalo o permite la reproducción para escuchar la música.";
+            }
           }
         }
       }
@@ -665,6 +675,7 @@ const PorraMusic = (() => {
         localStorage.setItem("porra_music_playing", "true");
         showResumeBubble(false); // Hide bubble once playing
         updateTrackInfo();
+        _consecutiveErrors = 0;
         break;
       case YT.PlayerState.PAUSED:
       case YT.PlayerState.CUED:
