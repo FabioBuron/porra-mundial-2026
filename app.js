@@ -977,13 +977,74 @@ const App = (() => {
         </div>
       </div>
 
-      <div class="card fade-in mt-2">
-        <h3 class="card-title">📋 Desempate</h3>
-        <p class="text-muted">En caso de empate: 1º Más puntos en partidos (M1) → 2º Más puntos goleador + portero (M2+M3) → 3º Más puntos en eventos (M4) → 4º Moneda al aire</p>
+      <div class="card fade-in mt-2" style="border: 1px solid var(--color-border);">
+        <h3 class="card-title" id="rules-toggle-btn" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin: 0; user-select: none;">
+          <span>💡 Reglamento y Sistema de Puntuación</span>
+          <span id="rules-arrow" style="font-size: var(--font-sm); color: var(--color-text-secondary); transition: transform 0.3s ease;">▼</span>
+        </h3>
+        
+        <div id="rules-content" style="display: none; margin-top: var(--space-4); border-top: 1px dashed var(--color-border); padding-top: var(--space-4);">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4);">
+            <div>
+              <h4 style="color: var(--color-green); margin-bottom: var(--space-2); font-size: var(--font-base);">⚽ M1: Partidos</h4>
+              <ul style="list-style: none; padding: 0; font-size: var(--font-sm); display: flex; flex-direction: column; gap: var(--space-1);">
+                <li><strong class="text-green">+3 pts:</strong> Marcador exacto (ej. 2-1).</li>
+                <li><strong class="text-green">+2 pts:</strong> Diferencia exacta (ej. 2-1 frente a 1-0).</li>
+                <li><strong class="text-green">+1 pt:</strong> Signo (ganador o empate) acertado.</li>
+                <li><strong class="text-gold">×2 Puntos:</strong> Si el partido es un <strong>Partido Salvaje (E2)</strong>.</li>
+              </ul>
+            </div>
+            <div>
+              <h4 style="color: var(--color-green); margin-bottom: var(--space-2); font-size: var(--font-base);">🎯 M2: Goleador</h4>
+              <ul style="list-style: none; padding: 0; font-size: var(--font-sm); display: flex; flex-direction: column; gap: var(--space-1);">
+                <li><strong class="text-green">+1 pt</strong> por cada gol marcado por tu jugador de campo de la jornada.</li>
+                <li style="font-size: var(--font-xs); color: var(--color-text-secondary); margin-top: var(--space-1);">* Goles en propia puerta y tanda de penaltis no computan.</li>
+              </ul>
+            </div>
+            <div>
+              <h4 style="color: var(--color-green); margin-bottom: var(--space-2); font-size: var(--font-base);">🧤 M3: Portero</h4>
+              <ul style="list-style: none; padding: 0; font-size: var(--font-sm); display: flex; flex-direction: column; gap: var(--space-1);">
+                <li><strong class="text-green">+2 pts:</strong> Portería a cero.</li>
+                <li><strong class="text-green">+1 pt:</strong> Si encaja 1 gol.</li>
+                <li><strong class="text-red">Resta:</strong> <code>2 - goles_encajados</code> si recibe 2+ goles (ej. 3 goles = -1 pt).</li>
+                <li style="font-size: var(--font-xs); color: var(--color-text-secondary); margin-top: var(--space-1);">* Puntuación por cada partido disputado en la jornada.</li>
+              </ul>
+            </div>
+            <div>
+              <h4 style="color: var(--color-green); margin-bottom: var(--space-2); font-size: var(--font-base);">🌟 M4: Eventos</h4>
+              <ul style="list-style: none; padding: 0; font-size: var(--font-sm); display: flex; flex-direction: column; gap: var(--space-1); line-height: 1.4;">
+                <li><strong>E1 (Campeón):</strong> Acertar → <strong class="text-green">+5 pts</strong>.</li>
+                <li><strong>E3 (Penaltis 🧤):</strong> Acertar portero → <strong class="text-green">+4 pts</strong>.</li>
+                <li><strong>E4 (Maldición):</strong> Favorito eliminado en Octavos (<strong class="text-green">+3 pts</strong>) o Cuartos (<strong class="text-green">+2 pts</strong>).</li>
+                <li><strong>E5 (Hat-Trick 🎩):</strong> Acertar jugador → <strong class="text-green">+5 pts</strong>.</li>
+                <li><strong>E6 (Más goles):</strong> Exacto (<strong class="text-green">+3 pts</strong>) / Diferencia de 1 (<strong class="text-green">+1 pt</strong>).</li>
+              </ul>
+            </div>
+          </div>
+          <div style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px dashed var(--color-border); font-size: var(--font-sm); line-height: 1.5;">
+            <strong>📋 Criterios de Desempate:</strong> En caso de empate en la general: 1º Puntos en partidos (M1) → 2º Puntos acumulados de Goleador+Portero (M2+M3) → 3º Puntos en eventos (M4) → 4º Moneda al aire.
+          </div>
+        </div>
       </div>
     `;
 
     container.innerHTML = html;
+
+    // Attach collapsible rules listener
+    const rulesBtn = $("#rules-toggle-btn");
+    const rulesContent = $("#rules-content");
+    const rulesArrow = $("#rules-arrow");
+    
+    rulesBtn?.addEventListener("click", () => {
+      const isHidden = rulesContent.style.display === "none";
+      if (isHidden) {
+        rulesContent.style.display = "block";
+        rulesArrow.style.transform = "rotate(180deg)";
+      } else {
+        rulesContent.style.display = "none";
+        rulesArrow.style.transform = "rotate(0deg)";
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
