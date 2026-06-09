@@ -1195,7 +1195,13 @@ const App = (() => {
     const activeUser = getActiveUser();
     if (!activeUser) return;
 
-    $("#select-user-scorer")?.addEventListener("change", (e) => {
+    const scorerSelect = $("#select-user-scorer");
+    const gkSelect = $("#select-user-goalkeeper");
+
+    if (scorerSelect) convertSelectToSearchable(scorerSelect);
+    if (gkSelect) convertSelectToSearchable(gkSelect);
+
+    scorerSelect?.addEventListener("change", (e) => {
       const draft = loadUserDraft(activeUser);
       if (e.target.value) {
         draft.scorerPicks[_currentRound] = e.target.value;
@@ -1205,7 +1211,7 @@ const App = (() => {
       saveUserDraft(activeUser, draft);
     });
 
-    $("#select-user-goalkeeper")?.addEventListener("change", (e) => {
+    gkSelect?.addEventListener("change", (e) => {
       const draft = loadUserDraft(activeUser);
       if (e.target.value) {
         draft.goalkeeperPicks[_currentRound] = e.target.value;
@@ -1303,6 +1309,10 @@ const App = (() => {
     if (!activeUser) return;
 
     $$(".event-input").forEach(input => {
+      if (input.tagName === "SELECT") {
+        convertSelectToSearchable(input);
+      }
+
       input.addEventListener("input", () => {
         const eventId = input.dataset.eventId;
         const draft = loadUserDraft(activeUser);
