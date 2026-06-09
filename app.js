@@ -1816,7 +1816,7 @@ const App = (() => {
       select.appendChild(opt);
     });
 
-    select.addEventListener("change", (e) => {
+    select.addEventListener("change", async (e) => {
       const selectedUser = e.target.value;
       if (selectedUser) {
         const participant = _data.participants.find(p => p.name === selectedUser);
@@ -1825,37 +1825,77 @@ const App = (() => {
         const hasPasswordInSheet = (pass !== null && pass !== undefined && String(pass).trim() !== "");
         const localPass = localStorage.getItem("porra_password_" + selectedUser.trim().toLowerCase());
         
+        const onLoginSuccess = (entered) => {
+          localStorage.setItem("porra_active_user", selectedUser);
+          localStorage.setItem("porra_password_" + selectedUser.trim().toLowerCase(), entered);
+          loadUserDraft(selectedUser);
+          updateFloatingSaveBar();
+          handleRoute();
+        };
+        
+        const onLoginFailure = () => {
+          showToast("Contraseña incorrecta. Acceso denegado.", "error");
+          select.value = getActiveUser();
+        };
+
+        const validateRemote = async (entered, onValid, onInvalid) => {
+          if (CONFIG.appsScriptUrl && !CONFIG.appsScriptUrl.startsWith("URL_DE_TU_APPS_SCRIPT")) {
+            showLoading(true);
+            try {
+              const draft = loadUserDraft(selectedUser) || { name: selectedUser };
+              const originalPassword = draft.password;
+              draft.password = entered;
+              draft._submittedAt = new Date().toISOString();
+              
+              const response = await fetch(CONFIG.appsScriptUrl, {
+                method: "POST",
+                mode: "cors",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(draft)
+              });
+              
+              if (response.ok) {
+                const resJson = await response.json();
+                if (resJson && resJson.success) {
+                  showLoading(false);
+                  onValid();
+                  return;
+                }
+              }
+              // Restore password in local draft if rejected
+              draft.password = originalPassword;
+              saveUserDraft(selectedUser, draft);
+            } catch (err) {
+              console.warn("Fallo al validar contra el servidor:", err);
+            } finally {
+              showLoading(false);
+            }
+          }
+          onInvalid();
+        };
+        
         if (hasPasswordInSheet) {
-          showPasswordModal(selectedUser, false, (entered) => {
-            if (entered === String(pass)) {
-              localStorage.setItem("porra_active_user", selectedUser);
-              localStorage.setItem("porra_password_" + selectedUser.trim().toLowerCase(), entered);
-              loadUserDraft(selectedUser);
-              updateFloatingSaveBar();
-              handleRoute();
+          showPasswordModal(selectedUser, false, async (entered) => {
+            if (entered === String(pass) || entered === localPass) {
+              onLoginSuccess(entered);
             } else {
-              showToast("Contraseña incorrecta. Acceso denegado.", "error");
-              select.value = getActiveUser();
+              await validateRemote(entered, () => onLoginSuccess(entered), onLoginFailure);
             }
           }, () => {
             select.value = getActiveUser();
           });
         } else if (localPass) {
-          showPasswordModal(selectedUser, false, (entered) => {
-            if (entered === localPass) {
-              localStorage.setItem("porra_active_user", selectedUser);
-              loadUserDraft(selectedUser);
-              updateFloatingSaveBar();
-              handleRoute();
+          showPasswordModal(selectedUser, false, async (entered) => {
+            if (entered === localPass || entered === String(pass)) {
+              onLoginSuccess(entered);
             } else {
-              showToast("Contraseña incorrecta. Acceso denegado.", "error");
-              select.value = getActiveUser();
+              await validateRemote(entered, () => onLoginSuccess(entered), onLoginFailure);
             }
           }, () => {
             select.value = getActiveUser();
           });
         } else {
-          showPasswordModal(selectedUser, true, (newPassword) => {
+          showPasswordModal(selectedUser, true, async (newPassword) => {
             if (!newPassword.trim()) {
               showToast("La contraseña no puede estar vacía.", "error");
               select.value = getActiveUser();
@@ -1864,10 +1904,35 @@ const App = (() => {
             localStorage.setItem("porra_password_" + selectedUser.trim().toLowerCase(), newPassword);
             localStorage.setItem("porra_active_user", selectedUser);
             
-            // Forzar que el borrador contenga la contraseña y guardarlo
             const draft = loadUserDraft(selectedUser);
             draft.password = newPassword;
             saveUserDraft(selectedUser, draft);
+            
+            // Registrar inmediatamente en el servidor la nueva contraseña
+            if (CONFIG.appsScriptUrl && !CONFIG.appsScriptUrl.startsWith("URL_DE_TU_APPS_SCRIPT")) {
+              showLoading(true);
+              try {
+                draft._submittedAt = new Date().toISOString();
+                const response = await fetch(CONFIG.appsScriptUrl, {
+                  method: "POST",
+                  mode: "cors",
+                  headers: { "Content-Type": "text/plain" },
+                  body: JSON.stringify(draft)
+                });
+                if (response.ok) {
+                  const resJson = await response.json();
+                  if (resJson && resJson.success) {
+                    showToast("Contraseña registrada y vinculada a tu usuario.", "success");
+                  } else if (resJson && resJson.error) {
+                    showToast(`Error del servidor al guardar contraseña: ${resJson.error}`, "error");
+                  }
+                }
+              } catch (err) {
+                console.warn("Fallo al registrar contraseña en el servidor:", err);
+              } finally {
+                showLoading(false);
+              }
+            }
             
             updateFloatingSaveBar();
             handleRoute();
