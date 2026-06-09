@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="./favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mundial FIFA 2026</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
+  <link rel="stylesheet" href="style.css?v=group-rules-positions-only">
+</head>
+<body>
+
+  <header>
+    <h1>⚽ Ulises, tráyame el MUNDIAL 2026 ⚽</h1>
+    <p class="subtitle">¿Cuál va a ser tu "ojito con..."?</p>
+  </header>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="predict">&#128202; Apostar</button>
+    <button class="tab-btn" data-tab="leaderboard">&#127942; Ranking</button>
+  </nav>
+
+  <!-- ==================== PREDICTION TAB ==================== -->
+  <div id="tab-predict" class="tab-content active">
+    <div class="container">
+
+      <!-- Toolbar -->
+      <div class="toolbar-btns">
+        <button class="toolbar-btn" id="btnReset">&#128260; Limpiar todo (no hay vuelta atrás)</button>
+        <button class="toolbar-btn" id="btnScoringHelp">❓ Cómo se puntúa</button>
+      </div>
+
+      <!-- Group Stage -->
+      <h2 class="section-title">&#127758; Fase de grupos</h2>
+      <p class="note-text">Haz click en cada grupo y mete los resultados. Hasta entonces solo verás las banderas; el ranking y los mejores terceros se calculan solos.</p>
+      <div class="groups-grid" id="groupsGrid"></div>
+
+      <!-- Knockout Bracket -->
+      <h2 class="section-title">🥊 Knockouts</h2>
+      <p class="note-text">Es de cajón cómo funciona. Si te hacen falta instrucciones mereces palmar.</p>
+      <div class="bracket-wrapper">
+        <div class="bracket" id="bracketContainer"></div>
+      </div>
+
+      <!-- Awards -->
+      <div class="awards-section">
+        <h3>&#127942; Logros individuales</h3>
+
+        <div class="award-row">
+          <label>Bota de Oro (15pt):</label>
+          <select id="awardGb1" class="award-select"></select>
+        </div>
+
+        <div class="award-row">
+          <label>2º Bota de Oro (10pt):</label>
+          <select id="awardGb2" class="award-select"></select>
+        </div>
+
+        <div class="award-row">
+          <label>3º Bota de Oro (5pt):</label>
+          <select id="awardGb3" class="award-select"></select>
+        </div>
+
+        <div class="award-row">
+          <label>Balón de Oro (15pt):</label>
+          <select id="awardBa1" class="award-select"></select>
+        </div>
+
+        <div class="award-row">
+          <label>2º Balón de Oro (10pt):</label>
+          <select id="awardBa2" class="award-select"></select>
+        </div>
+
+        <div class="award-row">
+          <label>3º Balón de Oro (5pt):</label>
+          <select id="awardBa3" class="award-select"></select>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="submit-section">
+        <button class="submit-btn" id="btnSubmit">&#9917; Sentar cátedra</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== LEADERBOARD TAB ==================== -->
+    <div id="tab-leaderboard" class="tab-content">
+    <div class="container">
+      <h2 class="section-title">&#127942; Ranking</h2>
+      <p class="note-text">
+        Haz click en un jugador para confirmar el sesgo que ya tienes de que no tiene razón.
+      </p>
+
+      <div id="leaderboardContent">
+        <p class="note-text" style="margin-top:20px;">Cargando...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="prediction-modal-overlay" id="predictionModal" style="display:none;">
+    <div class="prediction-modal">
+      <button class="prediction-modal-close" id="closePredictionModal">×</button>
+      <div id="predictionViewer"></div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+    <span class="ball-spinner">&#9917;</span>
+    <p id="loadingText">Cargando...</p>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer"></div>
+
+  <!-- Confetti container -->
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <script src="third_place_table.js"></script>
+  <script src="results.js"></script>
+  <script src="app.js?v=third-place-between-semis"></script>
+  <div class="name-modal-overlay" id="nameModal" style="display:none;">
+  <div class="name-modal">
+    <h3>Así que sentando cátedra, ¿eh?</h3>
+    <p>¿Quién cojones eres?</p>
+
+    <input
+      type="text"
+      id="playerNameInput"
+      class="name-modal-input"
+      placeholder="Your name"
+      maxlength="40"
+    >
+
+    <div class="name-modal-actions">
+      <button type="button" class="toolbar-btn" id="cancelNameSubmit">Paso</button>
+      <button type="button" class="submit-btn" id="confirmNameSubmit">Apostar</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
