@@ -1,0 +1,9 @@
+id,name,password,paid,joined_at
+p01,Carlos,12345,true,2026-06-09T18:00:00Z
+p02,Maria,12345,true,2026-06-09T18:00:00Z
+p03,Javi,12345,true,2026-06-09T18:00:00Z
+p04,Laura,12345,false,2026-06-09T18:00:00Z
+p05,Pedro,12345,true,2026-06-09T18:00:00Z
+p06,Ana,12345,true,2026-06-09T18:00:00Z
+p07,Diego,12345,true,2026-06-09T18:00:00Z
+p08,Lucia,12345,false,2026-06-09T18:00:00Z
