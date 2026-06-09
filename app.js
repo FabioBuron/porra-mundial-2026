@@ -981,7 +981,7 @@ const App = (() => {
 
       userSelectionHtml = `
         <div class="card fade-in mb-2" style="border: 1px solid var(--color-green);">
-          <h2 class="card-title" style="color:var(--color-green);">✍️ Tu Selección para ${_data.roundLabels[_currentRound]}</h2>
+          <h2 class="card-title" style="color:var(--color-green);">✍️ Tu Selección para ${CONFIG.roundLabels[_currentRound]}</h2>
           <p class="text-muted mb-3">Selecciona tus jugadores para esta jornada antes de que empiece el primer partido.</p>
           <div style="display:flex; flex-wrap:wrap; gap:16px;">
             <div class="form-group" style="flex:1; min-width:200px;">
