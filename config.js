@@ -14,14 +14,16 @@ const CONFIG = {
   prize: "Todo al ganador (40€)",
 
   googleSheets: {
-    participants:       "URL_CSV_PARTICIPANTS",
-    matches:            "URL_CSV_MATCHES",
-    match_predictions:  "URL_CSV_MATCH_PREDICTIONS",
-    players:            "URL_CSV_PLAYERS",
-    scorer_picks:       "URL_CSV_SCORER_PICKS",
-    goalkeeper_picks:   "URL_CSV_GOALKEEPER_PICKS",
-    special_events:     "URL_CSV_SPECIAL_EVENTS",
-    special_event_picks:"URL_CSV_SPECIAL_EVENT_PICKS"
+    participants:   "URL_CSV_PARTICIPANTS",
+    matches:        "URL_CSV_MATCHES",
+    players:        "URL_CSV_PLAYERS",
+    special_events: "URL_CSV_SPECIAL_EVENTS",
+    predictions:    "URL_CSV_PREDICTIONS" // Publicar como CSV la pestaña de "Respuestas de formulario"
+  },
+
+  googleForm: {
+    formId: "ID_DE_TU_GOOGLE_FORM", // Ejemplo: 1FAIpQLSdiF0qsK65...
+    entryId: "entry.123456789"      // ID del input tipo párrafo (long text) de tu formulario
   },
 
   adminPassword: "CAMBIAR_ESTO",

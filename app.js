@@ -19,76 +19,299 @@ const App = (() => {
     scorerPicks: [],
     goalkeeperPicks: [],
     specialEvents: [],
-    specialEventPicks: []
+    specialEventPicks: [],
+    predictions: []
   };
 
   let _loaded = false;
   let _currentRound = "group_md1";
+  let _submissionsMap = {}; // name (lowercase) -> latest submission payload
 
   // ---------------------------------------------------------------------------
-  // CSV Parsing
+  // Borradores & Persistencia Local
   // ---------------------------------------------------------------------------
 
-  function parseCSV(text) {
-    const lines = text.trim().split("\n");
-    if (lines.length < 2) return [];
-
-    const headers = parseCSVLine(lines[0]);
-    const rows = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = parseCSVLine(lines[i]);
-      if (values.length === 0) continue;
-
-      const row = {};
-      headers.forEach((h, idx) => {
-        let val = values[idx] !== undefined ? values[idx].trim() : "";
-        // Auto-convert numbers
-        if (val !== "" && !isNaN(val) && val !== "true" && val !== "false") {
-          const num = Number(val);
-          if (Number.isFinite(num)) val = num;
-        }
-        // Auto-convert booleans
-        if (val === "true" || val === "TRUE") val = true;
-        if (val === "false" || val === "FALSE") val = false;
-        // Empty string to null
-        if (val === "") val = null;
-        row[h.trim()] = val;
-      });
-      rows.push(row);
-    }
-    return rows;
+  function getActiveUser() {
+    return localStorage.getItem("porra_active_user") || "";
   }
 
-  function parseCSVLine(line) {
-    const values = [];
-    let current = "";
-    let inQuotes = false;
+  function loadUserDraft(name) {
+    if (!name) return null;
+    const draftKey = `porra_draft_${name.trim().toLowerCase()}`;
+    let draft = localStorage.getItem(draftKey);
+    if (draft) {
+      return JSON.parse(draft);
+    }
+    
+    // Si no hay borrador local, inicializar desde la predicción publicada
+    const published = _submissionsMap[name.trim().toLowerCase()];
+    if (published) {
+      draft = {
+        name: name,
+        matchPredictions: published.matchPredictions || {},
+        scorerPicks: published.scorerPicks || {},
+        goalkeeperPicks: published.goalkeeperPicks || {},
+        specialEventPicks: published.specialEventPicks || {}
+      };
+    } else {
+      draft = {
+        name: name,
+        matchPredictions: {},
+        scorerPicks: {},
+        goalkeeperPicks: {},
+        specialEventPicks: {}
+      };
+    }
+    saveUserDraft(name, draft);
+    return draft;
+  }
 
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (inQuotes) {
-        if (ch === '"' && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else if (ch === '"') {
-          inQuotes = false;
-        } else {
-          current += ch;
-        }
-      } else {
-        if (ch === '"') {
-          inQuotes = true;
-        } else if (ch === ",") {
-          values.push(current);
-          current = "";
-        } else {
-          current += ch;
+  function saveUserDraft(name, draft) {
+    const draftKey = `porra_draft_${name.trim().toLowerCase()}`;
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    updateFloatingSaveBar();
+  }
+
+  function hasUnsavedChanges(name) {
+    if (!name) return false;
+    const draft = loadUserDraft(name);
+    const published = _submissionsMap[name.trim().toLowerCase()] || {
+      matchPredictions: {},
+      scorerPicks: {},
+      goalkeeperPicks: {},
+      specialEventPicks: {}
+    };
+
+    const isDifferent = (obj1, obj2) => {
+      const keys1 = Object.keys(obj1 || {});
+      const keys2 = Object.keys(obj2 || {});
+      const allKeys = new Set([...keys1, ...keys2]);
+      for (const key of allKeys) {
+        const v1 = obj1?.[key];
+        const v2 = obj2?.[key];
+        if (typeof v1 === "object" && v1 !== null && typeof v2 === "object" && v2 !== null) {
+          if (v1.home !== v2.home || v1.away !== v2.away) return true;
+        } else if (v1 !== v2) {
+          return true;
         }
       }
+      return false;
+    };
+
+    return (
+      isDifferent(draft.matchPredictions, published.matchPredictions) ||
+      isDifferent(draft.scorerPicks, published.scorerPicks) ||
+      isDifferent(draft.goalkeeperPicks, published.goalkeeperPicks) ||
+      isDifferent(draft.specialEventPicks, published.specialEventPicks)
+    );
+  }
+
+  function updateFloatingSaveBar() {
+    const name = getActiveUser();
+    let bar = document.getElementById("floating-save-bar");
+    if (!name || !hasUnsavedChanges(name)) {
+      if (bar) bar.classList.remove("prediction-save-bar--visible");
+      return;
     }
-    values.push(current);
-    return values;
+
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "floating-save-bar";
+      bar.className = "prediction-save-bar";
+      document.body.appendChild(bar);
+    }
+
+    bar.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:1200px; margin:0 auto; gap:16px;">
+        <span>Tienes cambios sin enviar en tus pronósticos, <strong>${escapeHtml(name)}</strong>.</span>
+        <button id="btn-submit-predictions" class="btn btn--primary">🚀 Enviar Pronósticos</button>
+      </div>
+    `;
+    bar.offsetHeight; // Force reflow
+    bar.classList.add("prediction-save-bar--visible");
+
+    document.getElementById("btn-submit-predictions").addEventListener("click", () => {
+      confirmSubmitPrediction(name);
+    });
+  }
+
+  async function confirmSubmitPrediction(name) {
+    if (!CONFIG.googleForm.formId || CONFIG.googleForm.formId.startsWith("ID_DE_TU_GOOGLE_FORM")) {
+      alert("La porra no está configurada para recibir envíos (formId no configurado en config.js).");
+      return;
+    }
+
+    const draft = loadUserDraft(name);
+    draft._submittedAt = new Date().toISOString();
+
+    const formUrl = `https://docs.google.com/forms/d/e/${CONFIG.googleForm.formId}/formResponse`;
+    const params = new URLSearchParams();
+    params.append(CONFIG.googleForm.entryId, JSON.stringify(draft));
+
+    showLoading(true);
+    try {
+      await fetch(formUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+      });
+
+      showLoading(false);
+      alert("¡Listo! Tus pronósticos han sido enviados. Puede tardar unos segundos en actualizarse la clasificación.");
+      
+      _submissionsMap[name.trim().toLowerCase()] = JSON.parse(JSON.stringify(draft));
+      
+      updateFloatingSaveBar();
+      handleRoute();
+    } catch (e) {
+      showLoading(false);
+      console.error(e);
+      alert("Hubo un error al enviar. Por favor, vuelve a intentarlo.");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Procesamiento & Puntuación en Caliente
+  // ---------------------------------------------------------------------------
+
+  function processPredictions() {
+    _submissionsMap = {};
+    _data.matchPredictions = [];
+    _data.scorerPicks = [];
+    _data.goalkeeperPicks = [];
+    _data.specialEventPicks = [];
+
+    if (!_data.predictions || _data.predictions.length === 0) return;
+
+    const sampleRow = _data.predictions[0];
+    const keys = Object.keys(sampleRow);
+    if (keys.length < 2) return;
+    const jsonKey = keys[1];
+
+    _data.predictions.forEach(row => {
+      const rawJson = row[jsonKey];
+      if (!rawJson) return;
+
+      try {
+        const payload = JSON.parse(rawJson);
+        if (payload && payload.name) {
+          const nameLower = payload.name.trim().toLowerCase();
+          _submissionsMap[nameLower] = payload;
+        }
+      } catch (err) {
+        console.warn("Error parsing prediction JSON:", rawJson, err);
+      }
+    });
+
+    Object.values(_submissionsMap).forEach(payload => {
+      const pName = payload.name;
+      const participant = _data.participants.find(p => p.name.trim().toLowerCase() === pName.trim().toLowerCase());
+      const participantId = participant ? participant.id : pName;
+
+      if (payload.matchPredictions) {
+        Object.entries(payload.matchPredictions).forEach(([matchId, pred]) => {
+          if (pred && (pred.home !== undefined || pred.away !== undefined)) {
+            _data.matchPredictions.push({
+              participant_id: participantId,
+              match_id: matchId,
+              predicted_home: pred.home !== null && pred.home !== "" ? Number(pred.home) : null,
+              predicted_away: pred.away !== null && pred.away !== "" ? Number(pred.away) : null,
+              points_earned: 0
+            });
+          }
+        });
+      }
+
+      if (payload.scorerPicks) {
+        Object.entries(payload.scorerPicks).forEach(([roundKey, playerId]) => {
+          if (playerId) {
+            _data.scorerPicks.push({
+              participant_id: participantId,
+              round_key: roundKey,
+              player_id: playerId,
+              goals_scored: null,
+              points_earned: 0
+            });
+          }
+        });
+      }
+
+      if (payload.goalkeeperPicks) {
+        Object.entries(payload.goalkeeperPicks).forEach(([roundKey, playerId]) => {
+          if (playerId) {
+            _data.goalkeeperPicks.push({
+              participant_id: participantId,
+              round_key: roundKey,
+              player_id: playerId,
+              points_earned: 0
+            });
+          }
+        });
+      }
+
+      if (payload.specialEventPicks) {
+        Object.entries(payload.specialEventPicks).forEach(([eventId, pickValue]) => {
+          if (pickValue) {
+            _data.specialEventPicks.push({
+              participant_id: participantId,
+              event_id: eventId,
+              pick_value: pickValue,
+              points_earned: 0
+            });
+          }
+        });
+      }
+    });
+  }
+
+  function calculateScores() {
+    _data.matchPredictions.forEach(mp => {
+      const match = _data.matches.find(m => m.id === mp.match_id);
+      if (match) {
+        mp.points_earned = Scoring.calculateMatchPoints(
+          mp.predicted_home,
+          mp.predicted_away,
+          match.home_score,
+          match.away_score,
+          match.is_double_points === true || match.is_double_points === "true" || match.is_double_points === "TRUE"
+        );
+      } else {
+        mp.points_earned = 0;
+      }
+    });
+
+    _data.scorerPicks.forEach(sp => {
+      const player = _data.players.find(p => p.id === sp.player_id);
+      if (player) {
+        const goalsKey = `goals_${sp.round_key}`;
+        const goals = player[goalsKey];
+        sp.points_earned = Scoring.calculateScorerPoints(goals);
+        sp.goals_scored = goals;
+      } else {
+        sp.points_earned = 0;
+      }
+    });
+
+    _data.goalkeeperPicks.forEach(gp => {
+      const player = _data.players.find(p => p.id === gp.player_id);
+      if (player) {
+        const concededKey = `conceded_${gp.round_key}`;
+        const conceded = player[concededKey];
+        gp.points_earned = Scoring.calculateGoalkeeperPoints(conceded !== null && conceded !== undefined ? [conceded] : []);
+      } else {
+        gp.points_earned = 0;
+      }
+    });
+
+    _data.specialEventPicks.forEach(sep => {
+      const ev = _data.specialEvents.find(e => e.id === sep.event_id);
+      if (ev && (ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE")) {
+        sep.points_earned = Scoring.calculateSpecialEventPoints(sep.event_id, sep.pick_value, ev.result_description);
+      } else {
+        sep.points_earned = 0;
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -115,19 +338,24 @@ const App = (() => {
     showLoading(true);
     try {
       const sheets = CONFIG.googleSheets;
-      const [participants, matches, matchPredictions, players, scorerPicks, goalkeeperPicks, specialEvents, specialEventPicks] =
+      const [participants, matches, players, specialEvents, predictions] =
         await Promise.all([
           fetchSheet(sheets.participants),
           fetchSheet(sheets.matches),
-          fetchSheet(sheets.match_predictions),
           fetchSheet(sheets.players),
-          fetchSheet(sheets.scorer_picks),
-          fetchSheet(sheets.goalkeeper_picks),
           fetchSheet(sheets.special_events),
-          fetchSheet(sheets.special_event_picks)
+          fetchSheet(sheets.predictions)
         ]);
 
-      _data = { participants, matches, matchPredictions, players, scorerPicks, goalkeeperPicks, specialEvents, specialEventPicks };
+      _data.participants = participants;
+      _data.matches = matches;
+      _data.players = players;
+      _data.specialEvents = specialEvents;
+      _data.predictions = predictions;
+
+      processPredictions();
+      calculateScores();
+
       _loaded = true;
     } catch (err) {
       console.error("Error loading data:", err);
@@ -143,105 +371,64 @@ const App = (() => {
   // ---------------------------------------------------------------------------
 
   function loadDemoData() {
-    _data = {
-      participants: [
-        { id: "p01", name: "Carlos", paid: true },
-        { id: "p02", name: "María", paid: true },
-        { id: "p03", name: "Javi", paid: true },
-        { id: "p04", name: "Laura", paid: false },
-        { id: "p05", name: "Pedro", paid: true },
-        { id: "p06", name: "Ana", paid: true },
-        { id: "p07", name: "Diego", paid: true },
-        { id: "p08", name: "Lucía", paid: false }
-      ],
-      matches: [
-        { id: "m001", phase: "group", group: "A", matchday: 1, round_label: "Jornada 1", home_team: "USA", away_team: "Morocco", kickoff_utc: "2026-06-11T18:00:00Z", home_score: 2, away_score: 1, status: "finished", is_double_points: false },
-        { id: "m002", phase: "group", group: "A", matchday: 1, round_label: "Jornada 1", home_team: "Mexico", away_team: "Colombia", kickoff_utc: "2026-06-11T21:00:00Z", home_score: 1, away_score: 1, status: "finished", is_double_points: false },
-        { id: "m003", phase: "group", group: "B", matchday: 1, round_label: "Jornada 1", home_team: "Spain", away_team: "Brazil", kickoff_utc: "2026-06-12T18:00:00Z", home_score: 3, away_score: 0, status: "finished", is_double_points: true },
-        { id: "m004", phase: "group", group: "B", matchday: 1, round_label: "Jornada 1", home_team: "Germany", away_team: "Japan", kickoff_utc: "2026-06-12T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
-        { id: "m005", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Morocco", away_team: "Mexico", kickoff_utc: "2026-06-15T18:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
-        { id: "m006", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Colombia", away_team: "USA", kickoff_utc: "2026-06-15T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false }
-      ],
-      matchPredictions: [
-        { participant_id: "p01", match_id: "m001", predicted_home: 2, predicted_away: 1, points_earned: 3 },
-        { participant_id: "p01", match_id: "m002", predicted_home: 2, predicted_away: 0, points_earned: 1 },
-        { participant_id: "p01", match_id: "m003", predicted_home: 2, predicted_away: 0, points_earned: 4 },
-        { participant_id: "p02", match_id: "m001", predicted_home: 1, predicted_away: 0, points_earned: 2 },
-        { participant_id: "p02", match_id: "m002", predicted_home: 0, predicted_away: 0, points_earned: 1 },
-        { participant_id: "p02", match_id: "m003", predicted_home: 1, predicted_away: 1, points_earned: 0 },
-        { participant_id: "p03", match_id: "m001", predicted_home: 0, predicted_away: 2, points_earned: 0 },
-        { participant_id: "p03", match_id: "m002", predicted_home: 1, predicted_away: 1, points_earned: 3 },
-        { participant_id: "p03", match_id: "m003", predicted_home: 3, predicted_away: 0, points_earned: 6 },
-        { participant_id: "p04", match_id: "m001", predicted_home: 3, predicted_away: 2, points_earned: 2 },
-        { participant_id: "p04", match_id: "m002", predicted_home: 2, predicted_away: 1, points_earned: 0 },
-        { participant_id: "p04", match_id: "m003", predicted_home: 2, predicted_away: 1, points_earned: 2 },
-        { participant_id: "p05", match_id: "m001", predicted_home: 1, predicted_away: 1, points_earned: 0 },
-        { participant_id: "p05", match_id: "m002", predicted_home: 1, predicted_away: 1, points_earned: 3 },
-        { participant_id: "p05", match_id: "m003", predicted_home: 2, predicted_away: 0, points_earned: 4 },
-        { participant_id: "p06", match_id: "m001", predicted_home: 2, predicted_away: 0, points_earned: 1 },
-        { participant_id: "p06", match_id: "m002", predicted_home: 0, predicted_away: 1, points_earned: 0 },
-        { participant_id: "p06", match_id: "m003", predicted_home: 4, predicted_away: 1, points_earned: 4 },
-        { participant_id: "p07", match_id: "m001", predicted_home: 2, predicted_away: 1, points_earned: 3 },
-        { participant_id: "p07", match_id: "m002", predicted_home: 3, predicted_away: 0, points_earned: 0 },
-        { participant_id: "p07", match_id: "m003", predicted_home: 1, predicted_away: 0, points_earned: 2 },
-        { participant_id: "p08", match_id: "m001", predicted_home: 1, predicted_away: 2, points_earned: 0 },
-        { participant_id: "p08", match_id: "m002", predicted_home: 2, predicted_away: 2, points_earned: 1 },
-        { participant_id: "p08", match_id: "m003", predicted_home: 2, predicted_away: 1, points_earned: 2 }
-      ],
-      players: [
-        { id: "pl01", name: "Mbappé", team: "France", position: "outfield", active: true },
-        { id: "pl02", name: "Haaland", team: "Norway", position: "outfield", active: true },
-        { id: "pl03", name: "Courtois", team: "Belgium", position: "goalkeeper", active: true },
-        { id: "pl04", name: "Ter Stegen", team: "Germany", position: "goalkeeper", active: true }
-      ],
-      scorerPicks: [
-        { participant_id: "p01", round_key: "group_md1", player_id: "pl01", goals_scored: 2, points_earned: 2 },
-        { participant_id: "p02", round_key: "group_md1", player_id: "pl02", goals_scored: 1, points_earned: 1 },
-        { participant_id: "p03", round_key: "group_md1", player_id: "pl01", goals_scored: 2, points_earned: 2 },
-        { participant_id: "p04", round_key: "group_md1", player_id: "pl02", goals_scored: 1, points_earned: 1 },
-        { participant_id: "p05", round_key: "group_md1", player_id: "pl01", goals_scored: 2, points_earned: 2 },
-        { participant_id: "p06", round_key: "group_md1", player_id: "pl01", goals_scored: 2, points_earned: 2 },
-        { participant_id: "p07", round_key: "group_md1", player_id: "pl02", goals_scored: 1, points_earned: 1 },
-        { participant_id: "p08", round_key: "group_md1", player_id: "pl02", goals_scored: 1, points_earned: 1 }
-      ],
-      goalkeeperPicks: [
-        { participant_id: "p01", round_key: "group_md1", player_id: "pl03", points_earned: 3 },
-        { participant_id: "p02", round_key: "group_md1", player_id: "pl04", points_earned: -1 },
-        { participant_id: "p03", round_key: "group_md1", player_id: "pl03", points_earned: 3 },
-        { participant_id: "p04", round_key: "group_md1", player_id: "pl04", points_earned: -1 },
-        { participant_id: "p05", round_key: "group_md1", player_id: "pl03", points_earned: 3 },
-        { participant_id: "p06", round_key: "group_md1", player_id: "pl03", points_earned: 3 },
-        { participant_id: "p07", round_key: "group_md1", player_id: "pl04", points_earned: -1 },
-        { participant_id: "p08", round_key: "group_md1", player_id: "pl03", points_earned: 3 }
-      ],
-      specialEvents: [
-        { id: "E1", name: "Ganador del Mundial", description: "¿Qué selección ganará el Mundial 2026?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: true, result_description: "Argentina" },
-        { id: "E2", name: "Partido Salvaje", description: "Un partido sorteado vale el doble de puntos", deadline_utc: null, is_active: false, is_resolved: true, result_description: "Partido m003: Spain vs Brazil" },
-        { id: "E3", name: "El Portero Héroe", description: "¿Qué portero parará un penalti en cuartos o semis?", deadline_utc: "2026-07-04T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
-        { id: "E4", name: "La Maldición del Favorito", description: "¿Qué favorito será eliminado antes de semis?", deadline_utc: "2026-06-28T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
-        { id: "E5", name: "Hat-Trick Salvaje", description: "¿Quién hará un hat-trick en el torneo?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: false, result_description: null },
-        { id: "E6", name: "Partido con más Goles (Eliminatorias)", description: "¿Cuántos goles se marcarán en el partido con más goles de las eliminatorias?", deadline_utc: "2026-06-27T16:00:00Z", is_active: true, is_resolved: false, result_description: null }
-      ],
-      specialEventPicks: [
-        { participant_id: "p01", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
-        { participant_id: "p02", event_id: "E1", pick_value: "France", points_earned: 0 },
-        { participant_id: "p03", event_id: "E1", pick_value: "Brazil", points_earned: 0 },
-        { participant_id: "p04", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
-        { participant_id: "p05", event_id: "E1", pick_value: "Spain", points_earned: 0 },
-        { participant_id: "p06", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
-        { participant_id: "p07", event_id: "E1", pick_value: "Germany", points_earned: 0 },
-        { participant_id: "p08", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
-        
-        { participant_id: "p01", event_id: "E6", pick_value: "6", points_earned: 0 },
-        { participant_id: "p02", event_id: "E6", pick_value: "5", points_earned: 0 },
-        { participant_id: "p03", event_id: "E6", pick_value: "7", points_earned: 0 },
-        { participant_id: "p04", event_id: "E6", pick_value: "6", points_earned: 0 },
-        { participant_id: "p05", event_id: "E6", pick_value: "4", points_earned: 0 },
-        { participant_id: "p06", event_id: "E6", pick_value: "5", points_earned: 0 },
-        { participant_id: "p07", event_id: "E6", pick_value: "6", points_earned: 0 },
-        { participant_id: "p08", event_id: "E6", pick_value: "8", points_earned: 0 }
-      ]
-    };
+    _data.participants = [
+      { id: "p01", name: "Carlos", paid: true },
+      { id: "p02", name: "María", paid: true },
+      { id: "p03", name: "Javi", paid: true },
+      { id: "p04", name: "Laura", paid: false },
+      { id: "p05", name: "Pedro", paid: true },
+      { id: "p06", name: "Ana", paid: true },
+      { id: "p07", name: "Diego", paid: true },
+      { id: "p08", name: "Lucía", paid: false }
+    ];
+    _data.matches = [
+      { id: "m001", phase: "group", group: "A", matchday: 1, round_label: "Jornada 1", home_team: "USA", away_team: "Morocco", kickoff_utc: "2026-06-11T18:00:00Z", home_score: 2, away_score: 1, status: "finished", is_double_points: false },
+      { id: "m002", phase: "group", group: "A", matchday: 1, round_label: "Jornada 1", home_team: "Mexico", away_team: "Colombia", kickoff_utc: "2026-06-11T21:00:00Z", home_score: 1, away_score: 1, status: "finished", is_double_points: false },
+      { id: "m003", phase: "group", group: "B", matchday: 1, round_label: "Jornada 1", home_team: "Spain", away_team: "Brazil", kickoff_utc: "2026-06-12T18:00:00Z", home_score: 3, away_score: 0, status: "finished", is_double_points: true },
+      { id: "m004", phase: "group", group: "B", matchday: 1, round_label: "Jornada 1", home_team: "Germany", away_team: "Japan", kickoff_utc: "2026-06-12T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
+      { id: "m005", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Morocco", away_team: "Mexico", kickoff_utc: "2026-06-15T18:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
+      { id: "m006", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Colombia", away_team: "USA", kickoff_utc: "2026-06-15T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false }
+    ];
+    _data.players = [
+      { id: "pl01", name: "Mbappé", team: "France", position: "outfield", active: true, goals_group_md1: 2 },
+      { id: "pl02", name: "Haaland", team: "Norway", position: "outfield", active: true, goals_group_md1: 1 },
+      { id: "pl03", name: "Courtois", team: "Belgium", position: "goalkeeper", active: true, conceded_group_md1: 0 },
+      { id: "pl04", name: "Ter Stegen", team: "Germany", position: "goalkeeper", active: true, conceded_group_md1: 2 }
+    ];
+    _data.specialEvents = [
+      { id: "E1", name: "Ganador del Mundial", description: "¿Qué selección ganará el Mundial 2026?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: true, result_description: "Argentina" },
+      { id: "E2", name: "Partido Salvaje", description: "Un partido sorteado vale el doble de puntos", deadline_utc: null, is_active: false, is_resolved: true, result_description: "Partido m003: Spain vs Brazil" },
+      { id: "E3", name: "El Portero Héroe", description: "¿Qué portero parará un penalti en cuartos o semis?", deadline_utc: "2026-07-04T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
+      { id: "E4", name: "La Maldición del Favorito", description: "¿Qué favorito será eliminado antes de semis?", deadline_utc: "2026-06-28T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
+      { id: "E5", name: "Hat-Trick Salvaje", description: "¿Quién hará un hat-trick en el torneo?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: false, result_description: null },
+      { id: "E6", name: "Partido con más Goles (Eliminatorias)", description: "¿Cuántos goles se marcarán en el partido con más goles de las eliminatorias?", deadline_utc: "2026-06-27T16:00:00Z", is_active: true, is_resolved: false, result_description: null }
+    ];
+    
+    _data.predictions = [
+      {
+        Timestamp: "2026-06-09 19:30:00",
+        Payload: JSON.stringify({
+          name: "Carlos",
+          matchPredictions: { m001: { home: 2, away: 1 }, m002: { home: 2, away: 0 }, m003: { home: 3, away: 0 } },
+          scorerPicks: { group_md1: "pl01" },
+          goalkeeperPicks: { group_md1: "pl03" },
+          specialEventPicks: { E1: "Argentina" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:31:00",
+        Payload: JSON.stringify({
+          name: "María",
+          matchPredictions: { m001: { home: 1, away: 1 }, m002: { home: 1, away: 1 }, m003: { home: 1, away: 0 } },
+          scorerPicks: { group_md1: "pl02" },
+          goalkeeperPicks: { group_md1: "pl03" },
+          specialEventPicks: { E1: "France" }
+        })
+      }
+    ];
+
+    processPredictions();
+    calculateScores();
     _loaded = true;
   }
 
@@ -361,6 +548,54 @@ const App = (() => {
   // View: Match Predictions (partidos.html)
   // ---------------------------------------------------------------------------
 
+  function isRoundOpen(roundKey) {
+    const roundMatches = getMatchesByRound(roundKey);
+    if (roundMatches.length === 0) return false;
+    const kickoffs = roundMatches
+      .map(m => m.kickoff_utc)
+      .filter(Boolean)
+      .map(k => new Date(k).getTime());
+    if (kickoffs.length === 0) return false;
+    const earliestKickoff = Math.min(...kickoffs);
+    return earliestKickoff > Date.now();
+  }
+
+  function renderEventInput(ev, draftValue) {
+    if (ev.id === "E1" || ev.id === "E4") {
+      const teams = [...new Set(_data.players.map(p => p.team))].sort();
+      return `
+        <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
+          <option value="">-- Seleccionar Selección --</option>
+          ${teams.map(t => `<option value="${t}" ${t === draftValue ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}
+        </select>
+      `;
+    }
+    if (ev.id === "E3") {
+      const gks = _data.players.filter(p => p.position === "goalkeeper").sort((a,b) => a.name.localeCompare(b.name));
+      return `
+        <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
+          <option value="">-- Seleccionar Portero --</option>
+          ${gks.map(p => `<option value="${p.id}" ${p.id === draftValue ? "selected" : ""}>${escapeHtml(p.name)} (${escapeHtml(p.team)})</option>`).join("")}
+        </select>
+      `;
+    }
+    if (ev.id === "E5") {
+      const players = _data.players.filter(p => p.position === "outfield").sort((a,b) => a.name.localeCompare(b.name));
+      return `
+        <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
+          <option value="">-- Seleccionar Jugador --</option>
+          ${players.map(p => `<option value="${p.id}" ${p.id === draftValue ? "selected" : ""}>${escapeHtml(p.name)} (${escapeHtml(p.team)})</option>`).join("")}
+        </select>
+      `;
+    }
+    if (ev.id === "E6") {
+      return `
+        <input type="number" class="form-input event-input" data-event-id="${ev.id}" min="0" placeholder="Goles" value="${draftValue !== undefined && draftValue !== null ? draftValue : ""}" style="width:100%;">
+      `;
+    }
+    return `<input type="text" class="form-input event-input" data-event-id="${ev.id}" placeholder="Tu apuesta" value="${draftValue || ""}" style="width:100%;">`;
+  }
+
   function renderMatches() {
     const container = $("#app-content");
     if (!container) return;
@@ -372,14 +607,16 @@ const App = (() => {
     if (roundMatches.length === 0) {
       matchCardsHtml = '<p class="text-muted text-center mt-2">No matches found for this round.</p>';
     } else {
+      const activeUser = getActiveUser();
+
       matchCardsHtml = roundMatches.map(match => {
         const isFinished = match.status === "finished";
         const isLive = match.status === "live";
-        const isWild = match.is_double_points === true || match.is_double_points === "true";
+        const isWild = match.is_double_points === true || match.is_double_points === "true" || match.is_double_points === "TRUE";
 
         const predictions = _data.matchPredictions.filter(mp => mp.match_id === match.id);
         const predictionsHtml = predictions.map(pred => {
-          const participant = _data.participants.find(p => p.id === pred.participant_id);
+          const participant = _data.participants.find(p => p.id === pred.participant_id || p.name === pred.participant_id);
           const pts = pred.points_earned;
           const ptsClass = pts >= 3 ? "text-green" : pts >= 1 ? "text-gold" : "text-muted";
           return `
@@ -393,6 +630,23 @@ const App = (() => {
 
         const statusClass = isLive ? "match-card--live" : isFinished ? "match-card--finished" : "";
         const wildClass = isWild ? "match-card--wild" : "";
+
+        let userEditHtml = "";
+        const matchOpen = new Date(match.kickoff_utc) > new Date();
+        if (activeUser && matchOpen) {
+          const draft = loadUserDraft(activeUser);
+          const userPred = draft.matchPredictions[match.id] || { home: "", away: "" };
+          userEditHtml = `
+            <div class="user-prediction-edit" style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--color-border);">
+              <span style="font-size:var(--font-sm); color:var(--color-green); display:block; margin-bottom:6px; font-weight:bold;">✍️ Tu Pronóstico:</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="number" class="prediction-input pred-input-home" data-match-id="${match.id}" min="0" placeholder="-" value="${userPred.home !== undefined && userPred.home !== null ? userPred.home : ""}">
+                <span style="color:var(--color-text-secondary); font-weight:bold;">-</span>
+                <input type="number" class="prediction-input pred-input-away" data-match-id="${match.id}" min="0" placeholder="-" value="${userPred.away !== undefined && userPred.away !== null ? userPred.away : ""}">
+              </div>
+            </div>
+          `;
+        }
 
         return `
           <div class="card match-card ${statusClass} ${wildClass} fade-in">
@@ -409,6 +663,7 @@ const App = (() => {
               ${isLive ? '<span class="badge badge--open">🔴 En directo</span>' : ""}
               ${!isFinished && !isLive ? '<span class="badge badge--closed">Programado</span>' : ""}
             </div>
+            ${userEditHtml}
             ${predictions.length > 0 ? `
               <div class="match-card__predictions">
                 <h4>Predicciones</h4>
@@ -427,11 +682,35 @@ const App = (() => {
     `;
 
     attachRoundListeners();
+    attachPredictionInputListeners();
   }
 
-  // ---------------------------------------------------------------------------
-  // View: Scorer & Goalkeeper (goleador-portero.html)
-  // ---------------------------------------------------------------------------
+  function attachPredictionInputListeners() {
+    $$(".pred-input-home, .pred-input-away").forEach(input => {
+      input.addEventListener("input", () => {
+        const matchId = input.dataset.matchId;
+        const activeUser = getActiveUser();
+        if (!activeUser) return;
+
+        const homeEl = $(`.pred-input-home[data-match-id="${matchId}"]`);
+        const awayEl = $(`.pred-input-away[data-match-id="${matchId}"]`);
+        
+        let homeVal = homeEl.value.trim();
+        let awayVal = awayEl.value.trim();
+
+        const draft = loadUserDraft(activeUser);
+        if (homeVal === "" || awayVal === "") {
+          delete draft.matchPredictions[matchId];
+        } else {
+          draft.matchPredictions[matchId] = {
+            home: parseInt(homeVal, 10),
+            away: parseInt(awayVal, 10)
+          };
+        }
+        saveUserDraft(activeUser, draft);
+      });
+    });
+  }
 
   function renderScorerGoalkeeper() {
     const container = $("#app-content");
@@ -457,7 +736,7 @@ const App = (() => {
             </thead>
             <tbody>
               ${picks.map(pick => {
-                const participant = _data.participants.find(p => p.id === pick.participant_id);
+                const participant = _data.participants.find(p => p.id === pick.participant_id || p.name === pick.participant_id);
                 const player = _data.players.find(pl => pl.id === pick.player_id);
                 const pts = pick.points_earned ?? 0;
                 const ptsClass = pts > 0 ? "text-green" : pts < 0 ? "text-red" : "text-muted";
@@ -476,9 +755,46 @@ const App = (() => {
       `;
     };
 
+    let userSelectionHtml = "";
+    const activeUser = getActiveUser();
+    const rdOpen = isRoundOpen(_currentRound);
+
+    if (activeUser && rdOpen) {
+      const draft = loadUserDraft(activeUser);
+      const selectedScorerId = draft.scorerPicks[_currentRound] || "";
+      const selectedGKId = draft.goalkeeperPicks[_currentRound] || "";
+
+      const outfieldPlayers = _data.players.filter(p => p.position === "outfield" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => a.name.localeCompare(b.name));
+      const goalkeeperPlayers = _data.players.filter(p => p.position === "goalkeeper" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => a.name.localeCompare(b.name));
+
+      userSelectionHtml = `
+        <div class="card fade-in mb-2" style="border: 1px solid var(--color-green);">
+          <h2 class="card-title" style="color:var(--color-green);">✍️ Tu Selección para ${_data.roundLabels[_currentRound]}</h2>
+          <p class="text-muted mb-3">Selecciona tus jugadores para esta jornada antes de que empiece el primer partido.</p>
+          <div style="display:flex; flex-wrap:wrap; gap:16px;">
+            <div class="form-group" style="flex:1; min-width:200px;">
+              <label>🎯 Goleador:</label>
+              <select id="select-user-scorer" class="form-select" style="width:100%;">
+                <option value="">-- Seleccionar Goleador --</option>
+                ${outfieldPlayers.map(p => `<option value="${p.id}" ${p.id === selectedScorerId ? "selected" : ""}>${escapeHtml(p.name)} (${escapeHtml(p.team)})</option>`).join("")}
+              </select>
+            </div>
+            <div class="form-group" style="flex:1; min-width:200px;">
+              <label>🧤 Portero:</label>
+              <select id="select-user-goalkeeper" class="form-select" style="width:100%;">
+                <option value="">-- Seleccionar Portero --</option>
+                ${goalkeeperPlayers.map(p => `<option value="${p.id}" ${p.id === selectedGKId ? "selected" : ""}>${escapeHtml(p.name)} (${escapeHtml(p.team)})</option>`).join("")}
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `
       <h1 class="page-title">🎯 Goleador y Portero</h1>
       ${roundSelector}
+      ${userSelectionHtml}
       <div class="card fade-in mt-2">
         <h2 class="card-title">🎯 Goleador de la Jornada</h2>
         <p class="text-muted">+1 pt por cada gol marcado por tu jugador. Los goles en propia puerta y en tanda de penaltis no cuentan.</p>
@@ -492,40 +808,85 @@ const App = (() => {
     `;
 
     attachRoundListeners();
+    attachPlayerSelectListeners();
   }
 
-  // ---------------------------------------------------------------------------
-  // View: Special Events (eventos.html)
-  // ---------------------------------------------------------------------------
+  function attachPlayerSelectListeners() {
+    const activeUser = getActiveUser();
+    if (!activeUser) return;
+
+    $("#select-user-scorer")?.addEventListener("change", (e) => {
+      const draft = loadUserDraft(activeUser);
+      if (e.target.value) {
+        draft.scorerPicks[_currentRound] = e.target.value;
+      } else {
+        delete draft.scorerPicks[_currentRound];
+      }
+      saveUserDraft(activeUser, draft);
+    });
+
+    $("#select-user-goalkeeper")?.addEventListener("change", (e) => {
+      const draft = loadUserDraft(activeUser);
+      if (e.target.value) {
+        draft.goalkeeperPicks[_currentRound] = e.target.value;
+      } else {
+        delete draft.goalkeeperPicks[_currentRound];
+      }
+      saveUserDraft(activeUser, draft);
+    });
+  }
 
   function renderSpecialEvents() {
     const container = $("#app-content");
     if (!container) return;
 
     const eventsEmojis = { E1: "⚽", E2: "🔥", E3: "🧤", E4: "😈", E5: "🎩", E6: "😬" };
+    const activeUser = getActiveUser();
 
     const eventsHtml = _data.specialEvents.map(ev => {
       const picks = _data.specialEventPicks.filter(sp => sp.event_id === ev.id);
-      const statusBadge = ev.is_resolved
+      const isResolved = ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE";
+      const isActive = ev.is_active === true || ev.is_active === "true" || ev.is_active === "TRUE";
+
+      const statusBadge = isResolved
         ? '<span class="badge badge--resolved">✅ Resuelto</span>'
-        : (ev.is_active === true || ev.is_active === "true")
+        : isActive
           ? '<span class="badge badge--open">🟢 Abierto</span>'
           : '<span class="badge badge--closed">🟡 Cerrado</span>';
 
       const picksHtml = picks.length > 0
         ? picks.map(pick => {
-          const participant = _data.participants.find(p => p.id === pick.participant_id);
+          const participant = _data.participants.find(p => p.id === pick.participant_id || p.name === pick.participant_id);
           const pts = pick.points_earned;
           const ptsClass = pts > 0 ? "text-green" : "text-muted";
+          
+          let displayPick = String(pick.pick_value || "-");
+          if (ev.id === "E3" || ev.id === "E5") {
+            const pl = _data.players.find(p => p.id === pick.pick_value);
+            if (pl) displayPick = `${pl.name} (${pl.team})`;
+          }
+
           return `
               <div class="event-pick-row">
                 <span>${escapeHtml(participant ? participant.name : pick.participant_id)}</span>
-                <span class="text-muted">${escapeHtml(String(pick.pick_value || "-"))}</span>
-                ${ev.is_resolved ? `<span class="score-pill ${ptsClass}">${pts ?? 0} pts</span>` : ""}
+                <span class="text-muted">${escapeHtml(displayPick)}</span>
+                ${isResolved ? `<span class="score-pill ${ptsClass}">${pts ?? 0} pts</span>` : ""}
               </div>
             `;
         }).join("")
         : '<p class="text-muted">No picks yet.</p>';
+
+      let userEditHtml = "";
+      if (activeUser && isActive) {
+        const draft = loadUserDraft(activeUser);
+        const draftVal = draft.specialEventPicks[ev.id] || "";
+        userEditHtml = `
+          <div class="user-event-edit" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--color-border);">
+            <label style="font-size:var(--font-sm); color:var(--color-green); display:block; margin-bottom:6px; font-weight:bold;">✍️ Tu Apuesta:</label>
+            ${renderEventInput(ev, draftVal)}
+          </div>
+        `;
+      }
 
       return `
         <div class="card event-card fade-in">
@@ -538,7 +899,8 @@ const App = (() => {
           </div>
           <p class="event-description">${escapeHtml(ev.description)}</p>
           ${ev.deadline_utc ? `<p class="text-muted">⏰ Deadline: ${formatDateTime(ev.deadline_utc)}</p>` : ""}
-          ${ev.is_resolved && ev.result_description ? `<p class="text-gold">📋 Resultado: ${escapeHtml(ev.result_description)}</p>` : ""}
+          ${isResolved && ev.result_description ? `<p class="text-gold">📋 Resultado: ${escapeHtml(ev.result_description)}</p>` : ""}
+          ${userEditHtml}
           <div class="event-card__picks">
             <h4>Picks</h4>
             ${picksHtml}
@@ -552,6 +914,41 @@ const App = (() => {
       <p class="text-muted mb-2">Apuestas únicas que añaden emoción al torneo. Cada evento se abre y cierra en momentos concretos.</p>
       <div class="events-grid">${eventsHtml}</div>
     `;
+
+    attachEventInputListeners();
+  }
+
+  function attachEventInputListeners() {
+    const activeUser = getActiveUser();
+    if (!activeUser) return;
+
+    $$(".event-input").forEach(input => {
+      input.addEventListener("input", () => {
+        const eventId = input.dataset.eventId;
+        const draft = loadUserDraft(activeUser);
+        let val = input.value.trim();
+        if (val) {
+          draft.specialEventPicks[eventId] = val;
+        } else {
+          delete draft.specialEventPicks[eventId];
+        }
+        saveUserDraft(activeUser, draft);
+      });
+      // also handle select change
+      if (input.tagName === "SELECT") {
+        input.addEventListener("change", () => {
+          const eventId = input.dataset.eventId;
+          const draft = loadUserDraft(activeUser);
+          let val = input.value;
+          if (val) {
+            draft.specialEventPicks[eventId] = val;
+          } else {
+            delete draft.specialEventPicks[eventId];
+          }
+          saveUserDraft(activeUser, draft);
+        });
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -760,6 +1157,42 @@ const App = (() => {
     } catch { return "-"; }
   }
 
+  function renderUserSelector() {
+    const menu = $(".navbar__menu");
+    if (!menu) return;
+
+    $("#navbar-user-selector-container")?.remove();
+
+    const container = el("div", { id: "navbar-user-selector-container", className: "navbar__user-container" });
+    const select = el("select", { id: "navbar-user-selector", className: "navbar__select" });
+    
+    select.appendChild(el("option", { value: "" }, "👀 Ver General (Público)"));
+    
+    _data.participants.forEach(p => {
+      const opt = el("option", { value: p.name }, p.name);
+      if (p.name === getActiveUser()) {
+        opt.setAttribute("selected", "selected");
+      }
+      select.appendChild(opt);
+    });
+
+    select.addEventListener("change", (e) => {
+      const selectedUser = e.target.value;
+      if (selectedUser) {
+        localStorage.setItem("porra_active_user", selectedUser);
+        loadUserDraft(selectedUser);
+      } else {
+        localStorage.removeItem("porra_active_user");
+      }
+      updateFloatingSaveBar();
+      handleRoute();
+    });
+
+    container.appendChild(el("span", { className: "navbar__user-label" }, "Usuario:"));
+    container.appendChild(select);
+    menu.appendChild(container);
+  }
+
   // ---------------------------------------------------------------------------
   // Mobile Menu Toggle
   // ---------------------------------------------------------------------------
@@ -773,37 +1206,33 @@ const App = (() => {
         toggle.classList.toggle("navbar__toggle--active");
       });
       // Close menu on link click
-      $$(".navbar__link").forEach(link => {
-        link.addEventListener("click", () => {
+      document.addEventListener("click", (e) => {
+        const link = e.target.closest("a");
+        if (link && menu.classList.contains("navbar__menu--open")) {
           menu.classList.remove("navbar__menu--open");
           toggle.classList.remove("navbar__toggle--active");
-        });
+        }
       });
     }
   }
 
   function initSPA() {
-    // Intercept clicks on navbar links
     document.addEventListener("click", (e) => {
-      const link = e.target.closest(".navbar__link");
+      const link = e.target.closest("a");
       if (link) {
         const href = link.getAttribute("href");
-        if (href) {
+        if (href && !href.startsWith("http") && !href.startsWith("#") && !link.target && !href.includes("mailto:") && !href.includes("tel:")) {
           try {
-            // Push state. If this throws (e.g. file:/// protocol), catch it
             history.pushState({}, "", href);
-            e.preventDefault(); // only prevent default if pushState succeeds!
-            // Re-route and render
+            e.preventDefault();
             handleRoute();
           } catch (err) {
             console.warn("SPA navigation not supported in this environment (likely file:/// protocol). Falling back to standard navigation.", err);
-            // Do NOT prevent default, let the browser navigate normally
           }
         }
       }
     });
 
-    // Handle browser back/forward buttons
     window.addEventListener("popstate", () => {
       handleRoute();
     });
@@ -852,6 +1281,44 @@ const App = (() => {
     }
   }
 
+  function showConfigNotice() {
+    const container = $("#app-content");
+    if (container) {
+      container.innerHTML = `
+        <div class="card fade-in" style="max-width:600px;margin:2rem auto;padding:2rem;text-align:center;">
+          <span style="font-size:3.5rem;">⚙️</span>
+          <h2 class="mt-2 mb-2" style="color:var(--color-gold);">Porra del Mundial — Configuración Pendiente</h2>
+          <p class="text-muted mb-4" style="line-height:1.6;">
+            Aún no has vinculado tu base de datos de Google Sheets. Para poner en marcha tu porra:
+          </p>
+          <ol style="text-align:left;margin:0 auto 2rem;max-width:480px;line-height:1.8;color:var(--color-text-secondary);">
+            <li>Importa las plantillas de la carpeta <code>database_templates/</code> en un archivo de Google Sheets (una por pestaña).</li>
+            <li>Publica cada pestaña como CSV y copia sus enlaces.</li>
+            <li>Pega los enlaces en tu archivo <code>config.js</code> local.</li>
+            <li>Despliega en GitHub Pages ¡y listo!</li>
+          </ol>
+          <div class="flex-center gap-4">
+            <a href="https://github.com/FabioBuron/porra-mundial-2026#quick-start" target="_blank" class="btn btn--primary" style="display:inline-block;">
+              Ver Guía de Configuración
+            </a>
+          </div>
+          <p class="mt-3 text-muted" style="font-size:var(--font-xs);">
+            ¿Quieres probar cómo se ve? <a href="#" id="btn-load-demo" style="text-decoration:underline;color:var(--color-green);">Cargar datos de prueba locales</a>
+          </p>
+        </div>
+      `;
+
+      $("#btn-load-demo")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        loadDemoData();
+        _loaded = true;
+        renderUserSelector();
+        updateFloatingSaveBar();
+        handleRoute();
+      });
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------------
@@ -861,7 +1328,6 @@ const App = (() => {
     initMobileMenu();
     initSPA();
 
-    // Cargar y arrancar la música ambientación del mundial
     const musicScript = document.createElement("script");
     musicScript.src = "music.js";
     musicScript.onload = () => {
@@ -871,18 +1337,17 @@ const App = (() => {
     };
     document.head.appendChild(musicScript);
 
-    // Check if Google Sheets URLs are configured
-    const hasUrls = Object.values(CONFIG.googleSheets).some(url => !url.startsWith("URL_CSV"));
+    const hasUrls = Object.values(CONFIG.googleSheets).some(url => url && !url.startsWith("URL_CSV"));
 
     if (hasUrls) {
       await loadAllData();
+      renderUserSelector();
+      updateFloatingSaveBar();
+      handleRoute();
     } else {
-      console.info("Using demo data. Configure Google Sheets URLs in config.js for live data.");
-      loadDemoData();
+      console.info("Google Sheets URLs not configured. Showing tutorial notice.");
+      showConfigNotice();
     }
-
-    // Initial render
-    handleRoute();
   }
 
   // ---------------------------------------------------------------------------
