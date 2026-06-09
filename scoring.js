@@ -92,19 +92,38 @@ const Scoring = (() => {
         return 0;
 
       case "E3": // Hero Goalkeeper
-        if (actualResult.annulled) return 0; // no penalties happened
-        if (pickValue === actualResult.goalkeeper_id) return 4;
+        if (typeof actualResult === "object" && actualResult !== null) {
+          if (actualResult.annulled) return 0;
+          if (pickValue === actualResult.goalkeeper_id) return 4;
+        } else if (typeof actualResult === "string") {
+          if (actualResult === "annulled" || actualResult === "ANULADO" || actualResult === "none") return 0;
+          if (pickValue === actualResult) return 4;
+        }
         return 0;
 
       case "E4": // Favorite's Curse
-        if (pickValue === actualResult.team) {
-          if (actualResult.eliminated_in === "r16") return 3;
-          if (actualResult.eliminated_in === "qf") return 2;
+        let team = "";
+        let eliminatedIn = "";
+        if (typeof actualResult === "object" && actualResult !== null) {
+          team = actualResult.team;
+          eliminatedIn = actualResult.eliminated_in;
+        } else if (typeof actualResult === "string") {
+          const parts = actualResult.split(":");
+          team = parts[0].trim();
+          eliminatedIn = parts[1] ? parts[1].trim().toLowerCase() : "";
+        }
+        if (pickValue === team) {
+          if (eliminatedIn === "r16" || eliminatedIn === "octavos") return 3;
+          if (eliminatedIn === "qf" || eliminatedIn === "cuartos") return 2;
         }
         return 0;
 
       case "E5": // Wild Hat-Trick
-        if (pickValue === actualResult.player_id) return 5;
+        if (typeof actualResult === "object" && actualResult !== null) {
+          if (pickValue === actualResult.player_id) return 5;
+        } else if (pickValue === actualResult) {
+          return 5;
+        }
         return 0;
 
       case "E6": // Partido con más goles (Eliminatorias)
