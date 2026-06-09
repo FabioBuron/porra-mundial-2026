@@ -1199,10 +1199,13 @@ const App = (() => {
         return `
           <div class="card match-card ${statusClass} ${wildClass} fade-in">
             ${isWild ? '<span class="badge badge--wild">🔥 Partido Salvaje ×2</span>' : ""}
+            <div class="match-card__date" style="text-align: center; font-size: var(--font-xs); color: var(--color-text-secondary); margin-bottom: var(--space-2); font-weight: 600; opacity: 0.85;">
+              📅 ${formatMatchDate(match.kickoff_utc)} · ${formatTime(match.kickoff_utc)}
+            </div>
             <div class="match-card__teams">
               <span class="team-name team-name--home">${escapeHtml(match.home_team || "TBD")} ${getFlagImgHtml(match.home_team)}</span>
               <span class="match-score">
-                ${isFinished || isLive ? `${match.home_score} - ${match.away_score}` : formatTime(match.kickoff_utc)}
+                ${isFinished || isLive ? `${match.home_score} - ${match.away_score}` : "VS"}
               </span>
               <span class="team-name team-name--away">${getFlagImgHtml(match.away_team)} ${escapeHtml(match.away_team || "TBD")}</span>
             </div>
@@ -1713,6 +1716,16 @@ const App = (() => {
       const d = new Date(utcString);
       return d.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch { return "-"; }
+  }
+
+  function formatMatchDate(utcString) {
+    if (!utcString) return "";
+    try {
+      const d = new Date(utcString);
+      const weekday = d.toLocaleDateString("es-ES", { weekday: "short" });
+      const dayMonth = d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+      return `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${dayMonth}`;
+    } catch { return ""; }
   }
 
   function showPasswordModal(username, isSettingNew, onConfirm, onCancel) {
