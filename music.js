@@ -605,13 +605,21 @@ const PorraMusic = (() => {
         updateTrackInfo();
         break;
       case YT.PlayerState.PAUSED:
-      case YT.PlayerState.ENDED:
       case YT.PlayerState.CUED:
         container.classList.remove("porra-music-container--playing");
         playBtn.textContent = "▶️";
         playBtn.title = "Reproducir";
         if (event.data === YT.PlayerState.PAUSED) {
           localStorage.setItem("porra_music_playing", "false");
+        }
+        break;
+      case YT.PlayerState.ENDED:
+        if (_player && typeof _player.getPlaylistIndex === "function") {
+          const idx = _player.getPlaylistIndex();
+          const playlist = _player.getPlaylist();
+          if (playlist && idx === playlist.length - 1) {
+            _player.playVideoAt(0);
+          }
         }
         break;
     }
@@ -660,13 +668,29 @@ const PorraMusic = (() => {
   }
 
   function playNext() {
-    if (_player && typeof _player.nextVideo === "function") {
+    if (_player && typeof _player.getPlaylistIndex === "function") {
+      const idx = _player.getPlaylistIndex();
+      const playlist = _player.getPlaylist();
+      if (playlist && idx === playlist.length - 1) {
+        _player.playVideoAt(0);
+      } else {
+        _player.nextVideo();
+      }
+    } else if (_player && typeof _player.nextVideo === "function") {
       _player.nextVideo();
     }
   }
 
   function playPrev() {
-    if (_player && typeof _player.previousVideo === "function") {
+    if (_player && typeof _player.getPlaylistIndex === "function") {
+      const idx = _player.getPlaylistIndex();
+      const playlist = _player.getPlaylist();
+      if (playlist && idx === 0) {
+        _player.playVideoAt(playlist.length - 1);
+      } else {
+        _player.previousVideo();
+      }
+    } else if (_player && typeof _player.previousVideo === "function") {
       _player.previousVideo();
     }
   }
