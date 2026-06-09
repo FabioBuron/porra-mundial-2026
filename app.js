@@ -39,12 +39,14 @@ const App = (() => {
     if (!name) return null;
     const draftKey = `porra_draft_${name.trim().toLowerCase()}`;
     let draft = null;
+    let needsSave = false;
     const local = localStorage.getItem(draftKey);
     if (local) {
       try { draft = JSON.parse(local); } catch (e) {}
     }
     
     if (!draft) {
+      needsSave = true;
       // Si no hay borrador local, inicializar desde la predicción publicada
       const published = _submissionsMap[name.trim().toLowerCase()];
       if (published) {
@@ -72,11 +74,14 @@ const App = (() => {
     const pass = participant ? participant.password : null;
     const finalPass = localPass || (pass && String(pass).trim() !== "" ? String(pass) : null);
     
-    if (finalPass) {
+    if (finalPass && draft.password !== finalPass) {
       draft.password = finalPass;
+      needsSave = true;
     }
 
-    saveUserDraft(name, draft);
+    if (needsSave) {
+      saveUserDraft(name, draft);
+    }
     return draft;
   }
 
