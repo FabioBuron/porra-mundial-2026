@@ -14,11 +14,11 @@ const CONFIG = {
   prize: "Todo al ganador (40€)",
 
   googleSheets: {
-    participants:   "URL_CSV_PARTICIPANTS",
-    matches:        "URL_CSV_MATCHES",
-    players:        "URL_CSV_PLAYERS",
-    special_events: "URL_CSV_SPECIAL_EVENTS",
-    predictions:    "URL_CSV_PREDICTIONS" // Publicar como CSV la pestaña de "Respuestas de formulario"
+    participants:   "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=participants",
+    matches:        "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=matches",
+    players:        "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=players",
+    special_events: "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=special_events",
+    predictions:    "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=Respuestas de formulario 1"
   },
 
   googleForm: {
