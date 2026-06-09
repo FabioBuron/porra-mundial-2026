@@ -156,7 +156,7 @@ const App = (() => {
 
   async function confirmSubmitPrediction(name) {
     if (!CONFIG.googleForm.formId || CONFIG.googleForm.formId.startsWith("ID_DE_TU_GOOGLE_FORM")) {
-      alert("La porra no está configurada para recibir envíos (formId no configurado en config.js).");
+      showToast("La porra no está configurada para recibir envíos (formId no configurado en config.js).", "error");
       return;
     }
 
@@ -177,7 +177,10 @@ const App = (() => {
       });
 
       showLoading(false);
-      alert("¡Listo! Tus pronósticos han sido enviados. Puede tardar unos segundos en actualizarse la clasificación.");
+      
+      // Lanzar confeti brasileño y toast de éxito
+      launchBrazilianCelebration();
+      showToast("¡Listo! Tus pronósticos han sido enviados. La clasificación se actualizará en unos segundos.", "success");
       
       _submissionsMap[name.trim().toLowerCase()] = JSON.parse(JSON.stringify(draft));
       
@@ -186,7 +189,7 @@ const App = (() => {
     } catch (e) {
       showLoading(false);
       console.error(e);
-      alert("Hubo un error al enviar. Por favor, vuelve a intentarlo.");
+      showToast("Hubo un error al enviar. Por favor, vuelve a intentarlo.", "error");
     }
   }
 
@@ -683,6 +686,96 @@ const App = (() => {
     if (container) {
       container.innerHTML = `<div class="card" style="text-align:center;padding:2rem;"><p class="text-red">⚠️ ${msg}</p></div>`;
     }
+  }
+
+  function showToast(message, type = "success") {
+    // Eliminar toast anterior si existe
+    $("#porra-toast")?.remove();
+    
+    const borderCol = type === "success" ? "var(--color-green)" : "var(--color-red)";
+    const icon = type === "success" ? "🇧🇷" : "⚠️";
+    
+    const toast = el("div", { 
+      id: "porra-toast", 
+      className: "porra-toast", 
+      innerHTML: `<span style="font-size:1.5rem; margin-right: 8px;">${icon}</span> <span>${message}</span>`,
+      style: `
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: var(--color-surface);
+        border: 2px solid ${borderCol};
+        color: var(--color-text);
+        padding: var(--space-4) var(--space-6);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        z-index: 10002;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        font-size: var(--font-base);
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      `
+    });
+    
+    document.body.appendChild(toast);
+    
+    // Animación de entrada
+    setTimeout(() => {
+      toast.style.transform = "translateX(-50%) translateY(0)";
+    }, 50);
+    
+    // Auto-eliminar
+    setTimeout(() => {
+      toast.style.transform = "translateX(-50%) translateY(100px)";
+      setTimeout(() => toast.remove(), 400);
+    }, 5000);
+  }
+
+  function launchBrazilianCelebration() {
+    if (typeof window.confetti === "undefined") return;
+    const duration = 4 * 1000;
+    const end = Date.now() + duration;
+    const colors = ['#22c55e', '#eab308', '#ffffff'];
+
+    (function frame() {
+      window.confetti({
+        particleCount: 5,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: colors
+      });
+      window.confetti({
+        particleCount: 5,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: colors
+      });
+
+      if (Math.random() < 0.18) {
+        window.confetti({
+          particleCount: 1,
+          spread: 360,
+          startVelocity: 15,
+          origin: { x: Math.random(), y: Math.random() - 0.2 },
+          shapes: ['emoji'],
+          shapeOptions: {
+            emoji: {
+              value: ['⚽', '🏆', '🇧🇷', '💚', '💛']
+            }
+          },
+          scalar: 2
+        });
+      }
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
   }
 
   // ---------------------------------------------------------------------------
@@ -1488,7 +1581,7 @@ const App = (() => {
               updateFloatingSaveBar();
               handleRoute();
             } else {
-              alert("Contraseña incorrecta. Acceso denegado.");
+              showToast("Contraseña incorrecta. Acceso denegado.", "error");
               select.value = getActiveUser();
             }
           }, () => {
@@ -1502,7 +1595,7 @@ const App = (() => {
               updateFloatingSaveBar();
               handleRoute();
             } else {
-              alert("Contraseña incorrecta. Acceso denegado.");
+              showToast("Contraseña incorrecta. Acceso denegado.", "error");
               select.value = getActiveUser();
             }
           }, () => {
@@ -1511,7 +1604,7 @@ const App = (() => {
         } else {
           showPasswordModal(selectedUser, true, (newPassword) => {
             if (!newPassword.trim()) {
-              alert("La contraseña no puede estar vacía.");
+              showToast("La contraseña no puede estar vacía.", "error");
               select.value = getActiveUser();
               return;
             }
@@ -1672,6 +1765,12 @@ const App = (() => {
   // ---------------------------------------------------------------------------
 
   async function init() {
+    if (typeof window.confetti === "undefined") {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
+      document.head.appendChild(script);
+    }
+
     setActiveNav();
     initMobileMenu();
     initSPA();
