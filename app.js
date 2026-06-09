@@ -1149,7 +1149,7 @@ const App = (() => {
     const eventsEmojis = { E1: "⚽", E2: "🔥", E3: "🧤", E4: "😈", E5: "🎩", E6: "😬" };
     const activeUser = getActiveUser();
 
-    const eventsHtml = _data.specialEvents.map(ev => {
+    const eventsHtml = _data.specialEvents.filter(ev => ev.id !== "E2").map(ev => {
       const picks = _data.specialEventPicks.filter(sp => sp.event_id === ev.id);
       const isResolved = ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE";
       const isActive = ev.is_active === true || ev.is_active === "true" || ev.is_active === "TRUE";
@@ -1348,7 +1348,7 @@ const App = (() => {
               <tr><th>ID</th><th>Name</th><th>Active</th><th>Resolved</th></tr>
             </thead>
             <tbody>
-              ${_data.specialEvents.map(ev => `
+              ${_data.specialEvents.filter(ev => ev.id !== "E2").map(ev => `
                 <tr>
                   <td>${escapeHtml(ev.id)}</td>
                   <td>${escapeHtml(ev.name)}</td>
