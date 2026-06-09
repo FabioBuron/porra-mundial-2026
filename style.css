@@ -1806,6 +1806,11 @@ body.has-save-bar .porra-music-container {
   width: 100%;
 }
 
+.custom-select-wrapper--active,
+.custom-select-wrapper:focus-within {
+  z-index: 1001;
+}
+
 .custom-select-trigger {
   width: 100%;
   padding: var(--space-2) var(--space-3);

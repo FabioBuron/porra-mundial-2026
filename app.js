@@ -763,11 +763,13 @@ const App = (() => {
         if (d !== dropdown) {
           d.style.display = "none";
           d.parentNode.querySelector(".custom-select-trigger")?.classList.remove("custom-select-trigger--active");
+          d.parentNode.classList.remove("custom-select-wrapper--active");
         }
       });
 
       dropdown.style.display = "block";
       trigger.classList.add("custom-select-trigger--active");
+      wrapper.classList.add("custom-select-wrapper--active");
       searchInput.value = "";
       renderOptions("");
       
@@ -780,6 +782,7 @@ const App = (() => {
     const closeDropdown = () => {
       dropdown.style.display = "none";
       trigger.classList.remove("custom-select-trigger--active");
+      wrapper.classList.remove("custom-select-wrapper--active");
     };
 
     trigger.addEventListener("click", (e) => {
