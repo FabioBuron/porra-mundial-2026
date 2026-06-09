@@ -71,11 +71,11 @@ Los eventos especiales son **apuestas únicas** que se abren en momentos concret
 
 ### Listado de Eventos Especiales
 
-#### E1 — Primer Gol del Torneo ⚽
-**¿En qué partido se marcará el primer gol del torneo?**
+#### E1 — Ganador del Mundial 🏆
+**¿Qué selección ganará el Mundial 2026?**
 - Se elige antes del pitido inicial del partido inaugural.
-- Cada participante elige un partido de entre los primeros 4 del torneo.
-- **+3 pts** si aciertas exactamente el partido. **+1 pt** si aciertas el día (aunque no el partido).
+- Cada participante elige una selección del torneo.
+- **+5 pts** si la selección elegida se corona campeona del mundo.
 
 ---
 
@@ -110,11 +110,13 @@ Los eventos especiales son **apuestas únicas** que se abren en momentos concret
 
 ---
 
-#### E6 — Penalti Fallado 😬
-**Antes de cada tanda de penaltis** (si la hay en la ronda): Elige quién crees que fallará el primer penalti de la tanda.
-- **+3 pts** si aciertas el nombre del jugador.
-- **+1 pt** si aciertas la selección pero no el jugador.
-- Este evento se abre solo si hay tanda de penaltis. Se cierra 5 minutos antes de la tanda (en el descanso de la prórroga si se sabe, o justo al pitido final del 90').
+#### E6 — Partido con más Goles (Eliminatorias) ⚽
+**¿Cuántos goles se marcarán en el partido con más goles de las eliminatorias?**
+- Se elige antes del inicio de la ronda de 32 (primer partido de eliminatorias).
+- Cada participante elige un número entero (ej. 5, 6, 7).
+- Se cuenta el total de goles marcados en los 90 minutos reglamentarios + prórroga (no cuentan las tandas de penaltis) de cualquier partido de eliminatorias.
+- **+3 pts** si aciertas la cantidad exacta de goles.
+- **+1 pt** si te quedas a exactamente 1 gol de diferencia (ej. predices 6 y el partido con más goles tiene 5 o 7).
 
 ---
 
@@ -122,12 +124,12 @@ Los eventos especiales son **apuestas únicas** que se abren en momentos concret
 
 | Evento | Puntos máximos |
 |---|---|
-| E1 — Primer gol | 3 pts |
+| E1 — Ganador del Mundial | 5 pts |
 | E2 — Partido Salvaje | Variable (dobla el partido sorteado) |
 | E3 — Portero Héroe | 4 pts |
 | E4 — Maldición del Favorito | 3 pts |
 | E5 — Hat-Trick Salvaje | 5 pts |
-| E6 — Penalti Fallado | 3 pts |
+| E6 — Partido con más Goles | 3 pts |
 
 ---
 

@@ -80,9 +80,12 @@ const Scoring = (() => {
     if (!actualResult || !pickValue) return 0;
 
     switch (eventId) {
-      case "E1": // First goal of the tournament
-        if (pickValue === actualResult.match_id) return 3;
-        if (pickValue === actualResult.day) return 1; // same day
+      case "E1": // Ganador del Mundial
+        if (typeof actualResult === "object" && actualResult !== null) {
+          if (pickValue === actualResult.winner) return 5;
+        } else if (pickValue === actualResult) {
+          return 5;
+        }
         return 0;
 
       case "E2": // Wild Match — no pick, handled via is_double_points
@@ -104,10 +107,12 @@ const Scoring = (() => {
         if (pickValue === actualResult.player_id) return 5;
         return 0;
 
-      case "E6": // Missed Penalty
-        if (actualResult.annulled) return 0; // no shootout
-        if (pickValue === actualResult.player_id) return 3;
-        if (pickValue === actualResult.team) return 1;
+      case "E6": // Partido con más goles (Eliminatorias)
+        const pickGoals = parseInt(pickValue, 10);
+        const actualGoals = typeof actualResult === "object" && actualResult !== null ? parseInt(actualResult.goals, 10) : parseInt(actualResult, 10);
+        if (isNaN(pickGoals) || isNaN(actualGoals)) return 0;
+        if (pickGoals === actualGoals) return 3;
+        if (Math.abs(pickGoals - actualGoals) === 1) return 1;
         return 0;
 
       default:

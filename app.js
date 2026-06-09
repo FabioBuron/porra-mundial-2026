@@ -215,22 +215,31 @@ const App = (() => {
         { participant_id: "p08", round_key: "group_md1", player_id: "pl03", points_earned: 3 }
       ],
       specialEvents: [
-        { id: "E1", name: "Primer Gol del Torneo", description: "¿En qué partido se marcará el primer gol del torneo?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: true, result_description: "Partido m001: USA vs Morocco" },
+        { id: "E1", name: "Ganador del Mundial", description: "¿Qué selección ganará el Mundial 2026?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: true, result_description: "Argentina" },
         { id: "E2", name: "Partido Salvaje", description: "Un partido sorteado vale el doble de puntos", deadline_utc: null, is_active: false, is_resolved: true, result_description: "Partido m003: Spain vs Brazil" },
         { id: "E3", name: "El Portero Héroe", description: "¿Qué portero parará un penalti en cuartos o semis?", deadline_utc: "2026-07-04T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
         { id: "E4", name: "La Maldición del Favorito", description: "¿Qué favorito será eliminado antes de semis?", deadline_utc: "2026-06-28T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
         { id: "E5", name: "Hat-Trick Salvaje", description: "¿Quién hará un hat-trick en el torneo?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: false, result_description: null },
-        { id: "E6", name: "Penalti Fallado", description: "¿Quién fallará el primer penalti de la tanda?", deadline_utc: null, is_active: false, is_resolved: false, result_description: null }
+        { id: "E6", name: "Partido con más Goles (Eliminatorias)", description: "¿Cuántos goles se marcarán en el partido con más goles de las eliminatorias?", deadline_utc: "2026-06-27T16:00:00Z", is_active: true, is_resolved: false, result_description: null }
       ],
       specialEventPicks: [
-        { participant_id: "p01", event_id: "E1", pick_value: "m001", points_earned: 3 },
-        { participant_id: "p02", event_id: "E1", pick_value: "m002", points_earned: 1 },
-        { participant_id: "p03", event_id: "E1", pick_value: "m003", points_earned: 0 },
-        { participant_id: "p04", event_id: "E1", pick_value: "m001", points_earned: 3 },
-        { participant_id: "p05", event_id: "E1", pick_value: "m002", points_earned: 1 },
-        { participant_id: "p06", event_id: "E1", pick_value: "m001", points_earned: 3 },
-        { participant_id: "p07", event_id: "E1", pick_value: "m004", points_earned: 0 },
-        { participant_id: "p08", event_id: "E1", pick_value: "m001", points_earned: 3 }
+        { participant_id: "p01", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
+        { participant_id: "p02", event_id: "E1", pick_value: "France", points_earned: 0 },
+        { participant_id: "p03", event_id: "E1", pick_value: "Brazil", points_earned: 0 },
+        { participant_id: "p04", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
+        { participant_id: "p05", event_id: "E1", pick_value: "Spain", points_earned: 0 },
+        { participant_id: "p06", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
+        { participant_id: "p07", event_id: "E1", pick_value: "Germany", points_earned: 0 },
+        { participant_id: "p08", event_id: "E1", pick_value: "Argentina", points_earned: 5 },
+        
+        { participant_id: "p01", event_id: "E6", pick_value: "6", points_earned: 0 },
+        { participant_id: "p02", event_id: "E6", pick_value: "5", points_earned: 0 },
+        { participant_id: "p03", event_id: "E6", pick_value: "7", points_earned: 0 },
+        { participant_id: "p04", event_id: "E6", pick_value: "6", points_earned: 0 },
+        { participant_id: "p05", event_id: "E6", pick_value: "4", points_earned: 0 },
+        { participant_id: "p06", event_id: "E6", pick_value: "5", points_earned: 0 },
+        { participant_id: "p07", event_id: "E6", pick_value: "6", points_earned: 0 },
+        { participant_id: "p08", event_id: "E6", pick_value: "8", points_earned: 0 }
       ]
     };
     _loaded = true;

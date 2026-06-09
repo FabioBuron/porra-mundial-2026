@@ -142,9 +142,8 @@ total_jornada = suma de todos sus partidos en esa jornada/ronda
 **Lógica por evento:**
 
 ```
-E1 (Primer Gol):
-  si pick_value == match_id del partido con el primer gol → 3 pts
-  si pick_value está en el mismo día → 1 pt
+E1 (Ganador del Mundial):
+  si pick_value == selección campeona del mundo → 5 pts
   sino → 0 pts
 
 E2 (Partido Salvaje):
@@ -165,11 +164,10 @@ E5 (Hat-Trick Salvaje):
   si el jugador elegido marcó hat-trick en algún partido del torneo → 5 pts
   sino → 0 pts
 
-E6 (Penalti Fallado):
-  si aciertas el jugador exacto → 3 pts
-  si aciertas la selección pero no el jugador → 1 pt
+E6 (Partido con más Goles - Eliminatorias):
+  si pick_value == cantidad exacta de goles del partido con más goles → 3 pts
+  si diferencia absoluta(pick_value, goles reales) == 1 → 1 pt
   sino → 0 pts
-  si no hubo tanda de penaltis → evento anulado
 ```
 
 ---
