@@ -8,7 +8,17 @@
 const PorraMusic = (() => {
   "use strict";
 
-  const PLAYLIST_ID = "PLkz91ISGmT8rM0O1Y0ASdo3czQCKo-dAg";
+  const PLAYLIST_IDS = [
+    "gC8Q1tQW67s", // Shakira - Waka Waka (Español)
+    "s5ZpT845iU8", // Cali y El Dandee - Gol
+    "01r45gYd05U", // K'NAAN ft. David Bisbal - Wavin' Flag (Coca-Cola 2010 Español)
+    "R7UrFYvl5TE", // Shakira - Waka Waka (English)
+    "h8nSUZkOky4", // K'NAAN - Wavin' Flag (English)
+    "8BkYKwz56q8", // Ricky Martin - La Copa de la Vida (Español)
+    "TGtWWb9emYI", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
+    "a3IqEhotG60", // Shakira - La La La (Brazil 2014)
+    "p6E9R9gq_Zw"  // Jason Derulo - Colors (Coca-Cola 2018)
+  ];
   let _player = null;
   let _isMuted = false;
   let _saveInterval = null;
@@ -508,8 +518,7 @@ const PorraMusic = (() => {
       height: "0",
       width: "0",
       playerVars: {
-        listType: "playlist",
-        list: PLAYLIST_ID,
+        playlist: PLAYLIST_IDS.join(","),
         loop: 1,
         shuffle: 1,
         controls: 0,
@@ -551,8 +560,7 @@ const PorraMusic = (() => {
       const time = savedTime ? parseFloat(savedTime) : 0;
       
       player.cuePlaylist({
-        listType: "playlist",
-        list: PLAYLIST_ID,
+        playlist: PLAYLIST_IDS,
         index: index,
         startSeconds: time
       });
@@ -572,8 +580,7 @@ const PorraMusic = (() => {
     } else {
       // Initial load, cue up
       player.cuePlaylist({
-        listType: "playlist",
-        list: PLAYLIST_ID,
+        playlist: PLAYLIST_IDS,
         index: 0,
         startSeconds: 0
       });
