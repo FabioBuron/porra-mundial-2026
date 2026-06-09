@@ -569,6 +569,7 @@ const PorraMusic = (() => {
     _player = new YT.Player("youtube-audio-player", {
       height: "0",
       width: "0",
+      host: "https://www.youtube-nocookie.com",
       playerVars: {
         playlist: PLAYLIST_IDS.join(","),
         loop: 1,
@@ -577,7 +578,8 @@ const PorraMusic = (() => {
         disablekb: 1,
         fs: 0,
         rel: 0,
-        modestbranding: 1
+        modestbranding: 1,
+        origin: window.location.origin
       },
       events: {
         onReady: (event) => {
@@ -585,9 +587,12 @@ const PorraMusic = (() => {
         },
         onStateChange: onPlayerStateChange,
         onError: (e) => {
-          console.error("YouTube Player Error:", e);
+          console.error("YouTube Player Error (code " + e.data + "):", e);
           const trackTitle = document.getElementById("music-track-title");
-          if (trackTitle) trackTitle.textContent = "Error cargando playlist";
+          if (trackTitle) {
+            trackTitle.textContent = "Error de carga (adblock?)";
+            trackTitle.title = "Si tienes un bloqueador de publicidad o usas Brave, desactívalo o permite la reproducción para escuchar la música.";
+          }
         }
       }
     });
