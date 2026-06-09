@@ -53,7 +53,7 @@ function processSaveRequest(payload) {
   
   // Si es un borrador completo (tiene propiedad 'name' y no tiene 'type' o su 'type' es 'draft')
   if (payload.name && (payload.type === "draft" || !payload.type)) {
-    processDraft(ss, payload);
+    processDraft(ss, payload, false); // No omitir append
     return "Borrador completo procesado con éxito";
   }
 
@@ -398,7 +398,7 @@ function onFormSubmit(e) {
       return;
     }
     
-    processDraft(ss, draft);
+    processDraft(ss, draft, true); // Omitir append porque ya viene del envío del formulario
     Logger.log("Borrador procesado con éxito para: " + draft.name);
   } catch (err) {
     Logger.log("Error al procesar el formulario en onFormSubmit: " + err.toString());
@@ -408,7 +408,7 @@ function onFormSubmit(e) {
 /**
  * Procesa el borrador (draft) completo de un participante y actualiza la hoja de cálculo.
  */
-function processDraft(ss, draft) {
+function processDraft(ss, draft, skipAppendResponse) {
   var now = new Date();
   
   // 1. Validar y actualizar participante / contraseña en la pestaña 'participants'
@@ -548,6 +548,16 @@ function processDraft(ss, draft) {
           throw err;
         }
       }
+  // 6. Guardar copia del borrador en la pestaña de respuestas (Respuestas de formulario 1) para que el frontend lo lea
+  if (!skipAppendResponse) {
+    var sheetResponse = ss.getSheetByName("Respuestas de formulario 1");
+    if (sheetResponse) {
+      try {
+        sheetResponse.appendRow([now.toISOString(), JSON.stringify(draft)]);
+      } catch (err) {
+        Logger.log("Error guardando borrador en respuestas: " + err.toString());
+        throw err;
+      }
     }
   }
 }
@@ -611,7 +621,7 @@ function backfillPredictions() {
     try {
       var draft = JSON.parse(jsonString);
       if (draft && draft.name) {
-        processDraft(ss, draft);
+        processDraft(ss, draft, true); // Omitir append porque ya está en el histórico
         processedCount++;
       }
     } catch (err) {
