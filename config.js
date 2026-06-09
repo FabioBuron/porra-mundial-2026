@@ -22,8 +22,8 @@ const CONFIG = {
   },
 
   googleForm: {
-    formId: "ID_DE_TU_GOOGLE_FORM", // Ejemplo: 1FAIpQLSdiF0qsK65...
-    entryId: "entry.123456789"      // ID del input tipo párrafo (long text) de tu formulario
+    formId: "1FAIpQLSftXHalchqDBzt2Drlw1JMTt0yJcU5qHpWbKXIFAfr82VFhaQ", // Ejemplo: 1FAIpQLSdiF0qsK65...
+    entryId: "entry.544975122"      // ID del input tipo párrafo (long text) de tu formulario
   },
 
   adminPassword: "CAMBIAR_ESTO",
