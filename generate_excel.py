@@ -145,16 +145,7 @@ for name, country in player_matches:
     })
 
 # 3. Define participants
-participants_rows = [
-    {'id': 'p01', 'name': 'Carlos', 'paid': 'TRUE'},
-    {'id': 'p02', 'name': 'María', 'paid': 'TRUE'},
-    {'id': 'p03', 'name': 'Javi', 'paid': 'TRUE'},
-    {'id': 'p04', 'name': 'Laura', 'paid': 'FALSE'},
-    {'id': 'p05', 'name': 'Pedro', 'paid': 'TRUE'},
-    {'id': 'p06', 'name': 'Ana', 'paid': 'TRUE'},
-    {'id': 'p07', 'name': 'Diego', 'paid': 'TRUE'},
-    {'id': 'p08', 'name': 'Lucía', 'paid': 'FALSE'},
-]
+participants_rows = []
 
 # 4. Define special events
 special_events_rows = [
