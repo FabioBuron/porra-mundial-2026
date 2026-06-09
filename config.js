@@ -12,6 +12,7 @@ const CONFIG = {
   participants: 8,
   entryFee: 5,
   prize: "Todo al ganador (40€)",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbzRx5tTBzy8b9fLm1NDH_z_CY2wi_4cq1XprilJDyhDPjOe1Ov9pwJxpIeA-WtX_us/exec",
 
   googleSheets: {
     participants:   "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=participants",

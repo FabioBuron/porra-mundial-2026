@@ -1,30 +1,32 @@
 /**
  * =============================================================================
- * La Porra del Mundial 2026 — Google Apps Script Webhook
+ * La Porra del Mundial 2026 — Google Apps Script Webhook & Triggers
  * =============================================================================
- * Instrucciones:
+ * Instrucciones para configurar la automatización:
  * 1. Abre tu Google Sheet de la Porra.
  * 2. Ve a "Extensiones" > "Apps Script".
  * 3. Borra el código existente y pega este script.
- * 4. Guarda el proyecto (clic en el disco).
- * 5. Haz clic en "Implementar" > "Nueva implementación".
- * 6. Selecciona tipo: "Aplicación web".
- * 7. Configura:
- *    - Descripción: "Porra Webhook"
- *    - Ejecutar como: "Tú (tu email)"
- *    - Quién tiene acceso: "Cualquiera" (esto es clave para que la web pueda enviar datos).
- * 8. Copia la URL de la aplicación web generada y pégala en tu config.js como `appsScriptUrl`.
+ * 4. Guarda el proyecto (clic en el icono del disco).
+ * 
+ * --- CONFIGURACIÓN DEL ACTIVADOR DE FORMULARIO (RECOMENDADO para actualizar automáticamente) ---
+ * El activador copiará automáticamente la contraseña a 'participants' y las elecciones
+ * a sus respectivas pestañas cada vez que un participante envíe el formulario.
+ * 
+ * 5. En la barra lateral izquierda de Apps Script, haz clic en el icono de reloj ("Activadores").
+ * 6. Haz clic en el botón "+ Añadir activador" (abajo a la derecha).
+ * 7. Configura el activador así:
+ *    - Selecciona qué función deseas ejecutar: "onFormSubmit"
+ *    - Selecciona qué despliegue debe ejecutarse: "Principal" (Head)
+ *    - Selecciona la fuente del evento: "De la hoja de cálculo"
+ *    - Selecciona el tipo de evento: "Al enviarse el formulario"
+ *    - Configuración de notificación de fallos: "Notificarme diariamente"
+ * 8. Haz clic en "Guardar". Te pedirá autorización para acceder a tus hojas de cálculo.
+ *    Concédele los permisos (si te sale un aviso de seguridad de Google, haz clic en
+ *    "Configuración avanzada" e "Ir a La Porra (no seguro)").
  * =============================================================================
  */
 
 function doPost(e) {
-  var headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Max-Age": "86400"
-  };
-
   try {
     var jsonString = e.postData.contents;
     var payload = JSON.parse(jsonString);
@@ -32,35 +34,33 @@ function doPost(e) {
     var result = processSaveRequest(payload);
     
     return ContentService.createTextOutput(JSON.stringify({ success: true, result: result }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+      .setMimeType(ContentService.MimeType.JSON);
       
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeaders(headers);
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 // Permitir peticiones OPTIONS (CORS preflight) de los navegadores
 function doOptions(e) {
   return ContentService.createTextOutput("")
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeaders({
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400"
-    });
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 function processSaveRequest(payload) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Si es un borrador completo (tiene propiedad 'name' y no tiene 'type' o su 'type' es 'draft')
+  if (payload.name && (payload.type === "draft" || !payload.type)) {
+    processDraft(ss, payload);
+    return "Borrador completo procesado con éxito";
+  }
+
   var participantId = payload.participantId;
   var password = payload.password;
   var type = payload.type; // "predictions", "scorer_pick", "goalkeeper_pick", "special_event_pick"
   var data = payload.data; // Array o datos individuales a guardar
-  
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
   
   // 1. Validar participante y contraseña
   var sheetParticipants = ss.getSheetByName("participants");
@@ -364,3 +364,273 @@ function saveSpecialEventPick(ss, participantId, pickData, now) {
   
   return "Elección de evento especial guardada con éxito";
 }
+
+/**
+ * Se ejecuta automáticamente al recibir una respuesta del formulario de Google.
+ * Esta función extrae el borrador (draft) en formato JSON, y lo distribuye
+ * a las diferentes pestañas: 'participants' para la contraseña, y el resto para las elecciones.
+ */
+function onFormSubmit(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Obtener la hoja de respuestas del formulario
+  var sheetResponse = ss.getSheetByName("Respuestas de formulario 1");
+  if (!sheetResponse) {
+    Logger.log("No se encontró la pestaña 'Respuestas de formulario 1'");
+    return;
+  }
+  
+  // Obtener la última fila que acaba de ser insertada
+  var lastRow = sheetResponse.getLastRow();
+  if (lastRow < 2) return;
+  
+  // Buscar de forma dinámica el JSON en las columnas de la fila
+  var jsonString = findJsonInRow(sheetResponse, lastRow);
+  if (!jsonString) {
+    Logger.log("No hay contenido JSON válido en la fila " + lastRow);
+    return;
+  }
+  
+  try {
+    var draft = JSON.parse(jsonString);
+    if (!draft || !draft.name) {
+      Logger.log("El JSON no es un borrador válido: " + jsonString);
+      return;
+    }
+    
+    processDraft(ss, draft);
+    Logger.log("Borrador procesado con éxito para: " + draft.name);
+  } catch (err) {
+    Logger.log("Error al procesar el formulario en onFormSubmit: " + err.toString());
+  }
+}
+
+/**
+ * Procesa el borrador (draft) completo de un participante y actualiza la hoja de cálculo.
+ */
+function processDraft(ss, draft) {
+  var now = new Date();
+  
+  // 1. Validar y actualizar participante / contraseña en la pestaña 'participants'
+  var sheetParticipants = ss.getSheetByName("participants");
+  if (!sheetParticipants) throw new Error("No se encontró la pestaña 'participants'");
+  
+  var participantsData = sheetParticipants.getDataRange().getValues();
+  var headers = participantsData[0];
+  var idIdx = headers.indexOf("id");
+  var nameIdx = headers.indexOf("name");
+  var passIdx = headers.indexOf("password");
+  
+  if (idIdx === -1 || nameIdx === -1 || passIdx === -1) {
+    throw new Error("Estructura de la tabla de participantes incorrecta en 'participants'");
+  }
+  
+  var participantId = null;
+  var userRowIndex = -1;
+  var currentPasswordInSheet = "";
+  
+  for (var i = 1; i < participantsData.length; i++) {
+    if (String(participantsData[i][nameIdx]).trim().toLowerCase() === String(draft.name).trim().toLowerCase()) {
+      participantId = String(participantsData[i][idIdx]);
+      currentPasswordInSheet = String(participantsData[i][passIdx]).trim();
+      userRowIndex = i + 1; // 1-based index
+      break;
+    }
+  }
+  
+  if (!participantId) {
+    throw new Error("Participante no encontrado en 'participants': " + draft.name);
+  }
+  
+  var password = draft.password ? String(draft.password).trim() : "";
+  var isValid = false;
+  var isNewPassword = false;
+  
+  if (currentPasswordInSheet === "") {
+    if (password !== "") {
+      isValid = true;
+      isNewPassword = true;
+    } else {
+      // Permitir envíos si aún no tiene contraseña y no ha enviado ninguna
+      isValid = true;
+    }
+  } else {
+    // Si ya tiene contraseña registrada, debe coincidir exactamente
+    if (currentPasswordInSheet === password) {
+      isValid = true;
+    }
+  }
+  
+  if (!isValid) {
+    throw new Error("Contraseña incorrecta para el participante " + draft.name);
+  }
+  
+  // Guardar la nueva contraseña en la pestaña de participantes si es nueva
+  if (isNewPassword && userRowIndex !== -1) {
+    sheetParticipants.getCell(userRowIndex, passIdx + 1).setValue(password);
+  }
+  
+  // 2. Guardar pronósticos de partidos (match_predictions)
+  if (draft.matchPredictions) {
+    var predictionsArray = [];
+    for (var matchId in draft.matchPredictions) {
+      var pred = draft.matchPredictions[matchId];
+      if (pred && (pred.home !== undefined || pred.away !== undefined)) {
+        predictionsArray.push({
+          matchId: matchId,
+          predictedHome: (pred.home !== null && pred.home !== "") ? Number(pred.home) : "",
+          predictedAway: (pred.away !== null && pred.away !== "") ? Number(pred.away) : ""
+        });
+      }
+    }
+    if (predictionsArray.length > 0) {
+      try {
+        savePredictions(ss, participantId, predictionsArray, now);
+      } catch (err) {
+        Logger.log("Error guardando predicciones de partidos: " + err.toString());
+      }
+    }
+  }
+  
+  // 3. Guardar elecciones de goleadores (scorer_picks)
+  if (draft.scorerPicks) {
+    for (var roundKey in draft.scorerPicks) {
+      var playerId = draft.scorerPicks[roundKey];
+      if (playerId) {
+        var deadlineStr = getRoundDeadline(ss, roundKey);
+        try {
+          saveScorerPick(ss, participantId, {
+            roundKey: roundKey,
+            playerId: playerId,
+            deadlineUtc: deadlineStr
+          }, now);
+        } catch (err) {
+          Logger.log("Error guardando goleador para " + roundKey + ": " + err.toString());
+        }
+      }
+    }
+  }
+  
+  // 4. Guardar elecciones de porteros (goalkeeper_picks)
+  if (draft.goalkeeperPicks) {
+    for (var roundKey in draft.goalkeeperPicks) {
+      var playerId = draft.goalkeeperPicks[roundKey];
+      if (playerId) {
+        var deadlineStr = getRoundDeadline(ss, roundKey);
+        try {
+          saveGoalkeeperPick(ss, participantId, {
+            roundKey: roundKey,
+            playerId: playerId,
+            deadlineUtc: deadlineStr
+          }, now);
+        } catch (err) {
+          Logger.log("Error guardando portero para " + roundKey + ": " + err.toString());
+        }
+      }
+    }
+  }
+  
+  // 5. Guardar elecciones de eventos especiales (special_event_picks)
+  if (draft.specialEventPicks) {
+    for (var eventId in draft.specialEventPicks) {
+      var pickValue = draft.specialEventPicks[eventId];
+      if (pickValue !== undefined && pickValue !== null && String(pickValue).trim() !== "") {
+        try {
+          saveSpecialEventPick(ss, participantId, {
+            eventId: eventId,
+            pickValue: String(pickValue)
+          }, now);
+        } catch (err) {
+          Logger.log("Error guardando evento especial " + eventId + ": " + err.toString());
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Obtiene la fecha límite (kickoff del primer partido de la jornada) de una ronda.
+ */
+function getRoundDeadline(ss, roundKey) {
+  var sheetMatches = ss.getSheetByName("matches");
+  if (!sheetMatches) return null;
+  
+  var matchesData = sheetMatches.getDataRange().getValues();
+  var headers = matchesData[0];
+  var roundIdx = headers.indexOf("round_key");
+  var kickoffIdx = headers.indexOf("kickoff_utc");
+  
+  if (roundIdx === -1 || kickoffIdx === -1) return null;
+  
+  var earliestTime = null;
+  for (var i = 1; i < matchesData.length; i++) {
+    if (String(matchesData[i][roundIdx]).trim() === roundKey) {
+      var kickoffVal = matchesData[i][kickoffIdx];
+      if (kickoffVal) {
+        var t = new Date(kickoffVal).getTime();
+        if (!isNaN(t)) {
+          if (earliestTime === null || t < earliestTime) {
+            earliestTime = t;
+          }
+        }
+      }
+    }
+  }
+  
+  return earliestTime ? new Date(earliestTime).toISOString() : null;
+}
+
+/**
+ * Función de utilidad para procesar de forma retrospectiva todas las filas 
+ * que ya existen en 'Respuestas de formulario 1'.
+ * Puedes ejecutarla manualmente desde el editor de Apps Script si es necesario.
+ */
+function backfillPredictions() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetResponse = ss.getSheetByName("Respuestas de formulario 1");
+  if (!sheetResponse) {
+    Logger.log("No se encontró la pestaña 'Respuestas de formulario 1'");
+    return;
+  }
+  
+  var lastRow = sheetResponse.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("No hay filas para procesar.");
+    return;
+  }
+  
+  var processedCount = 0;
+  for (var row = 2; row <= lastRow; row++) {
+    var jsonString = findJsonInRow(sheetResponse, row);
+    if (!jsonString) continue;
+    
+    try {
+      var draft = JSON.parse(jsonString);
+      if (draft && draft.name) {
+        processDraft(ss, draft);
+        processedCount++;
+      }
+    } catch (err) {
+      Logger.log("Error en fila " + row + ": " + err.toString());
+    }
+  }
+  
+  Logger.log("Proceso completado. Se procesaron " + processedCount + " filas.");
+}
+
+/**
+ * Busca de forma dinámica el JSON del borrador en cualquier columna de la fila especificada.
+ */
+function findJsonInRow(sheet, row) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return null;
+  var rowValues = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+  for (var c = 0; c < rowValues.length; c++) {
+    var val = String(rowValues[c]).trim();
+    if (val.indexOf('{"name":') === 0 || (val.indexOf('{') === 0 && val.indexOf('"name"') !== -1)) {
+      return val;
+    }
+  }
+  return null;
+}
+

@@ -157,29 +157,65 @@ const App = (() => {
   }
 
   async function confirmSubmitPrediction(name) {
-    if (!CONFIG.googleForm.formId || CONFIG.googleForm.formId.startsWith("ID_DE_TU_GOOGLE_FORM")) {
-      showToast("La porra no está configurada para recibir envíos (formId no configurado en config.js).", "error");
+    const hasForm = CONFIG.googleForm && CONFIG.googleForm.formId && !CONFIG.googleForm.formId.startsWith("ID_DE_TU_GOOGLE_FORM");
+    const hasScript = CONFIG.appsScriptUrl && !CONFIG.appsScriptUrl.startsWith("URL_DE_TU_APPS_SCRIPT");
+
+    if (!hasForm && !hasScript) {
+      showToast("La porra no está configurada para recibir envíos (falta configurar Google Form o Apps Script en config.js).", "error");
       return;
     }
 
     const draft = loadUserDraft(name);
     draft._submittedAt = new Date().toISOString();
 
-    const formUrl = `https://docs.google.com/forms/d/e/${CONFIG.googleForm.formId}/formResponse`;
-    const params = new URLSearchParams();
-    params.append(CONFIG.googleForm.entryId, JSON.stringify(draft));
-
     showLoading(true);
-    try {
-      await fetch(formUrl, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString()
-      });
+    let success = false;
+    let errorMsg = "Hubo un error al enviar. Por favor, vuelve a intentarlo.";
 
-      showLoading(false);
-      
+    // 1. Intentar enviar directamente al Web App de Apps Script (actualización inmediata)
+    if (hasScript) {
+      try {
+        const response = await fetch(CONFIG.appsScriptUrl, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(draft)
+        });
+        if (response.ok) {
+          const resJson = await response.json();
+          if (resJson && resJson.success) {
+            success = true;
+          } else if (resJson && resJson.error) {
+            errorMsg = `Error del servidor: ${resJson.error}`;
+          }
+        }
+      } catch (err) {
+        console.warn("Fallo al enviar directamente a Apps Script, intentando Google Forms...", err);
+      }
+    }
+
+    // 2. Fallback al Google Form tradicional
+    if (!success && hasForm) {
+      try {
+        const formUrl = `https://docs.google.com/forms/d/e/${CONFIG.googleForm.formId}/formResponse`;
+        const params = new URLSearchParams();
+        params.append(CONFIG.googleForm.entryId, JSON.stringify(draft));
+
+        await fetch(formUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: params.toString()
+        });
+        success = true;
+      } catch (e) {
+        console.error("Error en el envío al Google Form:", e);
+      }
+    }
+
+    showLoading(false);
+
+    if (success) {
       // Lanzar confeti brasileño y toast de éxito
       launchBrazilianCelebration();
       showToast("¡Listo! Tus pronósticos han sido enviados. La clasificación se actualizará en unos segundos.", "success");
@@ -188,10 +224,8 @@ const App = (() => {
       
       updateFloatingSaveBar();
       handleRoute();
-    } catch (e) {
-      showLoading(false);
-      console.error(e);
-      showToast("Hubo un error al enviar. Por favor, vuelve a intentarlo.", "error");
+    } else {
+      showToast(errorMsg, "error");
     }
   }
 
