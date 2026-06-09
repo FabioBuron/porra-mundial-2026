@@ -9,15 +9,15 @@ const PorraMusic = (() => {
   "use strict";
 
   const PLAYLIST_IDS = [
-    "gC8Q1tQW67s", // Shakira - Waka Waka (Español)
-    "s5ZpT845iU8", // Cali y El Dandee - Gol
-    "01r45gYd05U", // K'NAAN ft. David Bisbal - Wavin' Flag (Coca-Cola 2010 Español)
-    "R7UrFYvl5TE", // Shakira - Waka Waka (English)
-    "h8nSUZkOky4", // K'NAAN - Wavin' Flag (English)
-    "8BkYKwz56q8", // Ricky Martin - La Copa de la Vida (Español)
-    "TGtWWb9emYI", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
-    "a3IqEhotG60", // Shakira - La La La (Brazil 2014)
-    "p6E9R9gq_Zw"  // Jason Derulo - Colors (Coca-Cola 2018)
+    "dzsuE5ugxf4", // Shakira - Waka Waka (Español)
+    "g_c6QWnL9L0", // Cali y El Dandee - Gol
+    "YXUr4rh2LRE", // K'NAAN ft. David Bisbal - Wavin' Flag (Coca-Cola 2010 Español)
+    "pRpeEdMmmQ0", // Shakira - Waka Waka (English)
+    "b1v4XA85s2s", // K'NAAN - Wavin' Flag (English)
+    "81NbX6gJ2K4", // Ricky Martin - La Copa de la Vida (Español)
+    "GL2KVWh8sRA", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
+    "7-7knsP2n5w", // Shakira - La La La (Brazil 2014)
+    "BJ1V2fB4B0A"  // Jason Derulo - Colors (Coca-Cola 2018)
   ];
   let _player = null;
   let _isMuted = false;
