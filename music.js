@@ -445,17 +445,31 @@ const PorraMusic = (() => {
           <p class="music-welcome-desc">
             Siente el ambiente del torneo con la playlist de himnos históricos del mundial (Waka Waka, Wavin' Flag, La Copa de la Vida y más).
           </p>
-          <div class="music-welcome-buttons">
+          <div class="music-welcome-buttons" style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
             <button id="music-welcome-play" class="music-welcome-btn-play">
               ⚽ ENTRAR A LA PORRA
+            </button>
+            <button id="music-welcome-silent" class="music-welcome-btn-silent">
+              🔇 ENTRAR SIN MÚSICA
             </button>
           </div>
         </div>
       `;
       document.body.appendChild(overlay);
 
-      document.getElementById("music-welcome-play").addEventListener("click", () => {
+      const playBtn = document.getElementById("music-welcome-play");
+      const silentBtn = document.getElementById("music-welcome-silent");
+
+      playBtn.addEventListener("click", () => {
+        playBtn.style.pointerEvents = "none";
+        if (silentBtn) silentBtn.style.pointerEvents = "none";
         closeWelcomeOverlay(true);
+      });
+
+      silentBtn.addEventListener("click", () => {
+        playBtn.style.pointerEvents = "none";
+        if (silentBtn) silentBtn.style.pointerEvents = "none";
+        closeWelcomeOverlay(false);
       });
     }
   }
@@ -472,9 +486,7 @@ const PorraMusic = (() => {
     sessionStorage.setItem("porra_intro_seen", "true");
 
     // Lanzar fuegos artificiales al entrar por primera vez
-    if (typeof window.confetti !== "undefined") {
-      launchFireworks();
-    }
+    launchFireworks();
 
     if (startMusic) {
       localStorage.setItem("porra_music_playing", "true");
@@ -491,8 +503,16 @@ const PorraMusic = (() => {
     }
   }
 
+  let _fireworksRetryCount = 0;
   function launchFireworks() {
-    if (typeof window.confetti === "undefined") return;
+    if (typeof window.confetti === "undefined") {
+      if (_fireworksRetryCount < 25) { // Max 5 seconds
+        _fireworksRetryCount++;
+        setTimeout(launchFireworks, 200);
+      }
+      return;
+    }
+    _fireworksRetryCount = 0;
     const duration = 5 * 1000;
     const animationEnd = Date.now() + duration;
     const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10001 };
@@ -530,13 +550,17 @@ const PorraMusic = (() => {
     const tag = document.createElement("script");
     tag.src = "https://www.youtube.com/iframe_api";
     const firstScript = document.getElementsByTagName("script")[0];
-    firstScript.parentNode.insertBefore(tag, firstScript);
+    if (firstScript && firstScript.parentNode) {
+      firstScript.parentNode.insertBefore(tag, firstScript);
+    } else {
+      document.head.appendChild(tag);
+    }
   }
 
   // Initialize YT.Player
   function initPlayer() {
     const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
-    const savedIndex = localStorage.getItem("porra_music_track_index");
+    const savedVideoId = localStorage.getItem("porra_music_track_id");
     const savedTime = localStorage.getItem("porra_music_time");
     const savedMute = localStorage.getItem("porra_music_muted") === "true";
 
@@ -557,7 +581,7 @@ const PorraMusic = (() => {
       },
       events: {
         onReady: (event) => {
-          onPlayerReady(event, wasPlaying, savedIndex, savedTime);
+          onPlayerReady(event, wasPlaying, savedVideoId, savedTime);
         },
         onStateChange: onPlayerStateChange,
         onError: (e) => {
@@ -569,7 +593,7 @@ const PorraMusic = (() => {
     });
   }
 
-  function onPlayerReady(event, wasPlaying, savedIndex, savedTime) {
+  function onPlayerReady(event, wasPlaying, savedVideoId, savedTime) {
     const player = event.target;
     player.setVolume(50); // Moderate volume
     if (_isMuted) {
@@ -577,14 +601,17 @@ const PorraMusic = (() => {
       updateMuteUI(true);
     }
 
-    // Shuffle playlist on start
-    player.setShuffle(true);
-
     const hasIntroSeen = sessionStorage.getItem("porra_intro_seen") === "true";
 
     if (wasPlaying && hasIntroSeen) {
       // User is already navigating pages, so resume playback
-      const index = savedIndex ? parseInt(savedIndex, 10) : 0;
+      let index = 0;
+      if (savedVideoId) {
+        const idx = PLAYLIST_IDS.indexOf(savedVideoId);
+        if (idx !== -1) {
+          index = idx;
+        }
+      }
       const time = savedTime ? parseFloat(savedTime) : 0;
       
       player.cuePlaylist({
@@ -592,6 +619,7 @@ const PorraMusic = (() => {
         index: index,
         startSeconds: time
       });
+      player.setShuffle(true);
 
       // Try autoplaying since user navigated within the app (interacted already)
       setTimeout(() => {
@@ -612,6 +640,7 @@ const PorraMusic = (() => {
         index: 0,
         startSeconds: 0
       });
+      player.setShuffle(true);
     }
 
     // Start state saving loop
@@ -672,7 +701,8 @@ const PorraMusic = (() => {
     if (show) {
       bubble.classList.add("porra-music-bubble--visible");
       // Add one-time window click to resume and hide
-      const resumeHandler = () => {
+      const resumeHandler = (e) => {
+        if (e && e.target.closest("#porra-music-container")) return;
         if (_player && typeof _player.playVideo === "function") {
           _player.playVideo();
         }
@@ -754,9 +784,13 @@ const PorraMusic = (() => {
         const state = _player.getPlayerState();
         if (state === YT.PlayerState.PLAYING) {
           try {
-            const index = _player.getPlaylistIndex();
+            const data = _player.getVideoData();
+            const videoId = data ? data.video_id : null;
             const time = _player.getCurrentTime();
-            localStorage.setItem("porra_music_track_index", index);
+            if (videoId) {
+              localStorage.setItem("porra_music_track_id", videoId);
+              localStorage.removeItem("porra_music_track_index");
+            }
             localStorage.setItem("porra_music_time", time);
           } catch (e) {
             // ignore cross-origin errors if playing ads
@@ -773,7 +807,8 @@ const PorraMusic = (() => {
     loadYoutubeAPI();
 
     // Reanudar reproducción con la primera interacción del usuario en la página
-    const startAudioOnInteraction = () => {
+    const startAudioOnInteraction = (e) => {
+      if (e && e.target.closest("#porra-music-container")) return;
       const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
       if (wasPlaying && _player && typeof _player.playVideo === "function") {
         try {
