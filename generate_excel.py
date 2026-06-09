@@ -100,7 +100,8 @@ for m in raw_matches:
 
 # Select a random match for E2 (Partido Salvaje)
 import random
-wild_match = random.choice(matches_rows)
+group_matches = [m for m in matches_rows if m['phase'] == 'group']
+wild_match = random.choice(group_matches) if group_matches else random.choice(matches_rows)
 wild_match['is_double_points'] = 'TRUE'
 
 # 2. Extract players from original_app.js
