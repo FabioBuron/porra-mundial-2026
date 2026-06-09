@@ -314,6 +314,65 @@ const App = (() => {
     });
   }
 
+  function getFlagEmoji(country) {
+    if (!country) return "";
+    const clean = country.trim().replace(/[\uFFFD]/g, 'ç').toLowerCase();
+    
+    const flags = {
+      "algeria": "🇩🇿",
+      "argentina": "🇦🇷",
+      "australia": "🇦🇺",
+      "austria": "🇦🇹",
+      "belgium": "🇧🇪",
+      "bosnia & herzegovina": "🇧🇦",
+      "brazil": "🇧🇷",
+      "canada": "🇨🇦",
+      "cape verde": "🇨🇻",
+      "colombia": "🇨🇴",
+      "croatia": "🇭🇷",
+      "curaçao": "🇨🇼",
+      "curacao": "🇨🇼",
+      "czech republic": "🇨🇿",
+      "dr congo": "🇨🇩",
+      "ecuador": "🇪🇨",
+      "egypt": "🇪🇬",
+      "england": "🏴%A0%A0%A0%A0󠁧󠁢󠁥󠁮󠁧󠁿", // We will output the raw England flag
+      "france": "🇫🇷",
+      "germany": "🇩🇪",
+      "ghana": "🇬🇭",
+      "haiti": "🇭🇹",
+      "iran": "🇮🇷",
+      "iraq": "🇮🇶",
+      "ivory coast": "🇨🇮",
+      "japan": "🇯🇵",
+      "jordan": "🇯🇴",
+      "mexico": "🇲🇽",
+      "morocco": "🇲🇦",
+      "netherlands": "🇳🇱",
+      "new zealand": "🇳🇿",
+      "norway": "🇳🇴",
+      "panama": "🇵🇦",
+      "paraguay": "🇵🇾",
+      "portugal": "🇵🇹",
+      "qatar": "🇶🇦",
+      "saudi arabia": "🇸🇦",
+      "scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+      "senegal": "🇸🇳",
+      "south africa": "🇿🇦",
+      "south korea": "🇰🇷",
+      "spain": "🇪🇸",
+      "sweden": "🇸🇪",
+      "switzerland": "🇨🇭",
+      "tunisia": "🇹🇳",
+      "turkey": "🇹🇷",
+      "usa": "🇺🇸",
+      "uruguay": "🇺🇾",
+      "uzbekistan": "🇺🇿"
+    };
+    
+    return flags[clean] || "⚽";
+  }
+
   function parseCSV(text) {
     const rows = [];
     let row = [], field = '', inQuotes = false;
@@ -469,7 +528,7 @@ const App = (() => {
     ];
     _data.specialEvents = [
       { id: "E1", name: "Ganador del Mundial", description: "¿Qué selección ganará el Mundial 2026?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: true, result_description: "Argentina" },
-      { id: "E2", name: "Partido Salvaje", description: "Un partido sorteado vale el doble de puntos", deadline_utc: null, is_active: false, is_resolved: true, result_description: "Partido m003: Spain vs Brazil" },
+      { id: "E2", name: "Partido Salvaje", description: "Un partido del mundial seleccionado aleatoriamente que otorga el doble de puntos.", deadline_utc: null, is_active: false, is_resolved: true, result_description: "Partido m003: Spain vs Brazil" },
       { id: "E3", name: "El Portero Héroe", description: "¿Qué portero parará un penalti en cuartos o semis?", deadline_utc: "2026-07-04T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
       { id: "E4", name: "La Maldición del Favorito", description: "¿Qué favorito será eliminado antes de semis?", deadline_utc: "2026-06-28T16:00:00Z", is_active: true, is_resolved: false, result_description: null },
       { id: "E5", name: "Hat-Trick Salvaje", description: "¿Quién hará un hat-trick en el torneo?", deadline_utc: "2026-06-11T17:00:00Z", is_active: false, is_resolved: false, result_description: null },
@@ -638,7 +697,7 @@ const App = (() => {
       return `
         <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
           <option value="">-- Seleccionar Selección --</option>
-          ${teams.map(t => `<option value="${t}" ${t === draftValue ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}
+          ${teams.map(t => `<option value="${t}" ${t === draftValue ? "selected" : ""}>${getFlagEmoji(t)} ${escapeHtml(t)}</option>`).join("")}
         </select>
       `;
     }
@@ -647,7 +706,7 @@ const App = (() => {
       return `
         <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
           <option value="">-- Seleccionar Portero --</option>
-          ${gks.map(p => `<option value="${p.id}" ${p.id === draftValue ? "selected" : ""}>${escapeHtml(p.name)} (${escapeHtml(p.team)})</option>`).join("")}
+          ${gks.map(p => `<option value="${p.id}" ${p.id === draftValue ? "selected" : ""}>${escapeHtml(p.name)} (${getFlagEmoji(p.team)} ${escapeHtml(p.team)})</option>`).join("")}
         </select>
       `;
     }
@@ -656,7 +715,7 @@ const App = (() => {
       return `
         <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
           <option value="">-- Seleccionar Jugador --</option>
-          ${players.map(p => `<option value="${p.id}" ${p.id === draftValue ? "selected" : ""}>${escapeHtml(p.name)} (${escapeHtml(p.team)})</option>`).join("")}
+          ${players.map(p => `<option value="${p.id}" ${p.id === draftValue ? "selected" : ""}>${escapeHtml(p.name)} (${getFlagEmoji(p.team)} ${escapeHtml(p.team)})</option>`).join("")}
         </select>
       `;
     }
@@ -724,11 +783,11 @@ const App = (() => {
           <div class="card match-card ${statusClass} ${wildClass} fade-in">
             ${isWild ? '<span class="badge badge--wild">🔥 Partido Salvaje ×2</span>' : ""}
             <div class="match-card__teams">
-              <span class="team-name">${escapeHtml(match.home_team || "TBD")}</span>
+              <span class="team-name team-name--home">${escapeHtml(match.home_team || "TBD")} <span class="team-flag">${getFlagEmoji(match.home_team)}</span></span>
               <span class="match-score">
                 ${isFinished || isLive ? `${match.home_score} - ${match.away_score}` : formatTime(match.kickoff_utc)}
               </span>
-              <span class="team-name">${escapeHtml(match.away_team || "TBD")}</span>
+              <span class="team-name team-name--away"><span class="team-flag">${getFlagEmoji(match.away_team)}</span> ${escapeHtml(match.away_team || "TBD")}</span>
             </div>
             <div class="match-card__status">
               ${isFinished ? '<span class="badge badge--resolved">Finalizado</span>' : ""}
@@ -815,7 +874,7 @@ const App = (() => {
                 return `
                   <tr>
                     <td>${escapeHtml(participant ? participant.name : pick.participant_id)}</td>
-                    <td>${escapeHtml(player ? `${player.name} (${player.team})` : pick.player_id)}</td>
+                    <td>${player ? `${escapeHtml(player.name)} (${getFlagEmoji(player.team)} ${escapeHtml(player.team)})` : escapeHtml(pick.player_id)}</td>
                     <td>${type === "scorer" ? (pick.goals_scored ?? "-") : "-"}</td>
                     <td><span class="score-pill ${ptsClass}">${pts}</span></td>
                   </tr>
