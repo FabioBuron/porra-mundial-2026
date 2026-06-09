@@ -373,6 +373,68 @@ const App = (() => {
     return flags[clean] || "⚽";
   }
 
+  function getFlagImgHtml(country) {
+    if (!country) return "";
+    const clean = country.trim().replace(/[\uFFFD]/g, 'ç').toLowerCase();
+    
+    const flagCodes = {
+      "algeria": "dz",
+      "argentina": "ar",
+      "australia": "au",
+      "austria": "at",
+      "belgium": "be",
+      "bosnia & herzegovina": "ba",
+      "brazil": "br",
+      "canada": "ca",
+      "cape verde": "cv",
+      "colombia": "co",
+      "croatia": "hr",
+      "curaçao": "cw",
+      "curacao": "cw",
+      "czech republic": "cz",
+      "dr congo": "cd",
+      "ecuador": "ec",
+      "egypt": "eg",
+      "england": "gb-eng",
+      "france": "fr",
+      "germany": "de",
+      "ghana": "gh",
+      "haiti": "ht",
+      "iran": "ir",
+      "iraq": "iq",
+      "ivory coast": "ci",
+      "japan": "jp",
+      "jordan": "jo",
+      "mexico": "mx",
+      "morocco": "ma",
+      "netherlands": "nl",
+      "new zealand": "nz",
+      "norway": "no",
+      "panama": "pa",
+      "paraguay": "py",
+      "portugal": "pt",
+      "qatar": "qa",
+      "saudi arabia": "sa",
+      "scotland": "gb-sct",
+      "senegal": "sn",
+      "south africa": "za",
+      "south korea": "kr",
+      "spain": "es",
+      "sweden": "se",
+      "switzerland": "ch",
+      "tunisia": "tn",
+      "turkey": "tr",
+      "usa": "us",
+      "uruguay": "uy",
+      "uzbekistan": "uz"
+    };
+    
+    const code = flagCodes[clean];
+    if (!code) return "⚽";
+    
+    return `<img src="https://flagcdn.com/w40/${code}.png" class="team-flag" alt="${escapeHtml(country)}">`;
+  }
+
   function parseCSV(text) {
     const rows = [];
     let row = [], field = '', inQuotes = false;
@@ -783,11 +845,11 @@ const App = (() => {
           <div class="card match-card ${statusClass} ${wildClass} fade-in">
             ${isWild ? '<span class="badge badge--wild">🔥 Partido Salvaje ×2</span>' : ""}
             <div class="match-card__teams">
-              <span class="team-name team-name--home">${escapeHtml(match.home_team || "TBD")} <span class="team-flag">${getFlagEmoji(match.home_team)}</span></span>
+              <span class="team-name team-name--home">${escapeHtml(match.home_team || "TBD")} ${getFlagImgHtml(match.home_team)}</span>
               <span class="match-score">
                 ${isFinished || isLive ? `${match.home_score} - ${match.away_score}` : formatTime(match.kickoff_utc)}
               </span>
-              <span class="team-name team-name--away"><span class="team-flag">${getFlagEmoji(match.away_team)}</span> ${escapeHtml(match.away_team || "TBD")}</span>
+              <span class="team-name team-name--away">${getFlagImgHtml(match.away_team)} ${escapeHtml(match.away_team || "TBD")}</span>
             </div>
             <div class="match-card__status">
               ${isFinished ? '<span class="badge badge--resolved">Finalizado</span>' : ""}
@@ -874,7 +936,7 @@ const App = (() => {
                 return `
                   <tr>
                     <td>${escapeHtml(participant ? participant.name : pick.participant_id)}</td>
-                    <td>${player ? `${escapeHtml(player.name)} (${getFlagEmoji(player.team)} ${escapeHtml(player.team)})` : escapeHtml(pick.player_id)}</td>
+                    <td>${player ? `${escapeHtml(player.name)} (${getFlagImgHtml(player.team)} ${escapeHtml(player.team)})` : escapeHtml(pick.player_id)}</td>
                     <td>${type === "scorer" ? (pick.goals_scored ?? "-") : "-"}</td>
                     <td><span class="score-pill ${ptsClass}">${pts}</span></td>
                   </tr>

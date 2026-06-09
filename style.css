@@ -1063,9 +1063,13 @@ input, select, textarea, button {
 }
 
 .team-flag {
-  font-size: 1.35rem;
-  line-height: 1;
+  width: 24px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   display: inline-block;
+  vertical-align: middle;
 }
 
 .team-name--home .team-flag {
