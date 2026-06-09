@@ -8,6 +8,7 @@
 const PorraMusic = (() => {
   "use strict";
 
+  const PLAYLIST_ID = "PLkz91ISGmT8rM0O1Y0ASdo3czQCKo-dAg";
   const PLAYLIST_IDS = [
     "dzsuE5ugxf4", // Shakira - Waka Waka (Español)
     "g_c6QWnL9L0", // Cali y El Dandee - Gol
@@ -571,7 +572,8 @@ const PorraMusic = (() => {
       height: "200",
       width: "200",
       playerVars: {
-        playlist: PLAYLIST_IDS.join(","),
+        listType: "playlist",
+        list: PLAYLIST_ID,
         loop: 1,
         shuffle: 1,
         controls: 0,
@@ -622,7 +624,12 @@ const PorraMusic = (() => {
       // User is already navigating pages, so resume playback
       let index = 0;
       if (savedVideoId) {
-        const idx = PLAYLIST_IDS.indexOf(savedVideoId);
+        let playlist = null;
+        if (typeof player.getPlaylist === "function") {
+          playlist = player.getPlaylist();
+        }
+        const listToSearch = playlist || PLAYLIST_IDS;
+        const idx = listToSearch.indexOf(savedVideoId);
         if (idx !== -1) {
           index = idx;
         }
@@ -630,7 +637,8 @@ const PorraMusic = (() => {
       const time = savedTime ? parseFloat(savedTime) : 0;
       
       player.cuePlaylist({
-        playlist: PLAYLIST_IDS,
+        listType: "playlist",
+        list: PLAYLIST_ID,
         index: index,
         startSeconds: time
       });
@@ -651,7 +659,8 @@ const PorraMusic = (() => {
     } else {
       // Initial load, cue up
       player.cuePlaylist({
-        playlist: PLAYLIST_IDS,
+        listType: "playlist",
+        list: PLAYLIST_ID,
         index: 0,
         startSeconds: 0
       });
