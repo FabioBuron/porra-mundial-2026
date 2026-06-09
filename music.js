@@ -8,22 +8,31 @@
 const PorraMusic = (() => {
   "use strict";
 
-  const PLAYLIST_ID = "PLkz91ISGmT8rM0O1Y0ASdo3czQCKo-dAg";
   const PLAYLIST_IDS = [
-    "dzsuE5ugxf4", // Shakira - Waka Waka (Español)
-    "g_c6QWnL9L0", // Cali y El Dandee - Gol
-    "YXUr4rh2LRE", // K'NAAN ft. David Bisbal - Wavin' Flag (Coca-Cola 2010 Español)
-    "pRpeEdMmmQ0", // Shakira - Waka Waka (English)
-    "b1v4XA85s2s", // K'NAAN - Wavin' Flag (English)
-    "81NbX6gJ2K4", // Ricky Martin - La Copa de la Vida (Español)
-    "GL2KVWh8sRA", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
-    "7-7knsP2n5w", // Shakira - La La La (Brazil 2014)
-    "BJ1V2fB4B0A"  // Jason Derulo - Colors (Coca-Cola 2018)
+    "YOm6fMOoy_A", // Shakira - Waka Waka (Español) - Lyric Video
+    "RzFUy2cqQ6c", // Cali y El Dandee - Gol - Lyric Video
+    "w_Wi90rSOCw", // K'NAAN ft. David Bisbal - Wavin' Flag (Coca-Cola 2010 Español) - Lyric Video
+    "czWcyZRAMtk", // Shakira - Waka Waka (English) - Lyric Video
+    "o1zAYjyEwdY", // K'NAAN - Wavin' Flag (English) - Lyric Video
+    "Q8aL_msltWY", // Ricky Martin - La Copa de la Vida (Español) - Lyric Video
+    "guwZDKE-MDM", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola) - Lyric Video
+    "2igups6VdcA", // Shakira - La La La (Brazil 2014) - Lyric Video
+    "ibqyu7bQ4-w"  // Jason Derulo - Colors (Coca-Cola 2018) - Lyric Video
   ];
   let _player = null;
   let _isMuted = false;
   let _saveInterval = null;
   let _consecutiveErrors = 0;
+  let _shuffledPlaylist = [];
+
+  function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
 
   // CSS injection to keep style.css clean and this module self-contained
   function injectStyles() {
@@ -567,13 +576,13 @@ const PorraMusic = (() => {
     const savedMute = localStorage.getItem("porra_music_muted") === "true";
 
     _isMuted = savedMute;
+    _shuffledPlaylist = shuffleArray(PLAYLIST_IDS);
 
     _player = new YT.Player("youtube-audio-player", {
       height: "200",
       width: "200",
       playerVars: {
-        listType: "playlist",
-        list: PLAYLIST_ID,
+        playlist: _shuffledPlaylist.join(","),
         loop: 1,
         shuffle: 1,
         controls: 0,
@@ -591,7 +600,7 @@ const PorraMusic = (() => {
         onError: (e) => {
           console.error("YouTube Player Error (code " + e.data + "):", e);
           _consecutiveErrors++;
-          if (_consecutiveErrors < PLAYLIST_IDS.length) {
+          if (_consecutiveErrors < _shuffledPlaylist.length) {
             console.log("YouTube track error, trying to skip to next video...");
             setTimeout(() => {
               if (_player && typeof _player.nextVideo === "function") {
@@ -624,12 +633,7 @@ const PorraMusic = (() => {
       // User is already navigating pages, so resume playback
       let index = 0;
       if (savedVideoId) {
-        let playlist = null;
-        if (typeof player.getPlaylist === "function") {
-          playlist = player.getPlaylist();
-        }
-        const listToSearch = playlist || PLAYLIST_IDS;
-        const idx = listToSearch.indexOf(savedVideoId);
+        const idx = _shuffledPlaylist.indexOf(savedVideoId);
         if (idx !== -1) {
           index = idx;
         }
@@ -637,8 +641,7 @@ const PorraMusic = (() => {
       const time = savedTime ? parseFloat(savedTime) : 0;
       
       player.cuePlaylist({
-        listType: "playlist",
-        list: PLAYLIST_ID,
+        playlist: _shuffledPlaylist,
         index: index,
         startSeconds: time
       });
@@ -659,8 +662,7 @@ const PorraMusic = (() => {
     } else {
       // Initial load, cue up
       player.cuePlaylist({
-        listType: "playlist",
-        list: PLAYLIST_ID,
+        playlist: _shuffledPlaylist,
         index: 0,
         startSeconds: 0
       });
