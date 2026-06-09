@@ -604,7 +604,7 @@ const App = (() => {
       { id: "m003", phase: "group", group: "B", matchday: 1, round_label: "Jornada 1", home_team: "Spain", away_team: "Brazil", kickoff_utc: "2026-06-12T18:00:00Z", home_score: 3, away_score: 0, status: "finished", is_double_points: true },
       { id: "m004", phase: "group", group: "B", matchday: 1, round_label: "Jornada 1", home_team: "Germany", away_team: "Japan", kickoff_utc: "2026-06-12T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
       { id: "m005", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Morocco", away_team: "Mexico", kickoff_utc: "2026-06-15T18:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
-      { id: "m006", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Colombia", away_team: "USA", kickoff_utc: "2026-06-15T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false }
+      { id: "m006", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Colombia", away_team: "USA", kickoff_utc: "2026-06-15T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: true }
     ];
     _data.players = [
       { id: "pl01", name: "Mbappé", team: "France", position: "outfield", active: true, goals_group_md1: 2 },

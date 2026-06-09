@@ -98,11 +98,18 @@ for m in raw_matches:
         'is_double_points': 'FALSE'
     })
 
-# Select a random match for E2 (Partido Salvaje)
+# Select a random match for E2 (Partido Salvaje) per matchday
 import random
-group_matches = [m for m in matches_rows if m['phase'] == 'group']
-wild_match = random.choice(group_matches) if group_matches else random.choice(matches_rows)
-wild_match['is_double_points'] = 'TRUE'
+from collections import defaultdict
+matchdays = defaultdict(list)
+for m in matches_rows:
+    if m['phase'] == 'group':
+        matchdays[m['matchday']].append(m)
+
+for md, md_matches in matchdays.items():
+    if md_matches:
+        wild_match = random.choice(md_matches)
+        wild_match['is_double_points'] = 'TRUE'
 
 # 2. Extract players from original_app.js
 with open('original_app.js', 'r', encoding='utf-8') as f:
