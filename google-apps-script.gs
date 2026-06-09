@@ -74,16 +74,37 @@ function processSaveRequest(payload) {
   if (idIdx === -1 || passIdx === -1) throw new Error("Estructura de la tabla de participantes incorrecta");
   
   var isValid = false;
+  var isNewPassword = false;
+  var userRowIndex = -1;
+  
   for (var i = 1; i < participantsData.length; i++) {
     if (String(participantsData[i][idIdx]) === String(participantId)) {
-      if (String(participantsData[i][passIdx]) === String(password)) {
-        isValid = true;
-        break;
+      var currentPasswordInSheet = String(participantsData[i][passIdx]).trim();
+      
+      // Si el participante no tiene contraseña registrada en la hoja
+      if (currentPasswordInSheet === "") {
+        if (password && String(password).trim() !== "") {
+          isValid = true;
+          isNewPassword = true;
+          userRowIndex = i + 1; // 1-based index (la fila 1 es la cabecera)
+          break;
+        }
+      } else {
+        // Si ya tiene contraseña, debe coincidir exactamente
+        if (currentPasswordInSheet === String(password)) {
+          isValid = true;
+          break;
+        }
       }
     }
   }
   
   if (!isValid) throw new Error("Contraseña incorrecta o participante no válido");
+  
+  // Guardar la nueva contraseña en la pestaña de participantes
+  if (isNewPassword && userRowIndex !== -1) {
+    sheetParticipants.getCell(userRowIndex, passIdx + 1).setValue(password);
+  }
   
   // 2. Procesar según el tipo de datos
   var now = new Date();
