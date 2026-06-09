@@ -98,6 +98,11 @@ for m in raw_matches:
         'is_double_points': 'FALSE'
     })
 
+# Select a random match for E2 (Partido Salvaje)
+import random
+wild_match = random.choice(matches_rows)
+wild_match['is_double_points'] = 'TRUE'
+
 # 2. Extract players from original_app.js
 with open('original_app.js', 'r', encoding='utf-8') as f:
     app_js = f.read()
@@ -161,11 +166,11 @@ special_events_rows = [
     {
         'id': 'E2',
         'name': 'Partido Salvaje',
-        'description': 'El administrador sortea un partido especial que dobla los puntos de las predicciones.',
+        'description': 'Un partido del mundial seleccionado aleatoriamente que otorga el doble de puntos.',
         'deadline_utc': '',
         'is_active': 'TRUE',
-        'is_resolved': 'FALSE',
-        'result_description': ''
+        'is_resolved': 'TRUE',
+        'result_description': f"Partido {wild_match['id']}: {wild_match['home_team']} vs {wild_match['away_team']}"
     },
     {
         'id': 'E3',
