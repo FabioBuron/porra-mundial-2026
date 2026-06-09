@@ -38,30 +38,44 @@ const App = (() => {
   function loadUserDraft(name) {
     if (!name) return null;
     const draftKey = `porra_draft_${name.trim().toLowerCase()}`;
-    let draft = localStorage.getItem(draftKey);
-    if (draft) {
-      return JSON.parse(draft);
+    let draft = null;
+    const local = localStorage.getItem(draftKey);
+    if (local) {
+      try { draft = JSON.parse(local); } catch (e) {}
     }
     
-    // Si no hay borrador local, inicializar desde la predicción publicada
-    const published = _submissionsMap[name.trim().toLowerCase()];
-    if (published) {
-      draft = {
-        name: name,
-        matchPredictions: published.matchPredictions || {},
-        scorerPicks: published.scorerPicks || {},
-        goalkeeperPicks: published.goalkeeperPicks || {},
-        specialEventPicks: published.specialEventPicks || {}
-      };
-    } else {
-      draft = {
-        name: name,
-        matchPredictions: {},
-        scorerPicks: {},
-        goalkeeperPicks: {},
-        specialEventPicks: {}
-      };
+    if (!draft) {
+      // Si no hay borrador local, inicializar desde la predicción publicada
+      const published = _submissionsMap[name.trim().toLowerCase()];
+      if (published) {
+        draft = {
+          name: name,
+          matchPredictions: published.matchPredictions || {},
+          scorerPicks: published.scorerPicks || {},
+          goalkeeperPicks: published.goalkeeperPicks || {},
+          specialEventPicks: published.specialEventPicks || {}
+        };
+      } else {
+        draft = {
+          name: name,
+          matchPredictions: {},
+          scorerPicks: {},
+          goalkeeperPicks: {},
+          specialEventPicks: {}
+        };
+      }
     }
+
+    // Asegurar que contenga la contraseña si está en localStorage o en participants
+    const localPass = localStorage.getItem("porra_password_" + name.trim().toLowerCase());
+    const participant = _data.participants.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    const pass = participant ? participant.password : null;
+    const finalPass = localPass || (pass && String(pass).trim() !== "" ? String(pass) : null);
+    
+    if (finalPass) {
+      draft.password = finalPass;
+    }
+
     saveUserDraft(name, draft);
     return draft;
   }
@@ -1350,6 +1364,88 @@ const App = (() => {
     } catch { return "-"; }
   }
 
+  function showPasswordModal(username, isSettingNew, onConfirm, onCancel) {
+    // Eliminar modal anterior si existe
+    $("#password-modal-overlay")?.remove();
+
+    const overlay = el("div", { id: "password-modal-overlay", className: "modal-overlay" });
+    const content = el("div", { className: "modal-content" });
+
+    const header = el("div", { className: "modal-header" });
+    const title = el("h3", { className: "modal-title" }, isSettingNew ? "🔒 Definir Contraseña" : "🔒 Acceso Seguro");
+    const closeBtn = el("button", { className: "modal-close", innerHTML: "&times;" });
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    const body = el("div", { className: "modal-body" });
+    const desc = el("p", { className: "text-muted mb-4", style: "font-size: var(--font-sm); line-height: 1.5; margin-bottom: 16px;" }, isSettingNew 
+      ? `Este usuario (${escapeHtml(username)}) no tiene una contraseña configurada en el sistema. Introduce una nueva contraseña para proteger tus pronósticos:` 
+      : `Introduce tu contraseña para acceder a los pronósticos de ${escapeHtml(username)}:`);
+    
+    const inputGroup = el("div", { className: "form-group" });
+    const input = el("input", { 
+      type: "password", 
+      id: "modal-password-input", 
+      className: "form-input", 
+      placeholder: isSettingNew ? "Nueva Contraseña" : "Contraseña"
+    });
+    inputGroup.appendChild(input);
+
+    const errorMsg = el("p", { id: "modal-password-error", className: "text-red mt-1 hidden" });
+
+    const footer = el("div", { className: "modal-footer mt-4", style: "display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;" });
+    const btnCancel = el("button", { className: "btn btn--secondary", id: "modal-password-btn-cancel" }, "Cancelar");
+    const btnConfirm = el("button", { className: "btn btn--primary", id: "modal-password-btn-confirm" }, isSettingNew ? "Establecer" : "Entrar");
+    footer.appendChild(btnCancel);
+    footer.appendChild(btnConfirm);
+
+    body.appendChild(desc);
+    body.appendChild(inputGroup);
+    body.appendChild(errorMsg);
+    body.appendChild(footer);
+
+    content.appendChild(header);
+    content.appendChild(body);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+
+    // Animación de entrada y foco
+    setTimeout(() => {
+      overlay.classList.add("modal-overlay--open");
+      input.focus();
+    }, 10);
+
+    const closeModal = () => {
+      overlay.classList.remove("modal-overlay--open");
+      setTimeout(() => overlay.remove(), 300);
+    };
+
+    const handleConfirm = () => {
+      const value = input.value.trim();
+      if (isSettingNew && !value) {
+        errorMsg.textContent = "La contraseña no puede estar vacía.";
+        errorMsg.classList.remove("hidden");
+        return;
+      }
+      closeModal();
+      onConfirm(value);
+    };
+
+    const handleCancel = () => {
+      closeModal();
+      onCancel();
+    };
+
+    btnConfirm.addEventListener("click", handleConfirm);
+    btnCancel.addEventListener("click", handleCancel);
+    closeBtn.addEventListener("click", handleCancel);
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleConfirm();
+      if (e.key === "Escape") handleCancel();
+    });
+  }
+
   function renderUserSelector() {
     const menu = $(".navbar__menu");
     if (!menu) return;
@@ -1374,21 +1470,65 @@ const App = (() => {
       if (selectedUser) {
         const participant = _data.participants.find(p => p.name === selectedUser);
         const pass = participant ? participant.password : null;
-        if (pass !== null && pass !== undefined && String(pass).trim() !== "") {
-          const entered = prompt("Introduce tu contraseña para acceder a los pronósticos de " + selectedUser + ":");
-          if (entered !== String(pass)) {
-            alert("Contraseña incorrecta. Acceso denegado.");
+        
+        const hasPasswordInSheet = (pass !== null && pass !== undefined && String(pass).trim() !== "");
+        const localPass = localStorage.getItem("porra_password_" + selectedUser.trim().toLowerCase());
+        
+        if (hasPasswordInSheet) {
+          showPasswordModal(selectedUser, false, (entered) => {
+            if (entered === String(pass)) {
+              localStorage.setItem("porra_active_user", selectedUser);
+              localStorage.setItem("porra_password_" + selectedUser.trim().toLowerCase(), entered);
+              loadUserDraft(selectedUser);
+              updateFloatingSaveBar();
+              handleRoute();
+            } else {
+              alert("Contraseña incorrecta. Acceso denegado.");
+              select.value = getActiveUser();
+            }
+          }, () => {
             select.value = getActiveUser();
-            return;
-          }
+          });
+        } else if (localPass) {
+          showPasswordModal(selectedUser, false, (entered) => {
+            if (entered === localPass) {
+              localStorage.setItem("porra_active_user", selectedUser);
+              loadUserDraft(selectedUser);
+              updateFloatingSaveBar();
+              handleRoute();
+            } else {
+              alert("Contraseña incorrecta. Acceso denegado.");
+              select.value = getActiveUser();
+            }
+          }, () => {
+            select.value = getActiveUser();
+          });
+        } else {
+          showPasswordModal(selectedUser, true, (newPassword) => {
+            if (!newPassword.trim()) {
+              alert("La contraseña no puede estar vacía.");
+              select.value = getActiveUser();
+              return;
+            }
+            localStorage.setItem("porra_password_" + selectedUser.trim().toLowerCase(), newPassword);
+            localStorage.setItem("porra_active_user", selectedUser);
+            
+            // Forzar que el borrador contenga la contraseña y guardarlo
+            const draft = loadUserDraft(selectedUser);
+            draft.password = newPassword;
+            saveUserDraft(selectedUser, draft);
+            
+            updateFloatingSaveBar();
+            handleRoute();
+          }, () => {
+            select.value = getActiveUser();
+          });
         }
-        localStorage.setItem("porra_active_user", selectedUser);
-        loadUserDraft(selectedUser);
       } else {
         localStorage.removeItem("porra_active_user");
+        updateFloatingSaveBar();
+        handleRoute();
       }
-      updateFloatingSaveBar();
-      handleRoute();
     });
 
     container.appendChild(el("span", { className: "navbar__user-label" }, "Usuario:"));
