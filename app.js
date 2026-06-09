@@ -1310,6 +1310,16 @@ const App = (() => {
     select.addEventListener("change", (e) => {
       const selectedUser = e.target.value;
       if (selectedUser) {
+        const participant = _data.participants.find(p => p.name === selectedUser);
+        const pass = participant ? participant.password : null;
+        if (pass !== null && pass !== undefined && String(pass).trim() !== "") {
+          const entered = prompt("Introduce tu contraseña para acceder a los pronósticos de " + selectedUser + ":");
+          if (entered !== String(pass)) {
+            alert("Contraseña incorrecta. Acceso denegado.");
+            select.value = getActiveUser();
+            return;
+          }
+        }
         localStorage.setItem("porra_active_user", selectedUser);
         loadUserDraft(selectedUser);
       } else {

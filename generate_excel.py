@@ -221,7 +221,7 @@ player_rounds_headers = [
 ]
 
 sheets_configs = [
-    ('participants', ['id', 'name', 'paid'], participants_rows),
+    ('participants', ['id', 'name', 'paid', 'password'], participants_rows),
     ('matches', ['id', 'phase', 'group', 'matchday', 'round_label', 'home_team', 'away_team', 'kickoff_utc', 'home_score', 'away_score', 'status', 'is_double_points'], matches_rows),
     ('players', ['id', 'name', 'team', 'position', 'active'] + player_rounds_headers, players_rows),
     ('special_events', ['id', 'name', 'description', 'deadline_utc', 'is_active', 'is_resolved', 'result_description'], special_events_rows),
