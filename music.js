@@ -712,6 +712,25 @@ const PorraMusic = (() => {
     injectStyles();
     createPlayerUI();
     loadYoutubeAPI();
+
+    // Reanudar reproducción con la primera interacción del usuario en la página
+    const startAudioOnInteraction = () => {
+      const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
+      if (wasPlaying && _player && typeof _player.playVideo === "function") {
+        try {
+          const state = _player.getPlayerState();
+          if (state !== YT.PlayerState.PLAYING) {
+            _player.playVideo();
+          }
+        } catch (e) {
+          // El reproductor puede no estar listo todavía
+        }
+      }
+      window.removeEventListener("click", startAudioOnInteraction);
+      window.removeEventListener("touchstart", startAudioOnInteraction);
+    };
+    window.addEventListener("click", startAudioOnInteraction);
+    window.addEventListener("touchstart", startAudioOnInteraction);
   }
 
   return { init };
