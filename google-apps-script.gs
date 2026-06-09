@@ -103,7 +103,7 @@ function processSaveRequest(payload) {
   
   // Guardar la nueva contraseña en la pestaña de participantes
   if (isNewPassword && userRowIndex !== -1) {
-    sheetParticipants.getCell(userRowIndex, passIdx + 1).setValue(password);
+    sheetParticipants.getRange(userRowIndex, passIdx + 1).setValue(password);
   }
   
   // 2. Procesar según el tipo de datos
@@ -184,9 +184,9 @@ function savePredictions(ss, participantId, predictionsArray, now) {
     
     if (foundRow !== -1) {
       // Actualizar fila existente
-      sheetPredictions.getCell(foundRow, pHomeIdx + 1).setValue(homeScore);
-      sheetPredictions.getCell(foundRow, pAwayIdx + 1).setValue(awayScore);
-      sheetPredictions.getCell(foundRow, pSubIdx + 1).setValue(now.toISOString());
+      sheetPredictions.getRange(foundRow, pHomeIdx + 1).setValue(homeScore);
+      sheetPredictions.getRange(foundRow, pAwayIdx + 1).setValue(awayScore);
+      sheetPredictions.getRange(foundRow, pSubIdx + 1).setValue(now.toISOString());
     } else {
       // Crear nueva fila
       var newRow = [];
@@ -236,8 +236,8 @@ function saveScorerPick(ss, participantId, pickData, now) {
   }
   
   if (foundRow !== -1) {
-    sheetPicks.getCell(foundRow, playerIdx + 1).setValue(playerId);
-    sheetPicks.getCell(foundRow, subIdx + 1).setValue(now.toISOString());
+    sheetPicks.getRange(foundRow, playerIdx + 1).setValue(playerId);
+    sheetPicks.getRange(foundRow, subIdx + 1).setValue(now.toISOString());
   } else {
     var newRow = [];
     headers.forEach(function(header) {
@@ -284,8 +284,8 @@ function saveGoalkeeperPick(ss, participantId, pickData, now) {
   }
   
   if (foundRow !== -1) {
-    sheetPicks.getCell(foundRow, playerIdx + 1).setValue(playerId);
-    sheetPicks.getCell(foundRow, subIdx + 1).setValue(now.toISOString());
+    sheetPicks.getRange(foundRow, playerIdx + 1).setValue(playerId);
+    sheetPicks.getRange(foundRow, subIdx + 1).setValue(now.toISOString());
   } else {
     var newRow = [];
     headers.forEach(function(header) {
@@ -348,8 +348,8 @@ function saveSpecialEventPick(ss, participantId, pickData, now) {
   }
   
   if (foundRow !== -1) {
-    sheetPicks.getCell(foundRow, valueIdx + 1).setValue(pickValue);
-    sheetPicks.getCell(foundRow, subIdx + 1).setValue(now.toISOString());
+    sheetPicks.getRange(foundRow, valueIdx + 1).setValue(pickValue);
+    sheetPicks.getRange(foundRow, subIdx + 1).setValue(now.toISOString());
   } else {
     var newRow = [];
     headers.forEach(function(header) {
@@ -467,7 +467,7 @@ function processDraft(ss, draft) {
   
   // Guardar la nueva contraseña en la pestaña de participantes si es nueva
   if (isNewPassword && userRowIndex !== -1) {
-    sheetParticipants.getCell(userRowIndex, passIdx + 1).setValue(password);
+    sheetParticipants.getRange(userRowIndex, passIdx + 1).setValue(password);
   }
   
   // 2. Guardar pronósticos de partidos (match_predictions)
