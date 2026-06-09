@@ -130,6 +130,7 @@ const App = (() => {
     let bar = document.getElementById("floating-save-bar");
     if (!name || !hasUnsavedChanges(name)) {
       if (bar) bar.classList.remove("prediction-save-bar--visible");
+      document.body.classList.remove("has-save-bar");
       return;
     }
 
@@ -141,13 +142,14 @@ const App = (() => {
     }
 
     bar.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:1200px; margin:0 auto; gap:16px;">
+      <div class="prediction-save-bar__content">
         <span>Tienes cambios sin enviar en tus pronósticos, <strong>${escapeHtml(name)}</strong>.</span>
         <button id="btn-submit-predictions" class="btn btn--primary">🚀 Enviar Pronósticos</button>
       </div>
     `;
     bar.offsetHeight; // Force reflow
     bar.classList.add("prediction-save-bar--visible");
+    document.body.classList.add("has-save-bar");
 
     document.getElementById("btn-submit-predictions").addEventListener("click", () => {
       confirmSubmitPrediction(name);

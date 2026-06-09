@@ -1781,6 +1781,25 @@ input, select, textarea, button {
   }
 }
 
+.prediction-save-bar__content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  gap: var(--space-4);
+}
+
+/* Transición para el reproductor de música al subir/bajar */
+.porra-music-container {
+  transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), right 0.3s ease, transform 0.3s ease !important;
+}
+
+body.has-save-bar .porra-music-container {
+  bottom: 80px; /* Sube la música en escritorio */
+}
+
 /* Searchable Select Styles */
 .searchable-select-wrapper {
   position: relative;
@@ -1801,4 +1820,18 @@ input, select, textarea, button {
 .searchable-select-input:focus {
   border-color: var(--color-green) !important;
   box-shadow: 0 0 0 3px var(--color-green-dim) !important;
+}
+
+@media (max-width: 768px) {
+  .prediction-save-bar__content {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-3);
+  }
+  .prediction-save-bar__content button {
+    width: 100%;
+  }
+  body.has-save-bar .porra-music-container {
+    bottom: 130px; /* Sube la música más en móvil para evitar tapar el botón de guardado apilado */
+  }
 }
