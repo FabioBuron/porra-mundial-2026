@@ -2932,7 +2932,7 @@ const App = (() => {
     initSPA();
 
     const musicScript = document.createElement("script");
-    musicScript.src = "music.js";
+    musicScript.src = "music.js?v=" + Date.now();
     musicScript.onload = () => {
       if (typeof PorraMusic !== "undefined") {
         PorraMusic.init();
