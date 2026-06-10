@@ -18,10 +18,9 @@ const PorraMusic = (() => {
     "guwZDKE-MDM", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
     "2igups6VdcA", // Shakira - La La La (Brazil 2014)
     "ibqyu7bQ4-w", // Jason Derulo - Colors (Coca-Cola 2018)
-    "S0T0-m0q6yM", // ¿Dónde está Curazao? (Línea de Cal)
-    "hUPd426G6z8", // Gianna Nannini - Un'estate italiana (Italia 1990)
-    "V0-vQ48j0yE", // Il Divo - The Time of Our Lives (Alemania 2006)
-    "8p2_8L45xJg"  // Daryl Hall - Gloryland (USA 1994)
+    "IsNSiZg9JzA", // ¿Dónde está Curazao? (Línea de Cal)
+    "DjLQk-c-tJk", // Sergio Mendes - Magalenha (Brasil)
+    "9lyNR0UMVic"  // Daryl Hall - Gloryland (USA 1994)
   ];
 
   const TRACK_DETAILS = {
@@ -34,10 +33,9 @@ const PorraMusic = (() => {
     "guwZDKE-MDM": "Pitbull ft. J.Lo - We Are One",
     "2igups6VdcA": "Shakira - La La La (Brazil 2014)",
     "ibqyu7bQ4-w": "Jason Derulo - Colors",
-    "S0T0-m0q6yM": "¿Dónde está Curazao? (Línea de Cal)",
-    "hUPd426G6z8": "Gianna Nannini - Un'estate italiana",
-    "V0-vQ48j0yE": "Il Divo - The Time of Our Lives",
-    "8p2_8L45xJg": "Daryl Hall - Gloryland"
+    "IsNSiZg9JzA": "¿Dónde está Curazao? (Línea de Cal)",
+    "DjLQk-c-tJk": "Sergio Mendes - Magalenha (Brasil)",
+    "9lyNR0UMVic": "Daryl Hall - Gloryland"
   };
 
   let _player = null;
@@ -615,7 +613,8 @@ const PorraMusic = (() => {
         },
         onStateChange: onPlayerStateChange,
         onError: (e) => {
-          console.error("YouTube Player Error (code " + e.data + "):", e);
+          const failedTrack = _shuffledPlaylist[_currentTrackIndex] || "unknown";
+          console.error("YouTube Player Error (code " + e.data + ") on track: " + failedTrack + " (" + (TRACK_DETAILS[failedTrack] || "") + ")", e);
           _consecutiveErrors++;
           if (_consecutiveErrors < _shuffledPlaylist.length) {
             console.log("YouTube track error, trying to skip to next video...");
