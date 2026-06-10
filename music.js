@@ -2,45 +2,29 @@
 // La Porra del Mundial — Music Player & World Cup Ambient
 // =============================================================================
 // Encapsulates all background music playback, states, and the welcome overlay.
-// Uses YouTube IFrame API via youtube-nocookie.com to stream music ad-free.
+// Uses local static M4A files for high performance and ad-free playback.
 // =============================================================================
 
 const PorraMusic = (() => {
   "use strict";
 
-  const PLAYLIST_IDS = [
-    "YOm6fMOoy_A", // Shakira - Waka Waka (Español)
-    "RzFUy2cqQ6c", // Cali y El Dandee - Gol
-    "w_Wi90rSOCw", // K'NAAN ft. David Bisbal - Wavin' Flag (Español)
-    "czWcyZRAMtk", // Shakira - Waka Waka (English)
-    "o1zAYjyEwdY", // K'NAAN - Wavin' Flag (English)
-    "Q8aL_msltWY", // Ricky Martin - La Copa de la Vida (Español)
-    "guwZDKE-MDM", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
-    "2igups6VdcA", // Shakira - La La La (Brazil 2014)
-    "ibqyu7bQ4-w", // Jason Derulo - Colors (Coca-Cola 2018)
-    "IsNSiZg9JzA", // ¿Dónde está Curazao? (Línea de Cal)
-    "DjLQk-c-tJk", // Sergio Mendes - Magalenha (Brasil)
-    "9lyNR0UMVic"  // Daryl Hall - Gloryland (USA 1994)
+  const PLAYLIST_TRACKS = [
+    { id: "waka_waka_es", title: "Shakira - Waka Waka (Español)" },
+    { id: "gol", title: "Cali y El Dandee - Gol" },
+    { id: "wavin_flag_es", title: "K'NAAN ft. Bisbal - Wavin' Flag" },
+    { id: "waka_waka_en", title: "Shakira - Waka Waka (English)" },
+    { id: "wavin_flag_en", title: "K'NAAN - Wavin' Flag (English)" },
+    { id: "la_copa_de_la_vida", title: "Ricky Martin - La Copa de la Vida" },
+    { id: "we_are_one", title: "Pitbull ft. J.Lo - We Are One" },
+    { id: "la_la_la", title: "Shakira - La La La (Brazil 2014)" },
+    { id: "colors", title: "Jason Derulo - Colors" },
+    { id: "curacao", title: "¿Dónde está Curazao? (Línea de Cal)" },
+    { id: "magalenha", title: "Sergio Mendes - Magalenha (Brasil)" },
+    { id: "gloryland", title: "Daryl Hall - Gloryland" }
   ];
 
-  const TRACK_DETAILS = {
-    "YOm6fMOoy_A": "Shakira - Waka Waka (Español)",
-    "RzFUy2cqQ6c": "Cali y El Dandee - Gol",
-    "w_Wi90rSOCw": "K'NAAN ft. Bisbal - Wavin' Flag",
-    "czWcyZRAMtk": "Shakira - Waka Waka (English)",
-    "o1zAYjyEwdY": "K'NAAN - Wavin' Flag (English)",
-    "Q8aL_msltWY": "Ricky Martin - La Copa de la Vida",
-    "guwZDKE-MDM": "Pitbull ft. J.Lo - We Are One",
-    "2igups6VdcA": "Shakira - La La La (Brazil 2014)",
-    "ibqyu7bQ4-w": "Jason Derulo - Colors",
-    "IsNSiZg9JzA": "¿Dónde está Curazao? (Línea de Cal)",
-    "DjLQk-c-tJk": "Sergio Mendes - Magalenha (Brasil)",
-    "9lyNR0UMVic": "Daryl Hall - Gloryland"
-  };
-
-  let _player = null;
+  let _audio = null;
   let _isMuted = false;
-  let _adMuted = false;
   let _saveInterval = null;
   let _consecutiveErrors = 0;
   let _shuffledPlaylist = [];
@@ -408,25 +392,7 @@ const PorraMusic = (() => {
 
   // Create Player elements
   function createPlayerUI() {
-    // 1. YouTube Hidden Player Iframe (Forced to youtube-nocookie.com)
-    if (!document.getElementById("youtube-audio-player")) {
-      const playerIframe = document.createElement("iframe");
-      playerIframe.id = "youtube-audio-player";
-      const initialVideo = _shuffledPlaylist[_currentTrackIndex] || PLAYLIST_IDS[0];
-      
-      playerIframe.src = "https://www.youtube-nocookie.com/embed/" + initialVideo + "?enablejsapi=1&origin=" + encodeURIComponent(window.location.origin) + "&controls=0&disablekb=1&fs=0&rel=0&modestbranding=1";
-      playerIframe.style.position = "absolute";
-      playerIframe.style.top = "-9999px";
-      playerIframe.style.left = "-9999px";
-      playerIframe.style.width = "200px";
-      playerIframe.style.height = "200px";
-      playerIframe.style.opacity = "0.01";
-      playerIframe.style.pointerEvents = "none";
-      playerIframe.setAttribute("allow", "autoplay; encrypted-media");
-      document.body.appendChild(playerIframe);
-    }
-
-    // 2. Floating Controller Widget
+    // Floating Controller Widget
     if (!document.getElementById("porra-music-container")) {
       const container = document.createElement("div");
       container.id = "porra-music-container";
@@ -468,7 +434,7 @@ const PorraMusic = (() => {
       document.getElementById("music-btn-mute").addEventListener("click", toggleMute);
     }
 
-    // 3. Welcome Screen Overlay
+    // Welcome Screen Overlay
     const introSeen = sessionStorage.getItem("porra_intro_seen");
     if (!introSeen) {
       const overlay = document.createElement("div");
@@ -527,13 +493,10 @@ const PorraMusic = (() => {
 
     if (startMusic) {
       localStorage.setItem("porra_music_playing", "true");
-      if (_player && typeof _player.playVideo === "function") {
-        try {
-          const currentVideo = _shuffledPlaylist[_currentTrackIndex];
-          _player.loadVideoById(currentVideo);
-        } catch (e) {
+      if (_audio) {
+        _audio.play().catch(e => {
           console.error("Error starting music playback:", e);
-        }
+        });
       }
     } else {
       localStorage.setItem("porra_music_playing", "false");
@@ -571,150 +534,107 @@ const PorraMusic = (() => {
     }, 250);
   }
 
-  // Load YouTube Player script
-  function loadYoutubeAPI() {
-    if (window.YT && window.YT.Player) {
-      initPlayer();
-      return;
-    }
-
-    window.onYouTubeIframeAPIReady = () => {
-      initPlayer();
-    };
-
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    const firstScript = document.getElementsByTagName("script")[0];
-    if (firstScript && firstScript.parentNode) {
-      firstScript.parentNode.insertBefore(tag, firstScript);
-    } else {
-      document.head.appendChild(tag);
-    }
-  }
-
-  // Initialize YT.Player targeting pre-existing youtube-nocookie.com iframe
-  function initPlayer() {
+  // Initialize native HTML5 Audio player
+  function initAudioPlayer() {
     const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
-    const savedVideoId = localStorage.getItem("porra_music_track_id");
+    const savedTrackId = localStorage.getItem("porra_music_track_id");
     const savedTime = localStorage.getItem("porra_music_time");
     const savedMute = localStorage.getItem("porra_music_muted") === "true";
 
     _isMuted = savedMute;
 
-    if (savedVideoId) {
-      const idx = _shuffledPlaylist.indexOf(savedVideoId);
+    if (savedTrackId) {
+      const idx = _shuffledPlaylist.findIndex(t => t.id === savedTrackId);
       if (idx !== -1) {
         _currentTrackIndex = idx;
       }
     }
 
-    _player = new YT.Player("youtube-audio-player", {
-      events: {
-        onReady: (event) => {
-          onPlayerReady(event, wasPlaying, savedVideoId, savedTime);
-        },
-        onStateChange: onPlayerStateChange,
-        onError: (e) => {
-          const failedTrack = _shuffledPlaylist[_currentTrackIndex] || "unknown";
-          console.error("YouTube Player Error (code " + e.data + ") on track: " + failedTrack + " (" + (TRACK_DETAILS[failedTrack] || "") + ")", e);
-          _consecutiveErrors++;
-          if (_consecutiveErrors < _shuffledPlaylist.length) {
-            console.log("YouTube track error, trying to skip to next video...");
-            playNext();
-          } else {
-            const trackTitle = document.getElementById("music-track-title");
-            if (trackTitle) {
-              trackTitle.textContent = "Error de carga (adblock?)";
-              trackTitle.title = "Todos los videos han fallado. Desactiva tu adblocker.";
-            }
-          }
-        }
-      }
-    });
-  }
+    _audio = new Audio();
+    window._audio = _audio;
+    _audio.volume = 0.5;
 
-  function onPlayerReady(event, wasPlaying, savedVideoId, savedTime) {
-    const player = event.target;
-    player.setVolume(50);
     if (_isMuted) {
-      player.mute();
+      _audio.muted = true;
       updateMuteUI(true);
     }
 
-    const hasIntroSeen = sessionStorage.getItem("porra_intro_seen") === "true";
-    const activeVideoId = _shuffledPlaylist[_currentTrackIndex];
-    const startTime = savedTime ? parseFloat(savedTime) : 0;
-
-    if (wasPlaying && hasIntroSeen) {
-      player.cueVideoById(activeVideoId, startTime);
-      setTimeout(() => {
-        player.playVideo();
-        setTimeout(() => {
-          const state = player.getPlayerState();
-          if (state !== YT.PlayerState.PLAYING) {
-            showResumeBubble(true);
-          }
-        }, 1000);
-      }, 500);
-    } else {
-      player.cueVideoById(activeVideoId, 0);
+    // Audio events
+    _audio.addEventListener("play", () => {
+      const container = document.getElementById("porra-music-container");
+      const playBtn = document.getElementById("music-btn-play");
+      if (container) container.classList.add("porra-music-container--playing");
+      if (playBtn) {
+        playBtn.textContent = "⏸️";
+        playBtn.title = "Pausar";
+      }
+      localStorage.setItem("porra_music_playing", "true");
+      showResumeBubble(false);
       updateTrackInfo();
-    }
+      _consecutiveErrors = 0;
+    });
+
+    _audio.addEventListener("pause", () => {
+      const container = document.getElementById("porra-music-container");
+      const playBtn = document.getElementById("music-btn-play");
+      if (container) container.classList.remove("porra-music-container--playing");
+      if (playBtn) {
+        playBtn.textContent = "▶️";
+        playBtn.title = "Reproducir";
+      }
+      localStorage.setItem("porra_music_playing", "false");
+    });
+
+    _audio.addEventListener("ended", () => {
+      playNext();
+    });
+
+    _audio.addEventListener("error", (e) => {
+      console.error("Audio playback error on track: " + _shuffledPlaylist[_currentTrackIndex].id, e);
+      _consecutiveErrors++;
+      if (_consecutiveErrors < _shuffledPlaylist.length) {
+        playNext();
+      } else {
+        const trackTitle = document.getElementById("music-track-title");
+        if (trackTitle) {
+          trackTitle.textContent = "Error de reproducción";
+        }
+      }
+    });
+
+    // Load initial track
+    loadTrack(_shuffledPlaylist[_currentTrackIndex], parseFloat(savedTime) || 0, wasPlaying);
 
     startStateSaving();
   }
 
-  function onPlayerStateChange(event) {
-    const container = document.getElementById("porra-music-container");
-    const playBtn = document.getElementById("music-btn-play");
-    if (!container || !playBtn) return;
+  function loadTrack(track, startTime = 0, autoPlay = false) {
+    if (!_audio) return;
+    
+    // Resolve relative path for GitHub Pages or local development
+    const pathPrefix = window.location.pathname.includes("porra-mundial-2026") ? "/porra-mundial-2026/" : "/";
+    _audio.src = pathPrefix + "music/" + track.id + ".m4a";
+    _audio.load();
 
-    switch (event.data) {
-      case YT.PlayerState.PLAYING:
-        container.classList.add("porra-music-container--playing");
-        playBtn.textContent = "⏸️";
-        playBtn.title = "Pausar";
-        localStorage.setItem("porra_music_playing", "true");
-        showResumeBubble(false);
-        updateTrackInfo();
-        _consecutiveErrors = 0;
-        break;
-      case YT.PlayerState.PAUSED:
-      case YT.PlayerState.CUED:
-        container.classList.remove("porra-music-container--playing");
-        playBtn.textContent = "▶️";
-        playBtn.title = "Reproducir";
-        if (event.data === YT.PlayerState.PAUSED) {
-          localStorage.setItem("porra_music_playing", "false");
-        }
-        break;
-      case YT.PlayerState.ENDED:
-        playNext();
-        break;
+    if (startTime > 0) {
+      _audio.currentTime = startTime;
+    }
+
+    updateTrackInfo();
+
+    const hasIntroSeen = sessionStorage.getItem("porra_intro_seen") === "true";
+    if (autoPlay && hasIntroSeen) {
+      _audio.play().catch(() => {
+        showResumeBubble(true);
+      });
     }
   }
 
   function updateTrackInfo() {
-    if (_player && typeof _player.getVideoData === "function") {
-      const data = _player.getVideoData();
-      const trackTitle = document.getElementById("music-track-title");
-      if (trackTitle) {
-        const videoId = data ? data.video_id : null;
-        const localTitle = TRACK_DETAILS[videoId];
-        
-        if (localTitle) {
-          trackTitle.textContent = localTitle;
-        } else if (data && data.title) {
-          let title = data.title;
-          title = title.replace(/\([^)]*\)/g, "").replace(/\[[^\]]*\]/g, "").trim();
-          trackTitle.textContent = title;
-        } else {
-          const defaultTitle = TRACK_DETAILS[_shuffledPlaylist[_currentTrackIndex]];
-          if (defaultTitle) {
-            trackTitle.textContent = defaultTitle;
-          }
-        }
-      }
+    const trackTitle = document.getElementById("music-track-title");
+    if (trackTitle) {
+      const track = _shuffledPlaylist[_currentTrackIndex];
+      trackTitle.textContent = track ? track.title : "Cargando...";
     }
   }
 
@@ -725,8 +645,8 @@ const PorraMusic = (() => {
       bubble.classList.add("porra-music-bubble--visible");
       const resumeHandler = (e) => {
         if (e && e.target.closest("#porra-music-container")) return;
-        if (_player && typeof _player.playVideo === "function") {
-          _player.playVideo();
+        if (_audio && _audio.paused) {
+          _audio.play().catch(() => {});
         }
         bubble.classList.remove("porra-music-bubble--visible");
         window.removeEventListener("click", resumeHandler);
@@ -738,40 +658,35 @@ const PorraMusic = (() => {
   }
 
   function togglePlay() {
-    if (!_player || typeof _player.getPlayerState !== "function") return;
-    const state = _player.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-      _player.pauseVideo();
+    if (!_audio) return;
+    if (_audio.paused) {
+      _audio.play().catch(() => {});
     } else {
-      _player.playVideo();
+      _audio.pause();
     }
   }
 
   function playNext() {
-    if (!_player || typeof _player.loadVideoById !== "function") return;
+    if (!_audio) return;
     _currentTrackIndex = (_currentTrackIndex + 1) % _shuffledPlaylist.length;
-    const nextVideo = _shuffledPlaylist[_currentTrackIndex];
-    _player.loadVideoById(nextVideo);
-    updateTrackInfo();
+    loadTrack(_shuffledPlaylist[_currentTrackIndex], 0, true);
   }
 
   function playPrev() {
-    if (!_player || typeof _player.loadVideoById !== "function") return;
+    if (!_audio) return;
     _currentTrackIndex = (_currentTrackIndex - 1 + _shuffledPlaylist.length) % _shuffledPlaylist.length;
-    const prevVideo = _shuffledPlaylist[_currentTrackIndex];
-    _player.loadVideoById(prevVideo);
-    updateTrackInfo();
+    loadTrack(_shuffledPlaylist[_currentTrackIndex], 0, true);
   }
 
   function toggleMute() {
-    if (!_player || typeof _player.mute !== "function") return;
+    if (!_audio) return;
     if (_isMuted) {
-      _player.unMute();
+      _audio.muted = false;
       _isMuted = false;
       localStorage.setItem("porra_music_muted", "false");
       updateMuteUI(false);
     } else {
-      _player.mute();
+      _audio.muted = true;
       _isMuted = true;
       localStorage.setItem("porra_music_muted", "true");
       updateMuteUI(true);
@@ -790,90 +705,34 @@ const PorraMusic = (() => {
   function startStateSaving() {
     if (_saveInterval) clearInterval(_saveInterval);
     _saveInterval = setInterval(() => {
-      if (_player && typeof _player.getPlayerState === "function") {
-        const state = _player.getPlayerState();
-        
-        // Detección de anuncios mediante API interna
-        const isAdActive = (typeof _player.getAdState === "function" && _player.getAdState() === 1) || 
-                           (typeof _player.isAdPlaying === "function" && _player.isAdPlaying());
+      if (_audio && !_audio.paused) {
+        const time = _audio.currentTime;
+        const currentSecond = Math.floor(time);
 
-        if (state === YT.PlayerState.PLAYING) {
-          let isAd = isAdActive;
-
-          try {
-            const data = _player.getVideoData();
-            const videoId = data ? data.video_id : null;
-
-            // Si hay un video_id reproduciéndose pero no está en nuestra lista, es un anuncio
-            if (videoId && !PLAYLIST_IDS.includes(videoId)) {
-              isAd = true;
-            }
-
-            if (isAd) {
-              const isPlayerMuted = typeof _player.isMuted === "function" && _player.isMuted();
-              if (!_adMuted || !isPlayerMuted) {
-                _player.mute();
-                _adMuted = true;
-                const trackTitle = document.getElementById("music-track-title");
-                if (trackTitle) trackTitle.textContent = "🔇 [Anuncio Silenciado]";
-              }
-              return; // No guardar persistencia de anuncios
-            }
-
-            const time = _player.getCurrentTime();
-            const currentSecond = Math.floor(time);
-            
-            // Optimización: escribir en localStorage solo cuando cambia el segundo
-            if (currentSecond !== _lastSavedSecond) {
-              _lastSavedSecond = currentSecond;
-              if (videoId) {
-                localStorage.setItem("porra_music_track_id", videoId);
-              }
-              localStorage.setItem("porra_music_time", time);
-            }
-
-            // Si estaba silenciado por anuncio, pero ya no hay anuncio (lectura exitosa de canción válida)
-            if (_adMuted) {
-              _adMuted = false;
-              if (!_isMuted) {
-                _player.unMute();
-              }
-              updateTrackInfo();
-            }
-          } catch (e) {
-            // El error Cross-Origin (CORS) ocurre cuando hay un anuncio en curso
-            const isPlayerMuted = typeof _player.isMuted === "function" && _player.isMuted();
-            if (!_adMuted || !isPlayerMuted) {
-              _player.mute();
-              _adMuted = true;
-              const trackTitle = document.getElementById("music-track-title");
-              if (trackTitle) trackTitle.textContent = "🔇 [Anuncio Silenciado]";
-            }
+        if (currentSecond !== _lastSavedSecond) {
+          _lastSavedSecond = currentSecond;
+          const track = _shuffledPlaylist[_currentTrackIndex];
+          if (track) {
+            localStorage.setItem("porra_music_track_id", track.id);
           }
+          localStorage.setItem("porra_music_time", time.toString());
         }
       }
-    }, 200);
+    }, 500);
   }
 
   // Initialize
   function init() {
-    _shuffledPlaylist = shuffleArray(PLAYLIST_IDS);
+    _shuffledPlaylist = shuffleArray(PLAYLIST_TRACKS);
     injectStyles();
     createPlayerUI();
-    loadYoutubeAPI();
+    initAudioPlayer();
 
     const startAudioOnInteraction = (e) => {
       if (e && e.target.closest("#porra-music-container")) return;
       const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
-      if (wasPlaying && _player && typeof _player.playVideo === "function") {
-        try {
-          const state = _player.getPlayerState();
-          if (state !== YT.PlayerState.PLAYING) {
-            _player.playVideo();
-          }
-        } catch (e) {
-          // player might not be fully ready yet
-        }
+      if (wasPlaying && _audio && _audio.paused) {
+        _audio.play().catch(() => {});
       }
       window.removeEventListener("click", startAudioOnInteraction);
       window.removeEventListener("touchstart", startAudioOnInteraction);
