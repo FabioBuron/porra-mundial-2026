@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 /* ==========================================================================
    LA PORRA DEL MUNDIAL — Design System
@@ -1932,5 +1932,897 @@ body.has-save-bar .porra-music-container {
   }
   body.has-save-bar .porra-music-container {
     bottom: 130px; /* Sube la música más en móvil para evitar tapar el botón de guardado apilado */
+  }
+}
+
+
+/* ==========================================================================
+   18. REFINEMENT LAYER — UI pass v2 (componentes nuevos + acabado pro)
+   ========================================================================== */
+
+/* --- Tipografía global más cuidada --- */
+body {
+  font-feature-settings: "ss01" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Navbar: marca con icono SVG y enlaces tipo etiqueta --- */
+.navbar {
+  background: rgba(9, 13, 22, 0.85);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.navbar__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.navbar__logo-icon {
+  color: var(--color-green-light);
+  flex-shrink: 0;
+}
+
+.navbar__logo-year {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--color-green-light);
+  background: var(--color-green-dim);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: var(--radius-pill);
+  padding: 1px 8px;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 768px) {
+  .navbar__link {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--color-text-muted);
+  }
+  .navbar__link:hover {
+    color: var(--color-text);
+  }
+  .navbar__link--active {
+    color: var(--color-green-light);
+    background: var(--color-green-dim);
+  }
+}
+
+/* --- Hero v2 --- */
+.hero h1,
+.hero__title {
+  position: relative;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text);
+}
+
+.hero__eyebrow {
+  position: relative;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-green-light);
+  margin-bottom: var(--space-3);
+}
+
+.hero__meta {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.hero__chip {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-4);
+}
+
+.hero__chip--prize {
+  color: var(--color-gold);
+  background: var(--color-gold-dim);
+  border-color: rgba(245, 158, 11, 0.3);
+  font-weight: 600;
+}
+
+/* --- Próximo partido + cuenta atrás --- */
+.next-match {
+  position: relative;
+  margin: var(--space-6) auto 0;
+  max-width: 420px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: rgba(9, 13, 22, 0.55);
+  border: 1px solid var(--color-border);
+}
+
+.next-match__label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.next-match__teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  font-weight: 700;
+  font-size: var(--font-md);
+  margin-bottom: var(--space-3);
+}
+
+.next-match__team {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.next-match__vs {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.next-match__countdown {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-unit {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+.cd-unit b {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--color-green-light);
+  margin-right: 2px;
+}
+
+.next-match__date {
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+}
+
+/* --- Títulos de tarjeta --- */
+.card-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-4);
+  color: var(--color-text);
+}
+
+/* --- Tabla de clasificación v2 --- */
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-table th {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.leaderboard-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.leaderboard-table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+.leaderboard-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.pos-cell {
+  white-space: nowrap;
+}
+
+.pos-cell__rank {
+  display: inline-block;
+  min-width: 1.8rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.leaderboard-row--pos-1 { border-left: 3px solid var(--color-gold-border); }
+.leaderboard-row--pos-2 { border-left: 3px solid var(--color-silver-border); }
+.leaderboard-row--pos-3 { border-left: 3px solid var(--color-bronze-border); }
+
+.leaderboard-row--lantern {
+  border-left: 3px solid var(--color-red);
+}
+
+.name-cell__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.total-cell strong {
+  font-size: var(--font-md);
+  color: var(--color-green-light);
+}
+
+/* --- Flechas de posición --- */
+.pos-delta {
+  display: inline-block;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  margin-left: var(--space-1);
+  min-width: 1.4rem;
+}
+
+.pos-delta--up   { color: var(--color-green-light); }
+.pos-delta--down { color: var(--color-red); }
+.pos-delta--same { color: var(--color-text-muted); }
+
+/* --- Avatares --- */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--av-bg);
+  color: var(--av-fg);
+  border: 1.5px solid var(--av-ring);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* --- Logros --- */
+.achievements {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: var(--space-1);
+}
+
+.achievement {
+  font-size: var(--font-sm);
+  cursor: help;
+  filter: saturate(0.9);
+}
+
+/* --- Gráfica de evolución --- */
+.chart-wrap {
+  width: 100%;
+}
+
+.evolution-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chart-grid {
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+}
+
+.chart-axis-label {
+  fill: var(--color-text-muted);
+  font-size: 11px;
+  font-family: var(--font-family);
+}
+
+.chart-end-label {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-family);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+}
+
+.chart-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* --- Estadísticas curiosas --- */
+.fun-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-3);
+}
+
+.fun-stat {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.fun-stat__icon {
+  font-size: var(--font-lg);
+  line-height: 1;
+}
+
+.fun-stat__title {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.fun-stat__value {
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.fun-stat__detail {
+  font-size: var(--font-sm);
+  color: var(--color-text-secondary);
+  margin-top: 1px;
+}
+
+/* --- Footer discreto --- */
+.footer p {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+}
+
+/* --- Movimiento reducido --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =============================================================================
+   Sección 19 — Fase 3: Bloqueo visual de jornadas
+   ============================================================================= */
+
+/* --- Banner de estado de jornada (cuenta atrás / candado) --- */
+.round-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  border: 1px solid transparent;
+}
+
+.round-banner__icon {
+  font-size: var(--font-base);
+  flex-shrink: 0;
+}
+
+.round-banner__countdown {
+  display: inline-flex;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Verde: jornada abierta con tiempo */
+.round-banner--green {
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-green) 35%, transparent);
+  color: var(--color-green);
+}
+
+/* Ámbar: menos de 24 h */
+.round-banner--amber {
+  background: color-mix(in srgb, var(--color-gold) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-gold) 35%, transparent);
+  color: var(--color-gold);
+}
+
+/* Rojo: menos de 3 h */
+.round-banner--red {
+  background: color-mix(in srgb, var(--color-red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-red) 35%, transparent);
+  color: var(--color-red);
+  animation: banner-pulse 2s ease-in-out infinite;
+}
+
+@keyframes banner-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.75; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .round-banner--red { animation: none; }
+}
+
+/* Candado: jornada cerrada */
+.round-banner--locked {
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-border) 80%, transparent);
+  color: var(--color-text-secondary);
+}
+
+/* --- Tarjeta de selección bloqueada (goleador/portero cerrado) --- */
+.round-locked-card {
+  border-color: var(--color-border) !important;
+  opacity: 0.85;
+}
+
+.round-locked-card .card-title {
+  color: var(--color-text-secondary);
+}
+
+/* --- Input de pronóstico deshabilitado (no se usa disabled attr, pero por si acaso) --- */
+.prediction-input:disabled,
+.form-select:disabled,
+.form-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* --- Pronóstico de partido cerrado (solo lectura) --- */
+.user-prediction-edit--locked {
+  opacity: 0.7;
+}
+
+.match-card--locked {
+  position: relative;
+  overflow: hidden;
+}
+
+.match-card__lock-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) var(--space-2);
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--color-text-muted) 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+/* --- Badge bloqueado --- */
+.badge--locked {
+  background: color-mix(in srgb, var(--color-text-muted) 20%, transparent);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* ==========================================================================
+   19. Carnaval Mundialero v3
+   ========================================================================== */
+
+:root {
+  --color-bg: #07120c;
+  --color-surface: #0c1f14;
+  --color-surface-alt: #12291b;
+  --color-border: #1d3a28;
+  --color-border-subtle: #173020;
+  --brasil-green: #009739;
+  --brasil-yellow: #ffd700;
+  --brasil-blue: #1a4fa0;
+  --color-green: #22c55e;
+  --color-gold: #f5b81c;
+  --accent-pink: #ff4d8d;
+  --font-display: 'Lilita One', var(--font-family);
+}
+
+body {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(0, 151, 57, 0.14), transparent 38rem),
+    linear-gradient(rgba(255, 215, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 151, 57, 0.045) 1px, transparent 1px);
+}
+
+.navbar {
+  background: rgba(7, 18, 12, 0.94);
+  border-bottom-color: rgba(255, 215, 0, 0.2);
+}
+
+.navbar::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--navbar-height);
+  height: 24px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='72' height='24' viewBox='0 0 72 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h72' stroke='%23ffd700' stroke-width='2'/%3E%3Cpath d='M0 2l12 20L24 2z' fill='%23009739'/%3E%3Cpath d='M24 2l12 20L48 2z' fill='%23ffd700'/%3E%3Cpath d='M48 2l12 20L72 2z' fill='%231a4fa0'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 72px 24px;
+  z-index: 998;
+}
+
+.navbar__logo-icon {
+  transition: transform 0.7s ease;
+}
+
+.navbar__logo:hover .navbar__logo-icon {
+  transform: rotate(360deg);
+}
+
+.main-content {
+  padding-top: calc(var(--navbar-height) + var(--space-10));
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(255, 215, 0, 0.38);
+  background:
+    linear-gradient(135deg, rgba(0, 151, 57, 0.2), transparent 32%),
+    linear-gradient(315deg, rgba(255, 215, 0, 0.16), transparent 26%),
+    radial-gradient(circle at 50% 0%, rgba(26, 79, 160, 0.22), transparent 34rem),
+    linear-gradient(180deg, #0d2917 0%, #07120c 100%);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml,%3Csvg width='72' height='62' viewBox='0 0 72 62' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M18 1h36l18 30-18 30H18L0 31z' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/svg%3E");
+  background-size: 72px 62px;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-left: 8px solid var(--brasil-green);
+  border-right: 8px solid var(--brasil-yellow);
+  pointer-events: none;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero h1,
+.page-title,
+.next-match__countdown,
+.leaderboard-table__pos,
+.pos-cell__rank,
+.match-score {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.hero h1 {
+  text-shadow: 3px 3px 0 var(--brasil-green), 6px 6px 0 rgba(0, 0, 0, 0.35);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.hero__chip--prize {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero__chip--prize::after {
+  content: "";
+  position: absolute;
+  inset: -60% auto -60% -45%;
+  width: 40%;
+  transform: rotate(20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: prizeShine 6s ease-in-out infinite;
+}
+
+.match-score {
+  min-width: 6.25rem;
+  padding: var(--space-2) var(--space-4);
+  color: var(--brasil-yellow);
+  background: linear-gradient(180deg, #031109, #0a1a11);
+  border-color: rgba(255, 215, 0, 0.34);
+  box-shadow: inset 0 0 18px rgba(34, 197, 94, 0.13);
+  font-size: 1.3rem;
+}
+
+.leaderboard-row--pos-1,
+.leaderboard-table tbody tr[data-position="1"] {
+  background: linear-gradient(90deg, rgba(245, 184, 28, 0.24), rgba(12, 31, 20, 0.84));
+}
+
+.leaderboard-row--pos-2,
+.leaderboard-table tbody tr[data-position="2"] {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.18), rgba(12, 31, 20, 0.84));
+}
+
+.leaderboard-row--pos-3,
+.leaderboard-table tbody tr[data-position="3"] {
+  background: linear-gradient(90deg, rgba(205, 127, 50, 0.18), rgba(12, 31, 20, 0.84));
+}
+
+.leaderboard-row--pos-1 .avatar {
+  position: relative;
+  box-shadow: 0 0 0 2px var(--brasil-yellow), 0 0 18px rgba(255, 215, 0, 0.35);
+}
+
+.leaderboard-row--pos-1 .avatar::after {
+  content: "👑";
+  position: absolute;
+  right: -9px;
+  top: -15px;
+  font-size: 15px;
+}
+
+.pos-delta--up {
+  animation: deltaBounce 0.75s ease both;
+}
+
+.footer {
+  overflow: hidden;
+}
+
+.footer::before {
+  content: "🇺🇸 🇲🇽 🇨🇦 🇦🇷 🇧🇷 🇪🇸 🇫🇷 🇩🇪 🇯🇵 🇲🇦 🇵🇹 🇺🇾 🇨🇴 🇧🇪 🇳🇱 🇰🇷 🇸🇳 🇨🇭 🇬🇭 🇦🇺 🇳🇴 🇸🇪 🇹🇷 🇪🇬 🇿🇦 🇮🇷 🇶🇦 🇸🇦 🇹🇳 🇵🇦 🇵🇾 🇨🇱 🇵🇪 🇪🇨 🇨🇷 🇯🇲 🇳🇿 🇨🇲 🇨🇮 🇩🇿 🇬🇧 🇭🇷 🇦🇹 🇩🇰 🇵🇱 🇨🇿 🇺🇿";
+  display: block;
+  white-space: nowrap;
+  font-size: var(--font-lg);
+  margin-bottom: var(--space-3);
+  animation: footerFlags 34s linear infinite;
+}
+
+.footer:hover::before {
+  animation-play-state: paused;
+}
+
+.chart-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chart-wrap--scroll .evolution-chart {
+  min-width: 720px;
+}
+
+.chart-hit-area {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.chart-knockout-band {
+  fill: rgba(255, 215, 0, 0.08);
+}
+
+.chart-series {
+  transition: opacity var(--transition-base);
+}
+
+.chart-series--muted {
+  opacity: 0.5;
+}
+
+.chart-series--active {
+  opacity: 1;
+}
+
+.chart-legend-item {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 3px 8px;
+}
+
+.chart-legend-item--active {
+  border-color: var(--brasil-yellow);
+  color: var(--color-text);
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.insight-card {
+  border-color: rgba(255, 215, 0, 0.18);
+}
+
+.tool-card__header,
+.tool-controls,
+.scenario-summary,
+.h2h-summary,
+.h2h-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tool-card__note {
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+}
+
+.tool-controls {
+  margin: var(--space-4) 0;
+  justify-content: flex-start;
+}
+
+.tool-controls label {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 180px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.scenario-range {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding-top: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+.scenario-range::before,
+.scenario-range::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+.scenario-range::before {
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.scenario-range::after {
+  left: var(--worst);
+  right: calc(100% - var(--best));
+  min-width: 8px;
+  background: linear-gradient(90deg, var(--accent-pink), var(--brasil-yellow), var(--brasil-green));
+}
+
+.scenario-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.scenario-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(120px, 0.8fr);
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: var(--font-sm);
+}
+
+.scenario-row strong {
+  color: var(--brasil-yellow);
+}
+
+.scenario-row--empty {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.h2h-modules {
+  justify-content: flex-start;
+  margin: var(--space-3) 0;
+}
+
+.h2h-modules span {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-sm);
+}
+
+@keyframes prizeShine {
+  0%, 72% { transform: translateX(0) rotate(20deg); opacity: 0; }
+  78% { opacity: 1; }
+  100% { transform: translateX(420%) rotate(20deg); opacity: 0; }
+}
+
+@keyframes deltaBounce {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-5px); }
+  70% { transform: translateY(1px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes footerFlags {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+
+@media (max-width: 640px) {
+  .scenario-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hero__actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer::before,
+  .hero__chip--prize::after,
+  .pos-delta--up,
+  .navbar__logo:hover .navbar__logo-icon {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
   }
 }

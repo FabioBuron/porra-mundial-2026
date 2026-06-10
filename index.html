@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>La Porra del Mundial — Clasificación</title>
   <meta name="description" content="Clasificación general de La Porra del Mundial 2026. Sigue las puntuaciones de los 8 participantes en tiempo real.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230f1626' stroke='%231b8b43' stroke-width='4'/%3E%3Cpath d='M32 18l4.7 3.4-1.8 5.5h-5.8l-1.8-5.5z' fill='%23f1f5f9'/%3E%3Cpath d='M20 30l5.5-1.2 2.6 5.2-3.5 4.6-5.2-2.4z' fill='%23f1f5f9'/%3E%3Cpath d='M44 30l1.6 6.2-5.2 2.4-3.5-4.6 2.6-5.2z' fill='%23f1f5f9'/%3E%3Cpath d='M27 44h10l1.5 5-6.5 3-6.5-3z' fill='%23f1f5f9'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#090d16">
+  <meta property="og:title" content="La Porra del Mundial 2026">
+  <meta property="og:description" content="La porra del Mundial 2026 entre colegas: clasificación, predicciones, goleadores y eventos especiales.">
+  <meta property="og:type" content="website">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,24 +17,24 @@
   <!-- Navbar -->
   <nav class="navbar">
     <div class="navbar__brand">
-      <a href="index.html" class="navbar__logo">🏆 La Porra</a>
+      <a href="index.html" class="navbar__logo"><svg class="navbar__logo-icon" viewBox="0 0 64 64" width="22" height="22" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="5"/><path d="M32 18l4.7 3.4-1.8 5.5h-5.8l-1.8-5.5zM20 30l5.5-1.2 2.6 5.2-3.5 4.6-5.2-2.4zM44 30l1.6 6.2-5.2 2.4-3.5-4.6 2.6-5.2zM27 44h10l1.5 5-6.5 3-6.5-3z" fill="currentColor"/></svg><span>La Porra</span><span class="navbar__logo-year">2026</span></a>
       <button class="navbar__toggle" aria-label="Toggle menu">
         <span></span><span></span><span></span>
       </button>
     </div>
     <div class="navbar__menu">
-      <a href="index.html" class="navbar__link navbar__link--active">📊 Clasificación</a>
-      <a href="partidos.html" class="navbar__link">⚽ Partidos</a>
-      <a href="goleador-portero.html" class="navbar__link">🎯 Goleador/Portero</a>
-      <a href="eventos.html" class="navbar__link">🌟 Eventos</a>
-      <a href="admin.html" class="navbar__link">🔧 Admin</a>
+      <a href="index.html" class="navbar__link navbar__link--active">Clasificación</a>
+      <a href="partidos.html" class="navbar__link">Partidos</a>
+      <a href="goleador-portero.html" class="navbar__link">Goleador / Portero</a>
+      <a href="eventos.html" class="navbar__link">Eventos</a>
+      <a href="admin.html" class="navbar__link">Admin</a>
     </div>
   </nav>
 
   <!-- Loading Overlay -->
   <div id="loading-overlay" class="loading-overlay" style="display:none;">
     <div class="loading-spinner"></div>
-    <p>Loading data...</p>
+    <p>Cargando datos…</p>
   </div>
 
   <!-- Main Content -->
@@ -42,11 +47,12 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <p>La Porra del Mundial 2026 · Made with ⚽ by friends</p>
+    <p>La Porra del Mundial 2026 · Hecho entre colegas</p>
   </footer>
 
   <script src="config.js"></script>
   <script src="scoring.js"></script>
+  <script src="extras.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
