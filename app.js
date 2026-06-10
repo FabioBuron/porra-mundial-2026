@@ -2546,49 +2546,10 @@ const App = (() => {
               <div class="newspaper-coming-soon__stamp">
                 PRÓXIMAMENTE<br>Edición Nº 1 tras la Jornada 1
               </div>
-              <div style="margin-top: 35px; text-align: center; z-index: 5; position: relative;">
-                <button id="btn-simular-periodico-directo" class="btn btn--primary" style="font-family: 'Special Elite', monospace; font-size: 0.95rem; padding: 10px 20px;">
-                  🍷 Simular edición de muestra (Demo)
-                </button>
-              </div>
             </div>
           </div>
         </div>
       `;
-
-      const btnSim = $("#btn-simular-periodico-directo");
-      if (btnSim) {
-        btnSim.addEventListener("click", (e) => {
-          e.preventDefault();
-          const useDemo2 = Math.random() > 0.5;
-          if (useDemo2) {
-            _data.periodico = [
-              { clave: "edicion", valor: "2" },
-              { clave: "fecha", valor: new Date().toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) },
-              { clave: "titular", valor: "¡MANO NEGRA EN EL VAR Y LÁGRIMAS DE CARAJILLO EN EL WHATSAPP!" },
-              { clave: "subtitulo", valor: "La IA de la FIFA le anula un gol de rebote a Carlos y Javi sigue hundido en la miseria táctica como farolillo rojo." },
-              { clave: "cronica", valor: "Señores, lo que estamos viviendo en esta porra ya es de juzgado de guardia. El VAR, ese invento satánico que ha venido a arruinar el fútbol de toda la vida, le anuló anoche un gol de rebote a Carlos que nos habría dado el empate a todos en la porra. Mi cuñado, que es árbitro de regional y de esto sabe latín, me lo dejó bien claro por teléfono: 'Esa jugada en mis tiempos era gol y tarjeta roja al portero por asustar'. Vaya tela, nos están robando en la cara y aquí nadie dice nada. Para habernos matao.\n\nPor otro lado, la clasificación echa chispas por la parte baja de la tabla. El figura de Javi sigue acumulando roscos con una regularidad pasmosa. Va último con paso firme hacia el descenso de barra. Su estrategia de alinear a tres defensas de Curazao y un delantero lesionado de la liga de Andorra está dando los frutos esperados: cero puntos y el cachondeo generalizado en el bar de la esquina mientras nos comemos unas bravas. Javi, haz el favor de quitarte el palillo de la boca cuando hagas los pronósticos y pídele consejo a tu primo el del taller, que seguro que acierta más.\n\nEn fin, la emoción sigue por las nubes en el grupo. Paco sigue arriba del todo con esa flor en el culo que ya empieza a oler a sospecha y Diego va tercero de milagro tras acertar un 4-3 que no se lo cree ni él después de tres tercios de cerveza. Esto es la porra de toda la vida: emoción, sospechas de amaño y discusiones infinitas de sobremesa. ¡Que siga el espectáculo y que rule el cubata!" },
-              { clave: "noticias_secundarias", valor: JSON.stringify([
-                { titular: "DIEGO OFRECE UN JAMÓN POR EL TOKEN DEL ADMIN", resumen: "Los rumores apuntan a que Diego ha intentado sobornar al administrador con un pernil ibérico para validar una predicción fuera de plazo. 'Fue un intento de patrocinio amistoso', se defiende." },
-                { titular: "EL SEAT IBIZA DE LA JORNADA", resumen: "Premio especial al participante con los pronósticos más desastrosos de la semana. Javi se lleva el trofeo y una revisión gratuita del tubo de escape cortesía de Pepe." }
-              ])}
-            ];
-          } else {
-            _data.periodico = [
-              { clave: "edicion", valor: "1" },
-              { clave: "fecha", valor: new Date().toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) },
-              { clave: "titular", valor: "¡PACO COMPRA EL MUNDIAL Y CARLOS PIDE EXPLICACIONES EN EL BAR!" },
-              { clave: "subtitulo", valor: "El líder de la porra se desmarca sospechosamente y Luis (farolillo rojo) afirma que 'el fútbol moderno está corrompido'." },
-              { clave: "cronica", valor: "Señores, lo que vimos ayer en la primera jornada no tiene explicación científica. Paco se ha colocado líder con una flor en el culo de proporciones bíblicas. Que no nos vendan películas: aquí ha habido mano negra. Mi primo el del bar, que de esto sabe un rato largo, me lo confirmó anoche mientras me servía un carajillo templado: 'A Paco le ha soplado los resultados un cuñado que trabaja limpiando la sede de la FIFA'. Vaya tela, para habernos matao.\n\nMientras tanto, la risa de la jornada la protagoniza el figura de Luis, nuestro queridísimo farolillo rojo. Con el agua al cuello y una puntuación que parece el saldo de mi tarjeta después de pasar por la gasolinera. Es un auténtico especialista en fracasos deportivos. Ayer pronosticó un empate entre Curazao y los suplentes de la selección de solteros y casados, y casi le toca volverse a casa pidiendo aventón en la autopista. Cuidao con el figura, que sigue viendo los partidos con el palillo en la boca y dando lecciones tácticas a Carlo Ancelotti.\n\nEl grupo de WhatsApp está que echa chispas y las mofas ya rozan la ilegalidad en varios países de la Unión Europea. Por su parte, Diego va segundo de puro milagro: se le cayó el móvil al váter y al intentar rescatarlo pulsó sin querer tres resultados correctos. Esto es fútbol de verdad, señores, y no las tonterías del VAR. Paco ya está ofreciendo cubatas a cuenta del premio final, pero que no se confíe, que el Mundial es muy largo y la venganza se sirve con hielo en vaso de tubo. ¡A seguir remando!" },
-              { clave: "noticias_secundarias", valor: JSON.stringify([
-                { titular: "¡MOCIÓN DE CENSURA CONTRA EL LÍDER!", resumen: "María y Laura se alían para cambiar la contraseña del administrador alegando 'falta de transparencia en el pesaje del premio'." },
-                { titular: "EL FENÓMENO JAVI: 0 ACIERTOS EN 6 PARTIDOS", resumen: "Los matemáticos estudian el caso de Javi, quien ha logrado fallar todos los resultados exactos y ganadores. 'Ni queriendo se hace', afirman." }
-              ])}
-            ];
-          }
-          renderPeriodico();
-        });
-      }
       return;
     }
 
