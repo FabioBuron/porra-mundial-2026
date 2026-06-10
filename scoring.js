@@ -101,20 +101,14 @@ const Scoring = (() => {
         }
         return 0;
 
-      case "E4": // Favorite's Curse
-        let team = "";
-        let eliminatedIn = "";
+      case "E4": // ¿Qué selección caerá antes?
         if (typeof actualResult === "object" && actualResult !== null) {
-          team = actualResult.team;
-          eliminatedIn = actualResult.eliminated_in;
+          const team = actualResult.team || "";
+          if (pickValue && team && pickValue.trim().toLowerCase() === team.trim().toLowerCase()) return 3;
         } else if (typeof actualResult === "string") {
-          const parts = actualResult.split(":");
-          team = parts[0].trim();
-          eliminatedIn = parts[1] ? parts[1].trim().toLowerCase() : "";
-        }
-        if (pickValue === team) {
-          if (eliminatedIn === "r16" || eliminatedIn === "octavos") return 3;
-          if (eliminatedIn === "qf" || eliminatedIn === "cuartos") return 2;
+          if (actualResult === "annulled" || actualResult === "ANULADO" || actualResult === "none") return 0;
+          const winners = actualResult.split(",").map(s => s.trim().toLowerCase());
+          if (pickValue && winners.includes(pickValue.trim().toLowerCase())) return 3;
         }
         return 0;
 

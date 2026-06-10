@@ -1250,7 +1250,10 @@ function calcularLeaderboardEnBackend(ss, targetRoundKey) {
           if (actualRes) {
             if (evId === "E1" && pickVal === actualRes) p.points += 5;
             else if (evId === "E3" && pickVal === actualRes) p.points += 4;
-            else if (evId === "E4" && pickVal === actualRes) p.points += 3;
+            else if (evId === "E4") {
+              var winners = actualRes.split(",").map(function(s) { return s.trim().toLowerCase(); });
+              if (pickVal && winners.indexOf(pickVal.trim().toLowerCase()) !== -1) p.points += 3;
+            }
             else if (evId === "E5" && pickVal === actualRes) p.points += 5;
             else if (evId === "E6") {
               const pickGoals = parseInt(pickVal, 10);
