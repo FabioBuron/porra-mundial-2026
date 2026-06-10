@@ -2634,18 +2634,47 @@ body {
   overflow: hidden;
 }
 
-.footer::before {
-  content: "🇺🇸 🇲🇽 🇨🇦 🇦🇷 🇧🇷 🇪🇸 🇫🇷 🇩🇪 🇯🇵 🇲🇦 🇵🇹 🇺🇾 🇨🇴 🇧🇪 🇳🇱 🇰🇷 🇸🇳 🇨🇭 🇬🇭 🇦🇺 🇳🇴 🇸🇪 🇹🇷 🇪🇬 🇿🇦 🇮🇷 🇶🇦 🇸🇦 🇹🇳 🇵🇦 🇵🇾 🇨🇱 🇵🇪 🇪🇨 🇨🇷 🇯🇲 🇳🇿 🇨🇲 🇨🇮 🇩🇿 🇬🇧 🇭🇷 🇦🇹 🇩🇰 🇵🇱 🇨🇿 🇺🇿";
-  display: block;
-  white-space: nowrap;
-  font-size: var(--font-lg);
+.footer-ticker {
+  overflow: hidden;
+  width: 100%;
+  padding: var(--space-2) 0;
   margin-bottom: var(--space-3);
-  animation: footerFlags 34s linear infinite;
-  font-family: "Twemoji Country Flags", "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+  position: relative;
+  background: rgba(0, 0, 0, 0.12);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.footer:hover::before {
+.footer-ticker-inner {
+  display: flex;
+  width: max-content;
+  animation: tickerScroll 45s linear infinite;
+}
+
+.footer-ticker:hover .footer-ticker-inner {
   animation-play-state: paused;
+}
+
+.footer-ticker-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.footer-ticker-group img {
+  height: 20px;
+  width: auto;
+  opacity: 0.85;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  display: block;
+}
+
+.footer-ticker-group img:hover {
+  opacity: 1;
+  transform: scale(1.15);
 }
 
 .chart-wrap {
@@ -2813,9 +2842,9 @@ body {
   100% { transform: translateY(0); }
 }
 
-@keyframes footerFlags {
-  from { transform: translateX(100%); }
-  to { transform: translateX(-100%); }
+@keyframes tickerScroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
 }
 
 @media (max-width: 640px) {
@@ -2830,7 +2859,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .footer::before,
+  .footer-ticker-inner,
   .hero__chip--prize::after,
   .pos-delta--up,
   .navbar__logo:hover .navbar__logo-icon {

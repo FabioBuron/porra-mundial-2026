@@ -787,20 +787,88 @@ const App = (() => {
         Timestamp: "2026-06-09 19:30:00",
         Payload: JSON.stringify({
           name: "Carlos",
-          matchPredictions: { m001: { home: 2, away: 1 }, m002: { home: 2, away: 0 }, m003: { home: 3, away: 0 } },
+          password: "demo",
+          matchPredictions: { m001: { home: 2, away: 1 }, m002: { home: 2, away: 0 }, m003: { home: 3, away: 0 }, m004: { home: 2, away: 1 }, m005: { home: 0, away: 1 }, m006: { home: 1, away: 2 } },
           scorerPicks: { group_md1: "pl01" },
           goalkeeperPicks: { group_md1: "pl03" },
-          specialEventPicks: { E1: "Argentina" }
+          specialEventPicks: { E1: "Argentina", E3: "pl03", E4: "Germany", E5: "Mbappé" }
         })
       },
       {
         Timestamp: "2026-06-09 19:31:00",
         Payload: JSON.stringify({
           name: "María",
-          matchPredictions: { m001: { home: 1, away: 1 }, m002: { home: 1, away: 1 }, m003: { home: 1, away: 0 } },
+          password: "demo",
+          matchPredictions: { m001: { home: 1, away: 1 }, m002: { home: 1, away: 1 }, m003: { home: 1, away: 0 }, m004: { home: 1, away: 2 }, m005: { home: 1, away: 1 }, m006: { home: 2, away: 2 } },
           scorerPicks: { group_md1: "pl02" },
           goalkeeperPicks: { group_md1: "pl03" },
-          specialEventPicks: { E1: "France" }
+          specialEventPicks: { E1: "France", E3: "pl03", E4: "Spain", E5: "Haaland" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:32:00",
+        Payload: JSON.stringify({
+          name: "Javi",
+          password: "demo",
+          matchPredictions: { m001: { home: 2, away: 1 }, m002: { home: 1, away: 1 }, m003: { home: 2, away: 0 }, m004: { home: 2, away: 0 }, m005: { home: 1, away: 2 }, m006: { home: 1, away: 1 } },
+          scorerPicks: { group_md1: "pl01" },
+          goalkeeperPicks: { group_md1: "pl04" },
+          specialEventPicks: { E1: "Brazil", E3: "pl04", E4: "Germany", E5: "Mbappé" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:33:00",
+        Payload: JSON.stringify({
+          name: "Laura",
+          password: "demo",
+          matchPredictions: { m001: { home: 3, away: 1 }, m002: { home: 0, away: 2 }, m003: { home: 3, away: 0 }, m004: { home: 1, away: 1 }, m005: { home: 1, away: 0 }, m006: { home: 0, away: 2 } },
+          scorerPicks: { group_md1: "pl02" },
+          goalkeeperPicks: { group_md1: "pl03" },
+          specialEventPicks: { E1: "Spain", E3: "pl03", E4: "France", E5: "Haaland" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:34:00",
+        Payload: JSON.stringify({
+          name: "Pedro",
+          password: "demo",
+          matchPredictions: { m001: { home: 0, away: 1 }, m002: { home: 0, away: 0 }, m003: { home: 2, away: 1 }, m004: { home: 3, away: 1 }, m005: { home: 2, away: 1 }, m006: { home: 1, away: 3 } },
+          scorerPicks: { group_md1: "pl01" },
+          goalkeeperPicks: { group_md1: "pl04" },
+          specialEventPicks: { E1: "England", E3: "pl04", E4: "Italy", E5: "Mbappé" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:35:00",
+        Payload: JSON.stringify({
+          name: "Ana",
+          password: "demo",
+          matchPredictions: { m001: { home: 2, away: 1 }, m002: { home: 1, away: 2 }, m003: { home: 4, away: 1 }, m004: { home: 1, away: 0 }, m005: { home: 1, away: 1 }, m006: { home: 1, away: 2 } },
+          scorerPicks: { group_md1: "pl01" },
+          goalkeeperPicks: { group_md1: "pl03" },
+          specialEventPicks: { E1: "Germany", E3: "pl03", E4: "Portugal", E5: "Mbappé" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:36:00",
+        Payload: JSON.stringify({
+          name: "Diego",
+          password: "demo",
+          matchPredictions: { m001: { home: 2, away: 2 }, m002: { home: 1, away: 1 }, m003: { home: 0, away: 2 }, m004: { home: 2, away: 1 }, m005: { home: 1, away: 2 }, m006: { home: 0, away: 0 } },
+          scorerPicks: { group_md1: "pl02" },
+          goalkeeperPicks: { group_md1: "pl04" },
+          specialEventPicks: { E1: "Portugal", E3: "pl04", E4: "Germany", E5: "Haaland" }
+        })
+      },
+      {
+        Timestamp: "2026-06-09 19:37:00",
+        Payload: JSON.stringify({
+          name: "Lucía",
+          password: "demo",
+          matchPredictions: { m001: { home: 1, away: 0 }, m002: { home: 2, away: 2 }, m003: { home: 3, away: 0 }, m004: { home: 0, away: 0 }, m005: { home: 0, away: 2 }, m006: { home: 1, away: 1 } },
+          scorerPicks: { group_md1: "pl01" },
+          goalkeeperPicks: { group_md1: "pl03" },
+          specialEventPicks: { E1: "Argentina", E3: "pl03", E4: "Spain", E5: "Mbappé" }
         })
       }
     ];
@@ -2818,6 +2886,35 @@ const App = (() => {
     }
   }
 
+  function initFlagsTicker() {
+    const footer = $(".footer");
+    if (!footer) return;
+
+    if (footer.querySelector(".footer-ticker")) return;
+
+    const countries = [
+      "USA", "mexico", "canada", "argentina", "brazil", "spain", "france", "germany", 
+      "japan", "morocco", "portugal", "uruguay", "colombia", "belgium", "netherlands", 
+      "south korea", "senegal", "switzerland", "ghana", "australia", "norway", "sweden", 
+      "turkey", "egypt", "south africa", "iran", "qatar", "saudi arabia", "tunisia", 
+      "panama", "paraguay", "ecuador", "new zealand", "cameroon", "ivory coast", "algeria", 
+      "croatia", "austria", "denmark", "poland", "czech republic", "uzbekistan"
+    ];
+
+    const flagsHtml = countries.map(c => getFlagImgHtml(c)).join("");
+
+    const ticker = document.createElement("div");
+    ticker.className = "footer-ticker";
+    ticker.innerHTML = `
+      <div class="footer-ticker-inner">
+        <div class="footer-ticker-group">${flagsHtml}</div>
+        <div class="footer-ticker-group">${flagsHtml}</div>
+      </div>
+    `;
+
+    footer.insertBefore(ticker, footer.firstChild);
+  }
+
   // ---------------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------------
@@ -2829,6 +2926,7 @@ const App = (() => {
       document.head.appendChild(script);
     }
 
+    initFlagsTicker();
     setActiveNav();
     initMobileMenu();
     initSPA();
