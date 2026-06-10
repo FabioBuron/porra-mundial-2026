@@ -1023,7 +1023,7 @@ const PorraExtras = (() => {
   // ── Gemini call (non-streaming) ───────────────────────────────────────────
   async function callGemini(promptText, apiKey) {
     const key = apiKey || CONFIG.geminiApiKey;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

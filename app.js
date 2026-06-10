@@ -2944,7 +2944,7 @@ const App = (() => {
      */
     async function callGemini(promptText, apiKey) {
       const key = apiKey || CONFIG.geminiApiKey;
-      const modelName = "gemma-4-31b-it";
+      const modelName = "gemini-2.5-flash";
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
 
       const resp = await fetch(url, {
