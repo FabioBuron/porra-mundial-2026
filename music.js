@@ -40,10 +40,12 @@ const PorraMusic = (() => {
 
   let _player = null;
   let _isMuted = false;
+  let _adMuted = false;
   let _saveInterval = null;
   let _consecutiveErrors = 0;
   let _shuffledPlaylist = [];
   let _currentTrackIndex = 0;
+  let _lastSavedSecond = -1;
 
   function shuffleArray(array) {
     const arr = [...array];
@@ -790,21 +792,67 @@ const PorraMusic = (() => {
     _saveInterval = setInterval(() => {
       if (_player && typeof _player.getPlayerState === "function") {
         const state = _player.getPlayerState();
+        
+        // Detección de anuncios mediante API interna
+        const isAdActive = (typeof _player.getAdState === "function" && _player.getAdState() === 1) || 
+                           (typeof _player.isAdPlaying === "function" && _player.isAdPlaying());
+
         if (state === YT.PlayerState.PLAYING) {
+          let isAd = isAdActive;
+
           try {
             const data = _player.getVideoData();
             const videoId = data ? data.video_id : null;
-            const time = _player.getCurrentTime();
-            if (videoId) {
-              localStorage.setItem("porra_music_track_id", videoId);
+
+            // Si hay un video_id reproduciéndose pero no está en nuestra lista, es un anuncio
+            if (videoId && !PLAYLIST_IDS.includes(videoId)) {
+              isAd = true;
             }
-            localStorage.setItem("porra_music_time", time);
+
+            if (isAd) {
+              const isPlayerMuted = typeof _player.isMuted === "function" && _player.isMuted();
+              if (!_adMuted || !isPlayerMuted) {
+                _player.mute();
+                _adMuted = true;
+                const trackTitle = document.getElementById("music-track-title");
+                if (trackTitle) trackTitle.textContent = "🔇 [Anuncio Silenciado]";
+              }
+              return; // No guardar persistencia de anuncios
+            }
+
+            const time = _player.getCurrentTime();
+            const currentSecond = Math.floor(time);
+            
+            // Optimización: escribir en localStorage solo cuando cambia el segundo
+            if (currentSecond !== _lastSavedSecond) {
+              _lastSavedSecond = currentSecond;
+              if (videoId) {
+                localStorage.setItem("porra_music_track_id", videoId);
+              }
+              localStorage.setItem("porra_music_time", time);
+            }
+
+            // Si estaba silenciado por anuncio, pero ya no hay anuncio (lectura exitosa de canción válida)
+            if (_adMuted) {
+              _adMuted = false;
+              if (!_isMuted) {
+                _player.unMute();
+              }
+              updateTrackInfo();
+            }
           } catch (e) {
-            // ignore cross-origin errors
+            // El error Cross-Origin (CORS) ocurre cuando hay un anuncio en curso
+            const isPlayerMuted = typeof _player.isMuted === "function" && _player.isMuted();
+            if (!_adMuted || !isPlayerMuted) {
+              _player.mute();
+              _adMuted = true;
+              const trackTitle = document.getElementById("music-track-title");
+              if (trackTitle) trackTitle.textContent = "🔇 [Anuncio Silenciado]";
+            }
           }
         }
       }
-    }, 1500);
+    }, 200);
   }
 
   // Initialize
