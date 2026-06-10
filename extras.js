@@ -521,6 +521,98 @@ const PorraExtras = (() => {
     `;
   }
 
+  function evolutionPositionChartHtml(model, activeParticipantId) {
+    if (!model || model.rounds.length === 0 || model.series.length === 0) return "";
+
+    const N = model.series.length;
+    const W = 720, H = 300;
+    const PAD = { top: 20, right: 16, bottom: 34, left: 36 };
+    const innerW = W - PAD.left - PAD.right;
+    const innerH = H - PAD.top - PAD.bottom;
+
+    const xCount = model.rounds.length + 1;
+    const xPos = i => PAD.left + (xCount === 1 ? innerW / 2 : (innerW * i) / (xCount - 1));
+    const yPos = p => PAD.top + ((p - 1) / (N - 1)) * innerH;
+
+    let gridLines = "";
+    for (let p = 1; p <= N; p++) {
+      const y = yPos(p);
+      gridLines += `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}" class="chart-grid"/>` +
+        `<text x="${PAD.left - 8}" y="${y + 4}" class="chart-axis-label" text-anchor="end">${p}º</text>`;
+    }
+
+    const xLabels = ["Inicio", ...model.labels].map((lbl, i) => {
+      const short = lbl.replace("Jornada ", "J").replace("Octavos de Final", "Octavos").replace("Cuartos de Final", "Cuartos").replace("Ronda de 32", "R32").replace("Tercer Puesto", "3o");
+      return `<text x="${xPos(i)}" y="${H - 10}" class="chart-axis-label" text-anchor="middle">${esc(short)}</text>`;
+    }).join("");
+
+    const historyPositions = {};
+    model.series.forEach(s => { historyPositions[s.id] = []; });
+
+    for (let i = 0; i < xCount; i++) {
+      const standings = model.series.map(s => {
+        const pts = i === 0 ? 0 : s.cum[i - 1];
+        return { id: s.id, name: s.name, pts };
+      });
+      standings.sort((a, b) => (b.pts - a.pts) || a.name.localeCompare(b.name));
+      standings.forEach((entry, rank) => {
+        historyPositions[entry.id].push(rank + 1);
+      });
+    }
+
+    const selectedId = activeParticipantId || null;
+    const knockoutIdx = model.rounds.findIndex(r => !String(r).startsWith("group_md"));
+    const knockoutBand = knockoutIdx >= 0
+      ? `<rect x="${Math.max(PAD.left, xPos(knockoutIdx + 1) - 8).toFixed(1)}" y="${PAD.top}" width="16" height="${innerH}" class="chart-knockout-band"><title>Inicio de eliminatorias</title></rect>`
+      : "";
+
+    const lines = [...model.series]
+      .sort((a, b) => {
+        const lastA = historyPositions[a.id][historyPositions[a.id].length - 1];
+        const lastB = historyPositions[b.id][historyPositions[b.id].length - 1];
+        return lastB - lastA;
+      })
+      .map(s => {
+        const c = avatarColor(s.name);
+        const positions = historyPositions[s.id];
+        const path = positions.map((pos, i) => `${i === 0 ? "M" : "L"}${xPos(i).toFixed(1)},${yPos(pos).toFixed(1)}`).join(" ");
+        const isActive = selectedId && s.id === selectedId;
+        const dots = positions.map((pos, i) => {
+          const label = `${s.name} - ${i === 0 ? "Inicio" : model.labels[i - 1]}: Posicion ${pos}º`;
+          const cx = xPos(i).toFixed(1);
+          const cy = yPos(pos).toFixed(1);
+          return `<g class="chart-point"><circle cx="${cx}" cy="${cy}" r="10" class="chart-hit-area"><title>${esc(label)}</title></circle><circle cx="${cx}" cy="${cy}" r="${isActive ? "4.8" : "3.5"}" fill="${c.ring}"><title>${esc(label)}</title></circle></g>`;
+        }).join("");
+        const last = positions[positions.length - 1];
+        const endLabel = `<text x="${(xPos(positions.length - 1) + 6).toFixed(1)}" y="${(yPos(last) + 4).toFixed(1)}" class="chart-end-label" fill="${c.ring}">${last}º</text>`;
+        return `<g class="chart-series ${isActive ? "chart-series--active" : selectedId ? "chart-series--muted" : ""}" data-series-id="${esc(s.id)}"><path d="${path}" fill="none" stroke="${c.ring}" stroke-width="${isActive ? "4" : "2.5"}" stroke-linejoin="round" stroke-linecap="round"/>${dots}${endLabel}</g>`;
+      }).join("");
+
+    const legend = [...model.series]
+      .sort((a, b) => {
+        const lastA = historyPositions[a.id][historyPositions[a.id].length - 1];
+        const lastB = historyPositions[b.id][historyPositions[b.id].length - 1];
+        return lastA - lastB;
+      })
+      .map(s => {
+        const c = avatarColor(s.name);
+        const activeClass = selectedId && s.id === selectedId ? " chart-legend-item--active" : "";
+        return `<button type="button" class="chart-legend-item${activeClass}" data-chart-focus="${esc(s.id)}"><span class="chart-legend-swatch" style="background:${c.ring}"></span>${esc(s.name)}</button>`;
+      }).join("");
+
+    return `
+      <div class="chart-wrap ${model.rounds.length > 5 ? "chart-wrap--scroll" : ""}">
+        <svg viewBox="0 0 ${W} ${H}" class="evolution-chart" role="img" aria-label="Evolucion de posiciones por jornada">
+          ${knockoutBand}
+          ${gridLines}
+          ${xLabels}
+          ${lines}
+        </svg>
+        <div class="chart-legend">${legend}</div>
+      </div>
+    `;
+  }
+
   function icsDate(isoTime) {
     const d = new Date(isoTime);
     if (isNaN(d.getTime())) return "";
@@ -752,6 +844,7 @@ const PorraExtras = (() => {
     computePositionDeltas,
     deltaBadgeHtml,
     evolutionChartHtml: evolutionChartHtmlV2,
+    evolutionPositionChartHtml,
     computeFunStats,
     funStatsHtml,
     computeAchievements,
