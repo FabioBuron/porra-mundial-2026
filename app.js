@@ -1890,8 +1890,17 @@ const App = (() => {
   }
 
   function renderEventInput(ev, draftValue) {
-    if (ev.id === "E1" || ev.id === "E4") {
+    if (ev.id === "E1") {
       const teams = [...new Set(_data.players.map(p => p.team))].sort();
+      return `
+        <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
+          <option value="">-- Seleccionar Selección --</option>
+          ${teams.map(t => `<option value="${t}" ${t === draftValue ? "selected" : ""}>${getFlagEmoji(t)} ${escapeHtml(t)}</option>`).join("")}
+        </select>
+      `;
+    }
+    if (ev.id === "E4") {
+      const teams = (CONFIG.top8Teams || []).slice().sort();
       return `
         <select class="form-select event-input" data-event-id="${ev.id}" style="width:100%;">
           <option value="">-- Seleccionar Selección --</option>
