@@ -418,7 +418,7 @@ function updateScorers() {
 
     if (!apiEntry) continue; // jugador no en ranking de goleadores aún → 0 goles (no sobreescribir)
 
-    const totalGoals = Number(apiEntry.goals && apiEntry.goals.scored) || 0;
+    const totalGoals = Number(apiEntry.goals && typeof apiEntry.goals === 'object' ? apiEntry.goals.scored : apiEntry.goals) || 0;
     const playerApiName = apiEntry.player.name;
 
     // Goles de esta jornada = acumulado − snapshot jornada anterior
@@ -462,7 +462,7 @@ function closeRound(roundKey) {
   const snapRows = apiScorers.map(sc => [
     roundKey,
     sc.player ? sc.player.name : "",
-    (sc.goals && sc.goals.scored) ? sc.goals.scored : 0,
+    Number(sc.goals && typeof sc.goals === 'object' ? sc.goals.scored : sc.goals) || 0,
     takenAt
   ]);
 
