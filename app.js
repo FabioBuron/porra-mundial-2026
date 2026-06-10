@@ -25,6 +25,7 @@ const App = (() => {
 
   let _loaded = false;
   let _currentRound = "group_md1";
+  let _leaderboardRound = "global";
   let _submissionsMap = {}; // name (lowercase) -> latest submission payload
   let _chartFocusParticipantId = null;
 
@@ -1397,16 +1398,46 @@ const App = (() => {
   // View: Leaderboard (index.html)
   // ---------------------------------------------------------------------------
 
+  function buildLeaderboardRoundSelector() {
+    const rounds = Object.entries(CONFIG.roundLabels);
+    return `
+      <div class="round-selector leaderboard-round-selector" style="margin-bottom: var(--space-4); display: flex; overflow-x: auto; gap: var(--space-2); padding-bottom: var(--space-2);">
+        <button class="round-selector__item leaderboard-round-btn ${_leaderboardRound === "global" ? "round-selector__item--active" : ""}" data-round="global" style="flex-shrink: 0;">
+          General
+        </button>
+        ${rounds.map(([key, label]) => `
+          <button class="round-selector__item leaderboard-round-btn ${key === _leaderboardRound ? "round-selector__item--active" : ""}" data-round="${key}" style="flex-shrink: 0;">
+            ${label}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function renderLeaderboard() {
     const container = $("#app-content");
     if (!container) return;
 
+    let matchPreds = _data.matchPredictions;
+    let scorerPicks = _data.scorerPicks;
+    let gkPicks = _data.goalkeeperPicks;
+    let specialPicks = _data.specialEventPicks;
+
+    if (_leaderboardRound !== "global") {
+      const roundMatches = getMatchesByRound(_leaderboardRound);
+      const roundMatchIds = new Set(roundMatches.map(m => m.id));
+      matchPreds = _data.matchPredictions.filter(mp => roundMatchIds.has(mp.match_id));
+      scorerPicks = _data.scorerPicks.filter(sp => sp.round_key === _leaderboardRound);
+      gkPicks = _data.goalkeeperPicks.filter(gp => gp.round_key === _leaderboardRound);
+      specialPicks = [];
+    }
+
     const board = Scoring.buildLeaderboard(
       _data.participants,
-      _data.matchPredictions,
-      _data.scorerPicks,
-      _data.goalkeeperPicks,
-      _data.specialEventPicks
+      matchPreds,
+      scorerPicks,
+      gkPicks,
+      specialPicks
     );
 
     const posEmoji = (pos) => {
@@ -1423,7 +1454,6 @@ const App = (() => {
     const evoModel = PorraExtras.computeRoundTotals(_data);
     const deltas = PorraExtras.computePositionDeltas(evoModel);
     const achievements = PorraExtras.computeAchievements(_data);
-    const chartHtml = PorraExtras.evolutionChartHtml(evoModel, _chartFocusParticipantId);
     const statsHtml = PorraExtras.funStatsHtml(_data);
     const hasDeltas = Object.keys(deltas).length > 0;
     const lastPos = Math.max(...board.map(p => p.position));
@@ -1459,8 +1489,13 @@ const App = (() => {
         ${countdownHtml}
         ${renderReminderControls(reminderEvents)}
       </div>
+
+      <div class="leaderboard-selector-container fade-in">
+        ${buildLeaderboardRoundSelector()}
+      </div>
+
       <div class="card fade-in">
-        <h2 class="card-title">Clasificación general</h2>
+        <h2 class="card-title">${_leaderboardRound === "global" ? "Clasificación general" : `Clasificación: ${CONFIG.roundLabels[_leaderboardRound] || _leaderboardRound}`}</h2>
         <div class="table-container">
           <table class="leaderboard-table">
             <thead>
@@ -1479,17 +1514,17 @@ const App = (() => {
               ${board.map((p) => {
                 const isLantern = someonePlayed && p.position === lastPos && lastPos > 3;
                 return `
-                <tr class="leaderboard-row leaderboard-row--pos-${p.position} ${isLantern ? "leaderboard-row--lantern" : ""}">
+                <tr class="leaderboard-row leaderboard-row--pos-${p.position} ${(_leaderboardRound === "global" && isLantern) ? "leaderboard-row--lantern" : ""}">
                   <td class="pos-cell">
                     <span class="pos-cell__rank">${posEmoji(p.position)}</span>
-                    ${hasDeltas ? PorraExtras.deltaBadgeHtml(deltas[p.id]) : ""}
+                    ${(_leaderboardRound === "global" && hasDeltas) ? PorraExtras.deltaBadgeHtml(deltas[p.id]) : ""}
                   </td>
                   <td class="name-cell">
                     <span class="name-cell__inner">
                       ${PorraExtras.avatarHtml(p.name, 30)}
                       <span class="name-cell__name">${escapeHtml(p.name)}</span>
-                      ${isLantern ? '<span class="achievement" title="Farolillo rojo: último clasificado">🏮</span>' : ""}
-                      ${PorraExtras.achievementsHtml(achievements[p.id])}
+                      ${(_leaderboardRound === "global" && isLantern) ? '<span class="achievement" title="Farolillo rojo: último clasificado">🏮</span>' : ""}
+                      ${_leaderboardRound === "global" ? PorraExtras.achievementsHtml(achievements[p.id]) : ""}
                     </span>
                   </td>
                   <td class="total-cell"><strong>${p.totalPoints}</strong></td>
@@ -1506,7 +1541,7 @@ const App = (() => {
         </div>
       </div>
 
-      ${statsHtml ? `
+      ${(_leaderboardRound === "global" && statsHtml) ? `
       <div class="card fade-in mt-2">
         <h2 class="card-title">El dato</h2>
         ${statsHtml}
@@ -1565,6 +1600,14 @@ const App = (() => {
 
     container.innerHTML = html;
 
+    // Adjuntar los event listeners para el selector de rondas del leaderboard
+    container.querySelectorAll(".leaderboard-round-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        _leaderboardRound = btn.dataset.round;
+        renderLeaderboard();
+      });
+    });
+
     // Cuenta atrás del próximo partido
     if (nextMatch) {
       PorraExtras.startCountdown("next-match-countdown", nextMatch.kickoff_utc);
@@ -1589,7 +1632,7 @@ const App = (() => {
     attachLeaderboardTools(reminderEvents);
 
     const leader = leaderParticipant(board);
-    if (leader && someonePlayed) {
+    if (leader && someonePlayed && _leaderboardRound === "global") {
       const lastLeader = localStorage.getItem("porra_last_leader");
       if (lastLeader && lastLeader !== leader.id) {
         launchBrazilianCelebration();
