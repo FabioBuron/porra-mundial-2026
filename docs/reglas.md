@@ -94,11 +94,11 @@ Los eventos especiales son **apuestas únicas** que se abren en momentos concret
 
 ---
 
-#### E4 — La Maldición del Favorito 😈
-**Antes de octavos de final:** Elige una selección entre las 4 mejor clasificadas de la fase de grupos. Si esa selección es eliminada en octavos o cuartos, ganas puntos.
-- **+3 pts** si tu selección elegida cae en octavos.
-- **+2 pts** si cae en cuartos.
-- **0 pts** si llega a semis o más.
+#### E4 — ¿Qué selección caerá antes? 😈
+**Antes del inicio del mundial (jornada 1):** Elige qué selección del Top 8 FIFA caerá antes en el torneo (se elimina antes).
+- **+3 pts** si tu selección elegida cae en octavos de final.
+- **+2 pts** si cae en cuartos de final.
+- **0 pts** si llega a semifinales o más.
 
 ---
 

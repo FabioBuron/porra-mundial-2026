@@ -155,7 +155,7 @@ E3 (Portero Héroe):
   sino → 0 pts
   si no hubo penaltis en la ronda → evento anulado, 0 pts para todos
 
-E4 (Maldición del Favorito):
+E4 (¿Qué selección caerá antes?):
   si la selección elegida fue eliminada en octavos → 3 pts
   si eliminada en cuartos → 2 pts
   sino → 0 pts
