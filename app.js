@@ -2504,6 +2504,26 @@ const App = (() => {
           points: item.totalPoints
         }));
 
+        // Calcular la clasificación SOLO de esta jornada para enviarla a Gemini
+        const roundMatches = getMatchesByRound(round);
+        const roundMatchIds = new Set(roundMatches.map(m => m.id));
+        const roundMatchPreds = _data.matchPredictions.filter(mp => roundMatchIds.has(mp.match_id));
+        const roundScorerPicks = _data.scorerPicks.filter(sp => sp.round_key === round);
+        const roundGkPicks = _data.goalkeeperPicks.filter(gp => gp.round_key === round);
+
+        const roundBoard = Scoring.buildLeaderboard(
+          _data.participants,
+          roundMatchPreds,
+          roundScorerPicks,
+          roundGkPicks,
+          [] // Sin eventos especiales por jornada individual
+        );
+
+        const leaderboardJornadaData = roundBoard.map(item => ({
+          name: item.name,
+          points: item.totalPoints
+        }));
+
         // Recuperar la password que se usó al hacer login
         const password = sessionStorage.getItem("admin_password") || "";
 
@@ -2515,6 +2535,7 @@ const App = (() => {
             action: "generarCronica",
             round: round,
             leaderboard: leaderboardData,
+            leaderboardJornada: leaderboardJornadaData,
             password: password
           })
         });

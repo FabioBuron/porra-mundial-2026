@@ -69,7 +69,7 @@ function processSaveRequest(payload) {
     if (payload.password !== adminPass) {
       throw new Error("Contraseña de administrador incorrecta.");
     }
-    return generarCronicaConGemini(payload.round, payload.leaderboard);
+    return generarCronicaConGemini(payload.round, payload.leaderboard, payload.leaderboardJornada);
   }
   
   // Si es un borrador completo (tiene propiedad 'name' y no tiene 'type' o su 'type' es 'draft')
@@ -739,6 +739,20 @@ function setupSpreadsheet() {
 function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  const roundLabels = {
+    group_md1: "Jornada 1",
+    group_md2: "Jornada 2",
+    group_md3: "Jornada 3",
+    r32: "Ronda de 32",
+    r16: "Octavos de Final",
+    qf: "Cuartos de Final",
+    sf: "Semifinales",
+    "3rd": "Tercer Puesto",
+    final: "Final"
+  };
+
+  const labelEdicion = roundLabels[round] || round;
+
   if (!leaderboardGlobal) {
     leaderboardGlobal = calcularLeaderboardEnBackend(ss);
   }
@@ -750,7 +764,7 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
   
   const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre una jornada de 'La Porra del Mundial 2026' basandote en el rendimiento de los participantes en esta jornada especifica y en la clasificacion general global.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo.\n3. Lanza comentarios ironicos sobre el lider general del torneo (insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados) y elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n  \"noticias_secundarias\": [\n    {\n      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n      \"resumen\": \"Texto corto, ironico y directo sobre esta noticia secundaria.\"\n    },\n    {\n      \"titular\": \"OTRO TITULO SECUNDARIO\",\n      \"resumen\": \"Otro chisme gracioso sobre otro participante.\"\n    }\n  ]\n}";
 
-  const promptUsuario = "Jornada finalizada: " + round + "\n\n" +
+  const promptUsuario = "Jornada finalizada: " + labelEdicion + "\n\n" +
     "Puntos conseguidos SOLO en esta jornada (Rendimiento de la jornada):\n" + 
     leaderboardJornada.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
     "\n\nClasificacion General Global (Acumulado de todo el torneo):\n" +
@@ -798,20 +812,6 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     var cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     data = JSON.parse(cleanText);
   }
-
-  const roundLabels = {
-    group_md1: "Jornada 1",
-    group_md2: "Jornada 2",
-    group_md3: "Jornada 3",
-    r32: "Ronda de 32",
-    r16: "Octavos de Final",
-    qf: "Cuartos de Final",
-    sf: "Semifinales",
-    "3rd": "Tercer Puesto",
-    final: "Final"
-  };
-
-  const labelEdicion = roundLabels[round] || round;
   
   guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias);
 

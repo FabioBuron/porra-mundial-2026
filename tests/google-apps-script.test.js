@@ -132,6 +132,55 @@ class MockSpreadsheet {
 
 const mockSS = new MockSpreadsheet();
 
+let lastUrlFetchUrl = null;
+let lastUrlFetchPayload = null;
+
+const mockUrlFetch = {
+  fetch(url, options) {
+    lastUrlFetchUrl = url;
+    if (options && options.payload) {
+      lastUrlFetchPayload = JSON.parse(options.payload);
+    }
+    
+    const responseData = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({
+                  titular: "CARLOS REINA EN LA JORNADA",
+                  subtitulo: "Javi y Maria andan llorando.",
+                  cronica: "Carlos ha destrozado a todos en esta jornada.\n\nEn la general sigue liderando.",
+                  noticias_secundarias: [
+                    { titular: "LLUVIA DE PALILLOS", resumen: "Se agotan los palillos en los bares." }
+                  ]
+                })
+              }
+            ]
+          }
+        }
+      ]
+    };
+    
+    return {
+      getResponseCode() { return 200; },
+      getContentText() { return JSON.stringify(responseData); }
+    };
+  }
+};
+
+const mockProperties = {
+  getScriptProperties() {
+    return {
+      getProperty(key) {
+        if (key === "GEMINI_API_KEY") return "test-api-key";
+        return null;
+      }
+    };
+  }
+};
+
 const context = {
   console,
   Math,
@@ -141,11 +190,13 @@ const context = {
   isNaN,
   Array,
   Logger: {
-    log(msg) { /* Silenciar logs de consola en tests o habilitar si se desea depurar */ }
+    log(msg) { /* console.log("[Logger]", msg); */ }
   },
   SpreadsheetApp: {
     getActiveSpreadsheet() { return mockSS; }
   },
+  PropertiesService: mockProperties,
+  UrlFetchApp: mockUrlFetch,
   ContentService: {
     MimeType: { JSON: "JSON", TEXT: "TEXT" },
     createTextOutput(content) {
@@ -406,5 +457,85 @@ const postResultError = context.doPost(mockPostEventWrongPass);
 const parsedPostError = JSON.parse(postResultError.getContent());
 assert.equal(parsedPostError.success, false);
 assert.match(parsedPostError.error, /Contraseña incorrecta para el participante/);
+
+// 8. Test generarCronicaConGemini (Simulación real con rendimiento de jornada y general)
+// -----------------------------------------------------------------------------
+console.log("Iniciando pruebas de generarCronicaConGemini con IA...");
+
+// Limpiamos las variables de rastreo
+lastUrlFetchUrl = null;
+lastUrlFetchPayload = null;
+
+// Ejecutar la generación de la crónica para group_md1
+const resultCronica = context.generarCronicaConGemini("group_md1");
+assert.equal(resultCronica, "Cronica de IA generada y guardada con exito para Jornada 1");
+
+// Verificar que se hizo fetch a la URL correcta de Gemini con la API Key mockeada
+assert.ok(lastUrlFetchUrl);
+assert.match(lastUrlFetchUrl, /models\/gemini-2.5-flash:generateContent\?key=test-api-key/);
+
+// Verificar el contenido del prompt enviado a Gemini
+assert.ok(lastUrlFetchPayload);
+const promptText = lastUrlFetchPayload.contents[0].parts[0].text;
+assert.match(promptText, /Puntos conseguidos SOLO en esta jornada/);
+assert.match(promptText, /Clasificacion General Global/);
+
+// Verificar que se guardó correctamente en la hoja 'periodico'
+const periodicoSheet = mockSS.getSheetByName("periodico");
+assert.ok(periodicoSheet);
+const periodicoValues = periodicoSheet.getDataRange().getValues();
+
+// Estructura clave-valor en periodico:
+// fila 0: ["clave", "valor"]
+// fila 1: ["titular", "CARLOS REINA EN LA JORNADA"]
+// fila 2: ["subtitulo", "Javi y Maria andan llorando."]
+// fila 3: ["fecha", ...]
+// fila 4: ["edicion", "Jornada 1"]
+// fila 5: ["cronica", "Carlos ha destrozado a todos en esta jornada.\n\nEn la general sigue liderando."]
+// fila 6: ["noticias_secundarias", "[{\"titular\":\"LLUVIA DE PALILLOS\",\"resumen\":\"Se agotan los palillos en los bares.\"}]"]
+assert.equal(periodicoValues[1][0], "titular");
+assert.equal(periodicoValues[1][1], "CARLOS REINA EN LA JORNADA");
+assert.equal(periodicoValues[2][0], "subtitulo");
+assert.equal(periodicoValues[2][1], "Javi y Maria andan llorando.");
+assert.equal(periodicoValues[4][0], "edicion");
+assert.equal(periodicoValues[4][1], "Jornada 1");
+assert.equal(periodicoValues[5][0], "cronica");
+assert.match(periodicoValues[5][1], /Carlos ha destrozado a todos/);
+
+// Test doPost con action "generarCronica" y pasando leaderboards explícitamente
+console.log("Iniciando pruebas de doPost con action generarCronica...");
+lastUrlFetchUrl = null;
+lastUrlFetchPayload = null;
+
+const mockPostEventCronica = {
+  postData: {
+    contents: JSON.stringify({
+      action: "generarCronica",
+      round: "group_md2",
+      leaderboard: [
+        { name: "Pepe", points: 25 },
+        { name: "Juan", points: 20 }
+      ],
+      leaderboardJornada: [
+        { name: "Juan", points: 10 },
+        { name: "Pepe", points: 5 }
+      ],
+      password: "CAMBIAR_ESTO"
+    })
+  }
+};
+
+const postCronicaResult = context.doPost(mockPostEventCronica);
+const parsedPostCronicaResult = JSON.parse(postCronicaResult.getContent());
+assert.equal(parsedPostCronicaResult.success, true);
+
+// Verificar el contenido del prompt enviado a Gemini para el doPost
+assert.ok(lastUrlFetchPayload);
+const promptTextPost = lastUrlFetchPayload.contents[0].parts[0].text;
+assert.match(promptTextPost, /1. Juan: 10 puntos/); // Rendimiento de la jornada
+assert.match(promptTextPost, /1. Pepe: 25 puntos/); // Clasificación General Global
+assert.match(promptTextPost, /Jornada finalizada: Jornada 2/);
+
+console.log("Pruebas de generarCronicaConGemini: OK");
 
 console.log("google-apps-script.test.js: OK");
