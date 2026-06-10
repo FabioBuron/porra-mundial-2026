@@ -13,6 +13,7 @@ const CONFIG = {
   entryFee: 5,
   prize: "Todo al ganador (40€)",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbx1X1swWN1Gz4Whtv9apiJiElNzEsyunVc2HHCycL3oPUhHN-m5U6KS_U2oQmPfoD0Q/exec",
+  top8Teams: ["Argentina", "France", "Belgium", "Brazil", "England", "Portugal", "Netherlands", "Spain"],
 
   googleSheets: {
     participants:   "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=participants",
