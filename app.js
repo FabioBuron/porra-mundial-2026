@@ -2762,6 +2762,324 @@ const App = (() => {
   }
 
   // ---------------------------------------------------------------------------
+  // View: El Oráculo del Cuñao (oraculo.html)
+  // ---------------------------------------------------------------------------
+
+  function renderOraculo() {
+    const container = $("#app-content");
+    if (!container) return;
+
+    const chatHistory = []; // { role: "user"|"oracle", text: string }
+
+    container.innerHTML = `
+      <div style="max-width:720px; margin:0 auto; padding: 0 0 2rem;">
+        <div class="fade-in" style="text-align:center; padding: 2rem 1rem 1.5rem;">
+          <div style="font-size:4rem; margin-bottom:0.5rem;">🧙‍♂️</div>
+          <h1 class="page-title" style="margin-bottom:0.25rem;">El Oráculo del Cuñao</h1>
+          <p class="text-muted" style="font-size:var(--font-sm);">
+            Consultor futbolístico de barra. Sabe un rato de esto. Alimentado por <strong>Gemma 4 31B</strong>.
+          </p>
+        </div>
+
+        <div id="oraculo-chat-box" style="
+          background: var(--color-surface);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          min-height: 320px;
+          max-height: 520px;
+          overflow-y: auto;
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        ">
+          <div class="oraculo-msg oraculo-msg--oracle">
+            <span class="oraculo-avatar">🧙‍♂️</span>
+            <div class="oraculo-bubble oraculo-bubble--oracle">
+              Buenas, buenas. El Oráculo de la Barra al aparato. Pregunta lo que quieras sobre fútbol, que de esto sé un rato. Y si no sé, me lo invento con mucha convicción, que para eso tengo palillo en la boca y veinte años viendo el fútbol en el bar del Paco.
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+          <textarea
+            id="oraculo-input"
+            class="form-select"
+            placeholder="Pregúntale algo al Oráculo… (Enter para enviar)"
+            rows="2"
+            style="flex:1; resize:none; border-radius:var(--radius-md); font-family:inherit; font-size:var(--font-sm); padding: 0.75rem 1rem; line-height:1.5;"
+          ></textarea>
+          <button id="oraculo-send-btn" class="btn btn--primary" style="height:52px; padding: 0 1.25rem; flex-shrink:0;">
+            Enviar 📨
+          </button>
+        </div>
+        <p class="text-muted" style="font-size:0.72rem; text-align:center; margin-top:0.5rem;">
+          El Oráculo puede equivocarse con mucha confianza. Es un cuñao.
+        </p>
+      </div>
+    `;
+
+    const chatBox = $("#oraculo-chat-box");
+    const input = $("#oraculo-input");
+    const sendBtn = $("#oraculo-send-btn");
+
+    function scrollToBottom() {
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendMessage(role, text) {
+      const isOracle = role === "oracle";
+      const div = document.createElement("div");
+      div.className = `oraculo-msg ${isOracle ? "oraculo-msg--oracle" : "oraculo-msg--user"}`;
+      div.innerHTML = `
+        ${isOracle ? '<span class="oraculo-avatar">🧙‍♂️</span>' : ""}
+        <div class="oraculo-bubble ${isOracle ? "oraculo-bubble--oracle" : "oraculo-bubble--user"}">${escapeHtml(text)}</div>
+        ${!isOracle ? '<span class="oraculo-avatar">👤</span>' : ""}
+      `;
+      chatBox.appendChild(div);
+      scrollToBottom();
+      return div;
+    }
+
+    /**
+     * Creates an oracle bubble that can be updated incrementally during streaming.
+     * Returns an object with an `append(chunk)` method and a `finalize(fullText)` method.
+     */
+    function createStreamingBubble() {
+      const div = document.createElement("div");
+      div.className = "oraculo-msg oraculo-msg--oracle";
+      div.innerHTML = `
+        <span class="oraculo-avatar">🧙‍♂️</span>
+        <div class="oraculo-bubble oraculo-bubble--oracle oraculo-bubble--streaming"></div>
+      `;
+      chatBox.appendChild(div);
+      scrollToBottom();
+      const bubble = div.querySelector(".oraculo-bubble");
+      let accumulated = "";
+      return {
+        append(chunk) {
+          accumulated += chunk;
+          bubble.textContent = accumulated;
+          scrollToBottom();
+        },
+        finalize() {
+          bubble.classList.remove("oraculo-bubble--streaming");
+          return accumulated;
+        }
+      };
+    }
+
+    function appendTypingIndicator() {
+      const div = document.createElement("div");
+      div.className = "oraculo-msg oraculo-msg--oracle";
+      div.id = "oraculo-typing";
+      div.innerHTML = `
+        <span class="oraculo-avatar">🧙‍♂️</span>
+        <div class="oraculo-bubble oraculo-bubble--oracle oraculo-typing">
+          <span></span><span></span><span></span>
+        </div>
+      `;
+      chatBox.appendChild(div);
+      scrollToBottom();
+    }
+
+    function removeTypingIndicator() {
+      $("#oraculo-typing")?.remove();
+    }
+
+    /**
+     * Fetches the porra context from GAS (fast, no AI call).
+     * Falls back to null if unavailable.
+     */
+    async function fetchPorraContext() {
+      try {
+        const resp = await fetch(CONFIG.appsScriptUrl, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({ action: "getOracleContext" })
+        });
+        const json = await resp.json();
+        return (json.success && json.result && json.result.context) ? json.result.context : null;
+      } catch {
+        return null;
+      }
+    }
+
+    /**
+     * Builds the full prompt text for the oracle (system + history + question).
+     */
+    function buildOraclePrompt(question, history, porraContext) {
+      let contextBlock = "";
+      if (porraContext) {
+        contextBlock = "\n\n--- DATOS ACTUALES DE LA PORRA (úsalos cuando sean relevantes) ---\n" +
+          "Jornada en curso: " + porraContext.jornada + "\n" +
+          "Clasificación global:\n" + porraContext.clasificacion + "\n" +
+          "Picks de goleador esta jornada: " + porraContext.goleadores + "\n" +
+          "Picks de portero esta jornada: " + porraContext.porteros + "\n" +
+          "--- FIN DATOS PORRA ---";
+      }
+
+      const systemPrompt = "Eres 'El Oráculo de la Barra', un tío que sabe demasiado de fútbol y no puede callarse. Tu tono es humor español de Twitter: takes calientes, ironía seca, frases cortas y contundentes, algún emoji bien puesto (no más de 2), nada de parrafadas. Tienes acceso a los datos reales de una porra del Mundial entre amigos y DEBES usarlos cuando sean relevantes: liquida al colista, ensalza al líder, opina sobre los picks con total seguridad. Responde en máximo 3-4 frases. Estilo: si alguien dice algo obvio tú ya lo sabías. Si hay un colista, es culpa suya. Si hay un líder, es por suerte. Nunca admitas incertidumbre." + contextBlock;
+
+      let promptText = systemPrompt + "\n\n";
+      if (Array.isArray(history)) {
+        history.forEach(msg => {
+          promptText += (msg.role === "user" ? "Usuario: " : "Cuñado: ") + msg.text + "\n";
+        });
+      }
+      promptText += "Usuario: " + question + "\nCuñado:";
+      return promptText;
+    }
+
+    /**
+     * Calls Gemini streamGenerateContent directly from the browser and streams tokens
+     * into the provided streamingBubble. Returns the full accumulated text.
+     */
+    async function streamFromGemini(promptText, streamingBubble) {
+      const apiKey = CONFIG.geminiApiKey;
+      const modelName = "gemma-4-31b-it";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Gemini error ${resp.status}: ${errText}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep incomplete last line
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(data);
+            const parts = parsed?.candidates?.[0]?.content?.parts ?? [];
+            for (const part of parts) {
+              // Skip thought parts (Gemma internal reasoning)
+              if (part.thought === true) continue;
+              if (part.text) streamingBubble.append(part.text);
+            }
+          } catch {
+            // malformed JSON chunk — skip
+          }
+        }
+      }
+
+      return streamingBubble.finalize();
+    }
+
+    async function sendMessage() {
+      const question = input.value.trim();
+      if (!question) return;
+
+      input.value = "";
+      input.style.height = "auto";
+      sendBtn.disabled = true;
+      sendBtn.textContent = "…";
+
+      appendMessage("user", question);
+      chatHistory.push({ role: "user", text: question });
+
+      // Step 1: fetch porra context from GAS (lightweight, no AI)
+      appendTypingIndicator();
+      const porraContext = await fetchPorraContext();
+      removeTypingIndicator();
+
+      // Step 2: stream directly from Gemini
+      const streamingBubble = createStreamingBubble();
+      try {
+        const promptText = buildOraclePrompt(question, chatHistory.slice(-10), porraContext);
+        const fullAnswer = await streamFromGemini(promptText, streamingBubble);
+        chatHistory.push({ role: "oracle", text: fullAnswer });
+      } catch (err) {
+        streamingBubble.finalize();
+        appendMessage("oracle", "Tío, que se ha caído la Wi-Fi del bar. Vuelve a intentarlo, que mi primo el del bar ya está mirando el router. (" + err.message + ")");
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Enviar 📨";
+        input.focus();
+      }
+    }
+
+    function buildPorraContext() {
+      try {
+        const board = Scoring.buildLeaderboard(
+          _data.participants,
+          _data.matchPredictions,
+          _data.scorerPicks,
+          _data.goalkeeperPicks,
+          _data.specialEventPicks
+        );
+
+        const clasificacion = board.map((item, i) =>
+          `${i + 1}. ${item.name} — ${item.totalPoints} pts`
+        ).join("\n");
+
+        // Picks de la jornada actual
+        const scorerPicksJornada = _data.scorerPicks
+          .filter(sp => sp.round_key === _currentRound)
+          .map(sp => {
+            const p = _data.players.find(pl => pl.id === sp.player_id);
+            const participant = _data.participants.find(pa => pa.id === sp.participant_id);
+            return `${participant ? participant.name : sp.participant_id}: ${p ? p.name + " (" + p.team + ")" : sp.player_id}`;
+          }).join(", ");
+
+        const gkPicksJornada = _data.goalkeeperPicks
+          .filter(gp => gp.round_key === _currentRound)
+          .map(gp => {
+            const p = _data.players.find(pl => pl.id === gp.player_id);
+            const participant = _data.participants.find(pa => pa.id === gp.participant_id);
+            return `${participant ? participant.name : gp.participant_id}: ${p ? p.name + " (" + p.team + ")" : gp.player_id}`;
+          }).join(", ");
+
+        const roundLabel = (CONFIG.roundLabels && CONFIG.roundLabels[_currentRound]) || _currentRound;
+
+        return {
+          clasificacion,
+          jornada: roundLabel,
+          goleadores: scorerPicksJornada || "Aún no hay picks",
+          porteros: gkPicksJornada || "Aún no hay picks"
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    input.focus();
+  }
+
+  // ---------------------------------------------------------------------------
   // Round Selector
   // ---------------------------------------------------------------------------
 
@@ -2808,6 +3126,7 @@ const App = (() => {
     if (path.includes("eventos")) return "eventos";
     if (path.includes("analisis")) return "analisis";
     if (path.includes("periodico")) return "periodico";
+    if (path.includes("oraculo")) return "oraculo";
     if (path.includes("admin")) return "admin";
     return "index";
   }
@@ -3193,6 +3512,9 @@ const App = (() => {
       case "periodico":
         renderPeriodico();
         break;
+      case "oraculo":
+        renderOraculo();
+        break;
       case "admin":
         renderAdmin();
         break;
@@ -3322,7 +3644,7 @@ const App = (() => {
   // Public API
   // ---------------------------------------------------------------------------
 
-  return { init, loadAllData, renderLeaderboard, renderMatches, renderScorerGoalkeeper, renderSpecialEvents, renderAnalysis, renderPeriodico, renderAdmin };
+  return { init, loadAllData, renderLeaderboard, renderMatches, renderScorerGoalkeeper, renderSpecialEvents, renderAnalysis, renderPeriodico, renderOraculo, renderAdmin };
 })();
 
 // Boot

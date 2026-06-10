@@ -30,7 +30,14 @@ function doPost(e) {
   try {
     var jsonString = e.postData.contents;
     var payload = JSON.parse(jsonString);
-    
+
+    // Oráculo del Cuñao — manejado aquí directamente para evitar problemas de routing
+    if (payload.action === "preguntarOracle") {
+      var answer = responderPreguntaOracle(payload.question, payload.history, payload.porraContext);
+      return ContentService.createTextOutput(JSON.stringify({ success: true, result: answer }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     var result = processSaveRequest(payload);
     
     return ContentService.createTextOutput(JSON.stringify({ success: true, result: result }))
@@ -70,6 +77,17 @@ function processSaveRequest(payload) {
       throw new Error("Contraseña de administrador incorrecta.");
     }
     return generarCronicaConGemini(payload.round, payload.leaderboard, payload.leaderboardJornada);
+  }
+  
+  // Devuelve solo el contexto de la porra (sin llamar a Gemini) para streaming en cliente
+  if (payload.action === "getOracleContext") {
+    var ctx = _buildPorraContextFromSheet();
+    return { context: ctx };
+  }
+
+  // Acción para el Consultorio del Cuñao (Gemma 4 31B)
+  if (payload.action === "preguntarOracle") {
+    return responderPreguntaOracle(payload.question, payload.history, payload.porraContext);
   }
   
   // Si es un borrador completo (tiene propiedad 'name' y no tiene 'type' o su 'type' es 'draft')
@@ -817,6 +835,139 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
 
   return "Cronica de IA generada y guardada con exito para " + labelEdicion;
 }
+
+function _buildPorraContextFromSheet() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Clasificación desde la hoja participants (leemos nombre)
+    var partSheet = ss.getSheetByName("participants");
+    var partData = partSheet ? partSheet.getDataRange().getValues() : [];
+    var partHeaders = partData[0] || [];
+    var nameIdx = partHeaders.indexOf("name");
+
+    // Picks de scorer y goalkeeper de la jornada actual
+    // Determinamos jornada activa buscando la última con picks
+    var scorerSheet = ss.getSheetByName("scorer_picks");
+    var gkSheet = ss.getSheetByName("goalkeeper_picks");
+
+    var scorerLines = [];
+    var gkLines = [];
+    var currentRound = "grupo";
+
+    if (scorerSheet) {
+      var sd = scorerSheet.getDataRange().getValues();
+      var sh = sd[0] || [];
+      var sRoundIdx = sh.indexOf("round_key");
+      var sPlayerIdx = sh.indexOf("player_name");
+      var sPartIdx = sh.indexOf("participant_name") !== -1 ? sh.indexOf("participant_name") : sh.indexOf("participant_id");
+      for (var i = sd.length - 1; i >= 1; i--) {
+        if (sd[i][sRoundIdx]) { currentRound = sd[i][sRoundIdx]; break; }
+      }
+      for (var i = 1; i < sd.length; i++) {
+        if (sd[i][sRoundIdx] === currentRound) {
+          scorerLines.push((sd[i][sPartIdx] || "?") + ": " + (sd[i][sPlayerIdx] || "?"));
+        }
+      }
+    }
+
+    if (gkSheet) {
+      var gd = gkSheet.getDataRange().getValues();
+      var gh = gd[0] || [];
+      var gRoundIdx = gh.indexOf("round_key");
+      var gPlayerIdx = gh.indexOf("player_name");
+      var gPartIdx = gh.indexOf("participant_name") !== -1 ? gh.indexOf("participant_name") : gh.indexOf("participant_id");
+      for (var i = 1; i < gd.length; i++) {
+        if (gd[i][gRoundIdx] === currentRound) {
+          gkLines.push((gd[i][gPartIdx] || "?") + ": " + (gd[i][gPlayerIdx] || "?"));
+        }
+      }
+    }
+
+    // Leaderboard desde la hoja leaderboard o participants+points
+    var lbSheet = ss.getSheetByName("leaderboard");
+    var clasificacion = "";
+    if (lbSheet) {
+      var ld = lbSheet.getDataRange().getValues();
+      var lh = ld[0] || [];
+      var lNameIdx = lh.indexOf("name") !== -1 ? lh.indexOf("name") : 0;
+      var lPtsIdx = lh.indexOf("total_points") !== -1 ? lh.indexOf("total_points") : lh.indexOf("points");
+      for (var i = 1; i < Math.min(ld.length, 12); i++) {
+        clasificacion += i + ". " + ld[i][lNameIdx] + " — " + ld[i][lPtsIdx] + " pts\n";
+      }
+    } else if (nameIdx !== -1 && partData.length > 1) {
+      for (var i = 1; i < partData.length; i++) {
+        clasificacion += i + ". " + partData[i][nameIdx] + "\n";
+      }
+    }
+
+    return {
+      jornada: currentRound,
+      clasificacion: clasificacion.trim() || "Sin datos aún",
+      goleadores: scorerLines.join(", ") || "Sin picks aún",
+      porteros: gkLines.join(", ") || "Sin picks aún"
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
+function responderPreguntaOracle(question, history) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
+  const modelName = "gemma-4-31b-it";
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey;
+
+  var porraContext = _buildPorraContextFromSheet();
+
+  var contextBlock = "";
+  if (porraContext) {
+    contextBlock = "\n\n--- DATOS ACTUALES DE LA PORRA (úsalos cuando sean relevantes) ---\n" +
+      "Jornada en curso: " + porraContext.jornada + "\n" +
+      "Clasificación global:\n" + porraContext.clasificacion + "\n" +
+      "Picks de goleador esta jornada: " + porraContext.goleadores + "\n" +
+      "Picks de portero esta jornada: " + porraContext.porteros + "\n" +
+      "--- FIN DATOS PORRA ---";
+  }
+
+  const systemPrompt = "Actua como un cuñado experto en futbol de bar español, sabelotodo, sarcástico, respondón e ironico. Te llaman 'El Oráculo de la Barra'. Tienes acceso a los datos reales de una porra del Mundial entre amigos y DEBES usarlos cuando sean relevantes: comenta la clasificación, burla al colista, alaba al líder, opina sobre los picks de goleador y portero. Responde de forma muy concisa (maximo 2 parrafos cortos), usa expresiones tipicas como 'yo de esto se un rato', 'mi primo el del bar', 'eso ya lo vi venir', 'palillo en la boca', 'cuidao con el figura', 'para habernos matao', 'vaya tela'. Tus respuestas deben ser graciosas, exageradas, y muy seguras de si mismas." + contextBlock;
+
+  let promptText = systemPrompt + "\n\n";
+  if (Array.isArray(history)) {
+    history.forEach(function(msg) {
+      promptText += (msg.role === "user" ? "Usuario: " : "Cuñado: ") + msg.text + "\n";
+    });
+  }
+  promptText += "Usuario: " + question + "\nCuñado:";
+
+  const requestBody = {
+    contents: [{
+      parts: [{ text: promptText }]
+    }]
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(requestBody),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  const responseCode = response.getResponseCode();
+  const responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    throw new Error("Error en la llamada a Gemma (codigo " + responseCode + "): " + responseText);
+  }
+
+  const jsonResponse = JSON.parse(responseText);
+  try {
+    return jsonResponse.candidates[0].content.parts[0].text.trim();
+  } catch (e) {
+    throw new Error("Respuesta invalida de la API de Gemma: " + responseText);
+  }
+}
+
 
 function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
