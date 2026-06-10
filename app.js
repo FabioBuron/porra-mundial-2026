@@ -244,7 +244,8 @@ const App = (() => {
     if (draft.matchPredictions) {
       const filteredMatchPredictions = {};
       Object.entries(draft.matchPredictions).forEach(([matchId, pred]) => {
-        const match = _data.matches.find(m => m.id === matchId);
+        const matches = _data.matches || [];
+        const match = matches.find(m => m.id === matchId);
         if (match && new Date(match.kickoff_utc).getTime() > now) {
           filteredMatchPredictions[matchId] = pred;
         } else if (match) {
@@ -276,7 +277,6 @@ const App = (() => {
         if (isRoundOpen(rKey)) {
           filteredGK[rKey] = val;
         }
-        // ya notificado por scorerPicks
       });
       draft.goalkeeperPicks = filteredGK;
     }
@@ -285,7 +285,8 @@ const App = (() => {
     if (draft.specialEventPicks) {
       const filteredEvents = {};
       Object.entries(draft.specialEventPicks).forEach(([evId, val]) => {
-        const ev = _data.specialEvents.find(e => e.id === evId);
+        const evs = _data.specialEvents || [];
+        const ev = evs.find(e => e.id === evId);
         const deadline = ev && ev.deadline_utc ? new Date(ev.deadline_utc).getTime() : null;
         const isActive = ev && (ev.is_active === true || ev.is_active === "true" || ev.is_active === "TRUE");
         const isResolved = ev && (ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE");
@@ -310,55 +311,70 @@ const App = (() => {
     let success = false;
     let errorMsg = "Hubo un error al enviar. Por favor, vuelve a intentarlo.";
 
-    // 1. Intentar enviar directamente al Web App de Apps Script (actualización inmediata)
-    if (hasScript) {
-      try {
-        const response = await fetch(CONFIG.appsScriptUrl, {
-          method: "POST",
-          mode: "cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify(draft)
-        });
-        if (response.ok) {
-          const resJson = await response.json();
-          if (resJson && resJson.success) {
-            success = true;
-          } else if (resJson && resJson.error) {
-            errorMsg = `Error del servidor: ${resJson.error}`;
-            // Si el error es de contraseña incorrecta, la borramos del localStorage para que pueda volver a introducirla
-            if (resJson.error.toLowerCase().includes("contraseña incorrecta")) {
-              localStorage.removeItem("porra_password_" + name.trim().toLowerCase());
+    try {
+      // 1. Intentar enviar directamente al Web App de Apps Script (actualización inmediata)
+      if (hasScript) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
+
+        try {
+          const response = await fetch(CONFIG.appsScriptUrl, {
+            method: "POST",
+            mode: "cors",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify(draft),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const resJson = await response.json();
+            if (resJson && resJson.success) {
+              success = true;
+            } else if (resJson && resJson.error) {
+              errorMsg = `Error del servidor: ${resJson.error}`;
+              // Si el error es de contraseña incorrecta, la borramos del localStorage para que pueda volver a introducirla
+              if (resJson.error.toLowerCase().includes("contraseña incorrecta")) {
+                localStorage.removeItem("porra_password_" + name.trim().toLowerCase());
+              }
+              showToast(errorMsg, "error");
+              showLoading(false);
+              return; // Detenemos aquí, no hacemos fallback a Google Forms
             }
-            showLoading(false);
-            showToast(errorMsg, "error");
-            return; // Detenemos aquí, no hacemos fallback a Google Forms
+          }
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (err.name === "AbortError") {
+            console.warn("Fallo por timeout (3.5s) al enviar directamente a Apps Script, intentando Google Forms...");
+          } else {
+            console.warn("Fallo al enviar directamente a Apps Script, intentando Google Forms...", err);
           }
         }
-      } catch (err) {
-        console.warn("Fallo al enviar directamente a Apps Script, intentando Google Forms...", err);
       }
-    }
 
-    // 2. Fallback al Google Form tradicional
-    if (!success && hasForm) {
-      try {
-        const formUrl = `https://docs.google.com/forms/d/e/${CONFIG.googleForm.formId}/formResponse`;
-        const params = new URLSearchParams();
-        params.append(CONFIG.googleForm.entryId, JSON.stringify(draft));
+      // 2. Fallback al Google Form tradicional
+      if (!success && hasForm) {
+        try {
+          const formUrl = `https://docs.google.com/forms/d/e/${CONFIG.googleForm.formId}/formResponse`;
+          const params = new URLSearchParams();
+          params.append(CONFIG.googleForm.entryId, JSON.stringify(draft));
 
-        await fetch(formUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: params.toString()
-        });
-        success = true;
-      } catch (e) {
-        console.error("Error en el envío al Google Form:", e);
+          await fetch(formUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: params.toString()
+          });
+          success = true;
+        } catch (e) {
+          console.error("Error en el envío al Google Form:", e);
+        }
       }
+    } catch (globalErr) {
+      console.error("Error inesperado al enviar pronósticos:", globalErr);
+    } finally {
+      showLoading(false);
     }
-
-    showLoading(false);
 
     if (success) {
       // Lanzar confeti brasileño y toast de éxito
@@ -1192,12 +1208,12 @@ const App = (() => {
     setTimeout(() => {
       toast.style.transform = "translateX(-50%) translateY(100px)";
       setTimeout(() => toast.remove(), 400);
-    }, 5000);
+    }, 2500);
   }
 
   function launchBrazilianCelebration() {
     if (typeof window.confetti === "undefined") return;
-    const duration = 4 * 1000;
+    const duration = 2 * 1000;
     const end = Date.now() + duration;
     const colors = ['#22c55e', '#eab308', '#ffffff'];
 
