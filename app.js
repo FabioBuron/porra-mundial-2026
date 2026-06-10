@@ -684,6 +684,15 @@ const App = (() => {
     }
   }
 
+  function normalizeMatchesDates(matchesArray) {
+    if (!Array.isArray(matchesArray)) return;
+    matchesArray.forEach(m => {
+      if (m.kickoff_utc && typeof m.kickoff_utc === 'string' && m.kickoff_utc.endsWith('Z')) {
+        m.kickoff_utc = m.kickoff_utc.slice(0, -1);
+      }
+    });
+  }
+
   // Carga instantánea desde caché (si hay copia de todas las hojas).
   // Devuelve true si pudo hidratar el estado desde localStorage.
   function hydrateFromCache() {
@@ -698,6 +707,7 @@ const App = (() => {
     if (Object.values(cached).some(v => !v)) return false;
 
     _data.participants = cached.participants;
+    normalizeMatchesDates(cached.matches);
     _data.matches = cached.matches;
     _data.players = cached.players;
     _data.specialEvents = cached.specialEvents;
@@ -731,6 +741,7 @@ const App = (() => {
       }
 
       _data.participants = participants;
+      normalizeMatchesDates(matches);
       _data.matches = matches;
       _data.players = players;
       _data.specialEvents = specialEvents;
@@ -778,6 +789,7 @@ const App = (() => {
       { id: "m005", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Morocco", away_team: "Mexico", kickoff_utc: "2026-06-15T18:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: false },
       { id: "m006", phase: "group", group: "A", matchday: 2, round_label: "Jornada 2", home_team: "Colombia", away_team: "USA", kickoff_utc: "2026-06-15T21:00:00Z", home_score: null, away_score: null, status: "scheduled", is_double_points: true }
     ];
+    normalizeMatchesDates(_data.matches);
     _data.players = [
       { id: "pl01", name: "Mbappé", team: "France", position: "outfield", active: true, goals_group_md1: 2 },
       { id: "pl02", name: "Haaland", team: "Norway", position: "outfield", active: true, goals_group_md1: 1 },
