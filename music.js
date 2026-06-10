@@ -19,8 +19,7 @@ const PorraMusic = (() => {
     { id: "la_la_la", title: "Shakira - La La La (Brazil 2014)" },
     { id: "colors", title: "Jason Derulo - Colors" },
     { id: "curacao", title: "¿Dónde está Curazao? (Línea de Cal)" },
-    { id: "magalenha", title: "Sergio Mendes - Magalenha (Brasil)" },
-    { id: "gloryland", title: "Daryl Hall - Gloryland" }
+    { id: "magalenha", title: "Sergio Mendes - Magalenha (Brasil)" }
   ];
 
   let _audio = null;
@@ -616,8 +615,14 @@ const PorraMusic = (() => {
     _audio.src = pathPrefix + "music/" + track.id + ".m4a";
     _audio.load();
 
-    if (startTime > 0) {
-      _audio.currentTime = startTime;
+    // Si es la canción de Curazao y se inicia desde el principio, saltar los primeros 20 segundos
+    let actualStartTime = startTime;
+    if (track.id === "curacao" && startTime === 0) {
+      actualStartTime = 20;
+    }
+
+    if (actualStartTime > 0) {
+      _audio.currentTime = actualStartTime;
     }
 
     updateTrackInfo();

@@ -12,8 +12,7 @@ songs = {
     "la_la_la": "2igups6VdcA",
     "colors": "ibqyu7bQ4-w",
     "curacao": "IsNSiZg9JzA",
-    "magalenha": "02-4iJp61u0",
-    "gloryland": "9lyNR0UMVic"
+    "magalenha": "02-4iJp61u0"
 }
 
 os.makedirs("music", exist_ok=True)
