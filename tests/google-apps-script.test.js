@@ -51,6 +51,7 @@ class MockSheet {
     this._rows = [headers, ...initialRows];
   }
   getName() { return this._name; }
+  clear() { this._rows = []; }
   getLastColumn() { return this._rows[0] ? this._rows[0].length : 1; }
   getLastRow() { return this._rows.length; }
   getDataRange() {
