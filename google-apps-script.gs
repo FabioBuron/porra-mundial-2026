@@ -48,6 +48,18 @@ function doOptions(e) {
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
+function doGet(e) {
+  var action = e && e.parameter && e.parameter.action;
+  if (action && typeof doGetResults === "function") {
+    return doGetResults(e);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    success: true,
+    message: "Apps Script activo. Usa POST para guardar pronosticos o ?action=refresh para resultados."
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
 function processSaveRequest(payload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -574,14 +586,16 @@ function getRoundDeadline(ss, roundKey) {
   
   var matchesData = sheetMatches.getDataRange().getValues();
   var headers = matchesData[0];
-  var roundIdx = headers.indexOf("round_key");
+  var phaseIdx = headers.indexOf("phase");
+  var matchdayIdx = headers.indexOf("matchday");
   var kickoffIdx = headers.indexOf("kickoff_utc");
   
-  if (roundIdx === -1 || kickoffIdx === -1) return null;
+  if (phaseIdx === -1 || kickoffIdx === -1) return null;
   
   var earliestTime = null;
   for (var i = 1; i < matchesData.length; i++) {
-    if (String(matchesData[i][roundIdx]).trim() === roundKey) {
+    var rowRoundKey = getMatchRoundKey_(matchesData[i][phaseIdx], matchdayIdx === -1 ? "" : matchesData[i][matchdayIdx]);
+    if (rowRoundKey === roundKey) {
       var kickoffVal = matchesData[i][kickoffIdx];
       if (kickoffVal) {
         var t = new Date(kickoffVal).getTime();
@@ -595,6 +609,15 @@ function getRoundDeadline(ss, roundKey) {
   }
   
   return earliestTime ? new Date(earliestTime).toISOString() : null;
+}
+
+function getMatchRoundKey_(phase, matchday) {
+  var p = String(phase || "").trim().toLowerCase();
+  if (p === "group") {
+    var md = Number(matchday);
+    return md ? "group_md" + md : "";
+  }
+  return p;
 }
 
 /**
@@ -677,6 +700,10 @@ function setupSpreadsheet() {
       headers: ["participant_id", "event_id", "pick_value", "submitted_at", "points_earned"]
     },
     {
+      name: "api_snapshots",
+      headers: ["round_key", "player_api_name", "goals_total", "taken_at"]
+    },
+    {
       name: "Respuestas de formulario 1",
       headers: ["Timestamp", "Borrador"]
     }
@@ -695,5 +722,4 @@ function setupSpreadsheet() {
   
   Logger.log("Configuración completada.");
 }
-
 
