@@ -26,6 +26,7 @@ const App = (() => {
   let _loaded = false;
   let _currentRound = "group_md1";
   let _submissionsMap = {}; // name (lowercase) -> latest submission payload
+  let _chartFocusParticipantId = null;
 
   // ---------------------------------------------------------------------------
   // Borradores & Persistencia Local
@@ -167,6 +168,77 @@ const App = (() => {
 
     const draft = loadUserDraft(name);
     draft._submittedAt = new Date().toISOString();
+
+    // --- Defensa en profundidad: filtrar jornadas y eventos ya cerrados ---
+    const ignoredRounds = [];
+    const ignoredEvents = [];
+    const now = Date.now();
+
+    // Filtrar matchPredictions: solo matches cuyo kickoff aún no ha pasado
+    if (draft.matchPredictions) {
+      const filteredMatchPredictions = {};
+      Object.entries(draft.matchPredictions).forEach(([matchId, pred]) => {
+        const match = _data.matches.find(m => m.id === matchId);
+        if (match && new Date(match.kickoff_utc).getTime() > now) {
+          filteredMatchPredictions[matchId] = pred;
+        } else if (match) {
+          // Inferir la jornada para el toast
+          const rKey = match.phase === "group" ? "group_md" + match.matchday : match.phase;
+          if (rKey && !ignoredRounds.includes(CONFIG.roundLabels[rKey] || rKey)) {
+            ignoredRounds.push(CONFIG.roundLabels[rKey] || rKey);
+          }
+        }
+      });
+      draft.matchPredictions = filteredMatchPredictions;
+    }
+
+    // Filtrar scorerPicks / goalkeeperPicks: solo jornadas abiertas
+    if (draft.scorerPicks) {
+      const filteredScorer = {};
+      Object.entries(draft.scorerPicks).forEach(([rKey, val]) => {
+        if (isRoundOpen(rKey)) {
+          filteredScorer[rKey] = val;
+        } else if (!ignoredRounds.includes(CONFIG.roundLabels[rKey] || rKey)) {
+          ignoredRounds.push(CONFIG.roundLabels[rKey] || rKey);
+        }
+      });
+      draft.scorerPicks = filteredScorer;
+    }
+    if (draft.goalkeeperPicks) {
+      const filteredGK = {};
+      Object.entries(draft.goalkeeperPicks).forEach(([rKey, val]) => {
+        if (isRoundOpen(rKey)) {
+          filteredGK[rKey] = val;
+        }
+        // ya notificado por scorerPicks
+      });
+      draft.goalkeeperPicks = filteredGK;
+    }
+
+    // Filtrar specialEventPicks: solo eventos con deadline en el futuro
+    if (draft.specialEventPicks) {
+      const filteredEvents = {};
+      Object.entries(draft.specialEventPicks).forEach(([evId, val]) => {
+        const ev = _data.specialEvents.find(e => e.id === evId);
+        const deadline = ev && ev.deadline_utc ? new Date(ev.deadline_utc).getTime() : null;
+        const isActive = ev && (ev.is_active === true || ev.is_active === "true" || ev.is_active === "TRUE");
+        const isResolved = ev && (ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE");
+        if (isActive && !isResolved && (!deadline || deadline > now)) {
+          filteredEvents[evId] = val;
+        } else if (ev) {
+          ignoredEvents.push(ev.name || evId);
+        }
+      });
+      draft.specialEventPicks = filteredEvents;
+    }
+
+    // Avisar al usuario de lo que se ignoró
+    if (ignoredRounds.length > 0) {
+      showToast("⚠️ Se han ignorado pronósticos de jornadas ya cerradas: " + ignoredRounds.join(", "), "error");
+    }
+    if (ignoredEvents.length > 0) {
+      showToast("⚠️ Se han ignorado eventos ya cerrados: " + ignoredEvents.join(", "), "error");
+    }
 
     showLoading(true);
     let success = false;
@@ -576,6 +648,17 @@ const App = (() => {
   // Data Loading
   // ---------------------------------------------------------------------------
 
+  function _cacheKey(url) {
+    return "porra_cache_" + url.replace(/[^a-z0-9]/gi, "").slice(-80);
+  }
+
+  function readSheetCache(url) {
+    try {
+      const raw = localStorage.getItem(_cacheKey(url));
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
   async function fetchSheet(url) {
     if (!url || url.startsWith("URL_CSV")) {
       console.warn("Sheet URL not configured:", url);
@@ -585,15 +668,47 @@ const App = (() => {
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const text = await resp.text();
-      return parseCSV(text);
+      const data = parseCSV(text);
+      try { localStorage.setItem(_cacheKey(url), JSON.stringify(data)); } catch (e) {}
+      return data;
     } catch (err) {
       console.error("Error fetching sheet:", url, err);
+      // Fallback: usar la última copia cacheada si existe
+      const cached = readSheetCache(url);
+      if (cached) {
+        console.warn("Usando datos cacheados para:", url);
+        return cached;
+      }
       throw err;
     }
   }
 
-  async function loadAllData() {
-    showLoading(true);
+  // Carga instantánea desde caché (si hay copia de todas las hojas).
+  // Devuelve true si pudo hidratar el estado desde localStorage.
+  function hydrateFromCache() {
+    const sheets = CONFIG.googleSheets;
+    const cached = {
+      participants: readSheetCache(sheets.participants),
+      matches: readSheetCache(sheets.matches),
+      players: readSheetCache(sheets.players),
+      specialEvents: readSheetCache(sheets.special_events),
+      predictions: readSheetCache(sheets.predictions)
+    };
+    if (Object.values(cached).some(v => !v)) return false;
+
+    _data.participants = cached.participants;
+    _data.matches = cached.matches;
+    _data.players = cached.players;
+    _data.specialEvents = cached.specialEvents;
+    _data.predictions = cached.predictions;
+    processPredictions();
+    calculateScores();
+    _loaded = true;
+    return true;
+  }
+
+  async function loadAllData(silent) {
+    if (!silent) showLoading(true);
     try {
       const sheets = CONFIG.googleSheets;
       const [participants, matches, players, specialEvents, predictions] =
@@ -610,6 +725,10 @@ const App = (() => {
       _data.players = players;
       _data.specialEvents = specialEvents;
       _data.predictions = predictions;
+      _data.matchPredictions = [];
+      _data.scorerPicks = [];
+      _data.goalkeeperPicks = [];
+      _data.specialEventPicks = [];
 
       processPredictions();
       calculateScores();
@@ -617,9 +736,10 @@ const App = (() => {
       _loaded = true;
     } catch (err) {
       console.error("Error loading data:", err);
-      showError("Error loading data. Check your Google Sheets URLs in config.js.");
+      if (!silent) showError("Error loading data. Check your Google Sheets URLs in config.js.");
+      if (silent) throw err;
     } finally {
-      showLoading(false);
+      if (!silent) showLoading(false);
     }
     return _data;
   }
@@ -959,6 +1079,229 @@ const App = (() => {
     }());
   }
 
+  function participantOptions(selectedId) {
+    return _data.participants.map(p =>
+      `<option value="${escapeHtml(p.id)}" ${p.id === selectedId ? "selected" : ""}>${escapeHtml(p.name)}</option>`
+    ).join("");
+  }
+
+  function firstOpenRoundKey() {
+    const entries = Object.keys(CONFIG.roundLabels || {});
+    return entries.find(key => isRoundOpen(key)) || entries[0] || "group_md1";
+  }
+
+  function leaderParticipant(board) {
+    if (!board || board.length === 0) return null;
+    return board.slice().sort((a, b) => a.position - b.position)[0];
+  }
+
+  function renderReminderControls(reminderEvents) {
+    const nextReminder = reminderEvents.find(ev => new Date(ev.start).getTime() > Date.now()) || reminderEvents[0];
+    const googleUrl = PorraExtras.googleCalendarUrl(nextReminder);
+    return `
+      <div class="hero__actions">
+        <button type="button" class="btn btn--primary" id="download-ics-btn">Recordatorios</button>
+        ${googleUrl ? `<a class="btn btn--ghost" href="${googleUrl}" target="_blank" rel="noopener">Proxima jornada en Google Calendar</a>` : ""}
+      </div>
+    `;
+  }
+
+  function downloadReminders(reminderEvents) {
+    const ics = PorraExtras.buildIcs(reminderEvents);
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "porra-mundial-recordatorios.ics";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function formatParticipantName(id) {
+    return (_data.participants.find(p => p.id === id) || {}).name || id || "-";
+  }
+
+  function renderComebackSimulator(board) {
+    if (!_data.participants.length) return "";
+    const activeUser = getActiveUser();
+    const activeParticipant = activeUser ? _data.participants.find(p => p.name === activeUser) : null;
+    const leader = leaderParticipant(board) || _data.participants[0];
+    const defaultA = activeParticipant ? activeParticipant.id : (_data.participants[0] && _data.participants[0].id);
+    const defaultB = leader && leader.id !== defaultA ? leader.id : (_data.participants[1] && _data.participants[1].id) || defaultA;
+    const defaultRound = firstOpenRoundKey();
+    const sim = PorraExtras.simulateScenarios(_data, defaultA, defaultB, defaultRound);
+    const status = sim.bestDiff < 0
+      ? `Imposible alcanzarle esta jornada: el mejor caso te deja a ${Math.abs(sim.bestDiff)} pts.`
+      : sim.worstDiff > 0
+        ? "Depende de ti: incluso el peor caso te deja por delante."
+        : "Hay camino: necesitas que salgan varios resultados favorables.";
+    const rows = sim.matches.length
+      ? sim.matches.map(item => `
+          <li class="scenario-row">
+            <span>${escapeHtml(item.match.home_team)} - ${escapeHtml(item.match.away_team)}</span>
+            <strong>${escapeHtml(item.match.home_team)} ${item.best.home}-${item.best.away}</strong>
+            <span>tu +${item.best.pointsA}, rival +${item.best.pointsB}</span>
+          </li>
+        `).join("")
+      : '<li class="scenario-row scenario-row--empty">No hay partidos pendientes en esta jornada.</li>';
+
+    return `
+      <div class="card fade-in mt-2 insight-card" id="comeback-card">
+        <div class="tool-card__header">
+          <h2 class="card-title">Calculadora de remontadas</h2>
+          <span class="tool-card__note">Solo modula partidos; goleadores, porteros y eventos quedan fuera.</span>
+        </div>
+        <div class="tool-controls">
+          <label>Yo <select id="sim-a" class="form-select">${participantOptions(defaultA)}</select></label>
+          <label>Rival <select id="sim-b" class="form-select">${participantOptions(defaultB)}</select></label>
+          <label>Jornada <select id="sim-round" class="form-select">${Object.entries(CONFIG.roundLabels).map(([k, v]) => `<option value="${k}" ${k === defaultRound ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+        </div>
+        <div id="sim-result" class="scenario-result">
+          <div class="scenario-summary">
+            <strong>${escapeHtml(formatParticipantName(defaultA))}</strong> esta a ${Math.abs(sim.currentDiff)} pts de <strong>${escapeHtml(formatParticipantName(defaultB))}</strong>.
+            <span>${status}</span>
+          </div>
+          <div class="scenario-range" style="--worst:${Math.max(0, Math.min(100, 50 + sim.worstDiff * 4))}%;--best:${Math.max(0, Math.min(100, 50 + sim.bestDiff * 4))}%;">
+            <span>Peor ${sim.worstDiff}</span><span>Mejor ${sim.bestDiff}</span>
+          </div>
+          <ul class="scenario-list">${rows}</ul>
+          ${sim.limited ? '<p class="tool-card__note">Hay mas de 6 partidos pendientes; se han usado los 6 proximos para acotar el calculo.</p>' : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHeadToHead() {
+    if (_data.participants.length < 2) return "";
+    const aId = _data.participants[0].id;
+    const bId = _data.participants[1].id;
+    const h2h = PorraExtras.headToHead(_data, aId, bId);
+    const rows = h2h.rows.slice(-8).reverse().map(row => `
+      <tr>
+        <td>${escapeHtml(row.match.home_team)} ${row.match.home_score}-${row.match.away_score} ${escapeHtml(row.match.away_team)}</td>
+        <td>${row.predA ? `${row.predA.home}-${row.predA.away}` : "-"}</td>
+        <td>${row.predB ? `${row.predB.home}-${row.predB.away}` : "-"}</td>
+        <td>${row.pointsA}-${row.pointsB}</td>
+        <td>${row.winner === "A" ? "A" : row.winner === "B" ? "B" : "="}</td>
+      </tr>
+    `).join("");
+
+    return `
+      <div class="card fade-in mt-2 insight-card" id="h2h-card">
+        <div class="tool-card__header">
+          <h2 class="card-title">Cara a cara</h2>
+          <span class="tool-card__note">Los totales salen de la misma puntuacion que la clasificacion.</span>
+        </div>
+        <div class="tool-controls">
+          <label>Participante A <select id="h2h-a" class="form-select">${participantOptions(aId)}</select></label>
+          <label>Participante B <select id="h2h-b" class="form-select">${participantOptions(bId)}</select></label>
+        </div>
+        <div id="h2h-result" class="h2h-result">
+          <div class="h2h-summary">
+            <strong>${escapeHtml(formatParticipantName(aId))} ${h2h.winsA}-${h2h.winsB} ${escapeHtml(formatParticipantName(bId))}</strong>
+            <span>Empates: ${h2h.draws}. Racha: ${h2h.streakOwner === "=" ? "sin racha" : h2h.streakOwner + " x" + h2h.streakLength}</span>
+          </div>
+          <div class="h2h-modules">
+            <span>M1 ${h2h.moduleTotals.matchA}-${h2h.moduleTotals.matchB}</span>
+            <span>M2 ${h2h.moduleTotals.scorerA}-${h2h.moduleTotals.scorerB}</span>
+            <span>M3 ${h2h.moduleTotals.goalkeeperA}-${h2h.moduleTotals.goalkeeperB}</span>
+            <span>M4 ${h2h.moduleTotals.specialA}-${h2h.moduleTotals.specialB}</span>
+          </div>
+          <div class="table-container">
+            <table class="picks-table">
+              <thead><tr><th>Partido</th><th>A</th><th>B</th><th>Pts</th><th>Duelo</th></tr></thead>
+              <tbody>${rows || '<tr><td colspan="5" class="text-muted">Aun no hay partidos terminados.</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function rerenderSimulator() {
+    const aId = $("#sim-a")?.value;
+    const bId = $("#sim-b")?.value;
+    const roundKey = $("#sim-round")?.value;
+    const target = $("#sim-result");
+    if (!aId || !bId || !roundKey || !target) return;
+    const sim = PorraExtras.simulateScenarios(_data, aId, bId, roundKey);
+    const status = sim.bestDiff < 0
+      ? `Imposible alcanzarle esta jornada: el mejor caso te deja a ${Math.abs(sim.bestDiff)} pts.`
+      : sim.worstDiff > 0
+        ? "Depende de ti: incluso el peor caso te deja por delante."
+        : "Hay camino: necesitas que salgan varios resultados favorables.";
+    const rows = sim.matches.length
+      ? sim.matches.map(item => `
+          <li class="scenario-row">
+            <span>${escapeHtml(item.match.home_team)} - ${escapeHtml(item.match.away_team)}</span>
+            <strong>${escapeHtml(item.match.home_team)} ${item.best.home}-${item.best.away}</strong>
+            <span>tu +${item.best.pointsA}, rival +${item.best.pointsB}</span>
+          </li>
+        `).join("")
+      : '<li class="scenario-row scenario-row--empty">No hay partidos pendientes en esta jornada.</li>';
+    target.innerHTML = `
+      <div class="scenario-summary">
+        <strong>${escapeHtml(formatParticipantName(aId))}</strong> esta a ${Math.abs(sim.currentDiff)} pts de <strong>${escapeHtml(formatParticipantName(bId))}</strong>.
+        <span>${status}</span>
+      </div>
+      <div class="scenario-range" style="--worst:${Math.max(0, Math.min(100, 50 + sim.worstDiff * 4))}%;--best:${Math.max(0, Math.min(100, 50 + sim.bestDiff * 4))}%;">
+        <span>Peor ${sim.worstDiff}</span><span>Mejor ${sim.bestDiff}</span>
+      </div>
+      <ul class="scenario-list">${rows}</ul>
+      ${sim.limited ? '<p class="tool-card__note">Hay mas de 6 partidos pendientes; se han usado los 6 proximos para acotar el calculo.</p>' : ""}
+    `;
+  }
+
+  function rerenderHeadToHead() {
+    const aId = $("#h2h-a")?.value;
+    const bId = $("#h2h-b")?.value;
+    const target = $("#h2h-result");
+    if (!aId || !bId || !target) return;
+    const h2h = PorraExtras.headToHead(_data, aId, bId);
+    const rows = h2h.rows.slice(-8).reverse().map(row => `
+      <tr>
+        <td>${escapeHtml(row.match.home_team)} ${row.match.home_score}-${row.match.away_score} ${escapeHtml(row.match.away_team)}</td>
+        <td>${row.predA ? `${row.predA.home}-${row.predA.away}` : "-"}</td>
+        <td>${row.predB ? `${row.predB.home}-${row.predB.away}` : "-"}</td>
+        <td>${row.pointsA}-${row.pointsB}</td>
+        <td>${row.winner === "A" ? "A" : row.winner === "B" ? "B" : "="}</td>
+      </tr>
+    `).join("");
+    target.innerHTML = `
+      <div class="h2h-summary">
+        <strong>${escapeHtml(formatParticipantName(aId))} ${h2h.winsA}-${h2h.winsB} ${escapeHtml(formatParticipantName(bId))}</strong>
+        <span>Empates: ${h2h.draws}. Racha: ${h2h.streakOwner === "=" ? "sin racha" : h2h.streakOwner + " x" + h2h.streakLength}</span>
+      </div>
+      <div class="h2h-modules">
+        <span>M1 ${h2h.moduleTotals.matchA}-${h2h.moduleTotals.matchB}</span>
+        <span>M2 ${h2h.moduleTotals.scorerA}-${h2h.moduleTotals.scorerB}</span>
+        <span>M3 ${h2h.moduleTotals.goalkeeperA}-${h2h.moduleTotals.goalkeeperB}</span>
+        <span>M4 ${h2h.moduleTotals.specialA}-${h2h.moduleTotals.specialB}</span>
+      </div>
+      <div class="table-container">
+        <table class="picks-table">
+          <thead><tr><th>Partido</th><th>A</th><th>B</th><th>Pts</th><th>Duelo</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" class="text-muted">Aun no hay partidos terminados.</td></tr>'}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function attachLeaderboardTools(reminderEvents) {
+    $("#download-ics-btn")?.addEventListener("click", () => downloadReminders(reminderEvents));
+    $$("#sim-a, #sim-b, #sim-round").forEach(elm => elm.addEventListener("change", rerenderSimulator));
+    $$("#h2h-a, #h2h-b").forEach(elm => elm.addEventListener("change", rerenderHeadToHead));
+    $$(".chart-legend-item").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.chartFocus;
+        _chartFocusParticipantId = _chartFocusParticipantId === id ? null : id;
+        renderLeaderboard();
+      });
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // View: Leaderboard (index.html)
   // ---------------------------------------------------------------------------
@@ -982,13 +1325,51 @@ const App = (() => {
       return pos;
     };
 
+    // --- Extras: evolución, deltas, logros, próximo partido ---
+    const activeUser = getActiveUser();
+    const activeParticipant = activeUser ? _data.participants.find(p => p.name === activeUser) : null;
+    if (!_chartFocusParticipantId && activeParticipant) _chartFocusParticipantId = activeParticipant.id;
+    const evoModel = PorraExtras.computeRoundTotals(_data);
+    const deltas = PorraExtras.computePositionDeltas(evoModel);
+    const achievements = PorraExtras.computeAchievements(_data);
+    const chartHtml = PorraExtras.evolutionChartHtml(evoModel, _chartFocusParticipantId);
+    const statsHtml = PorraExtras.funStatsHtml(_data);
+    const hasDeltas = Object.keys(deltas).length > 0;
+    const lastPos = Math.max(...board.map(p => p.position));
+    const someonePlayed = board.some(p => p.totalPoints !== 0);
+    const reminderEvents = PorraExtras.buildReminderEvents(_data);
+
+    const nextMatch = PorraExtras.getNextMatch(_data);
+    let countdownHtml = "";
+    if (nextMatch) {
+      countdownHtml = `
+        <div class="next-match">
+          <div class="next-match__label">Próximo partido</div>
+          <div class="next-match__teams">
+            <span class="next-match__team">${getFlagImgHtml(nextMatch.home_team)} ${escapeHtml(nextMatch.home_team)}</span>
+            <span class="next-match__vs">vs</span>
+            <span class="next-match__team">${escapeHtml(nextMatch.away_team)} ${getFlagImgHtml(nextMatch.away_team)}</span>
+          </div>
+          <div class="next-match__countdown" id="next-match-countdown"></div>
+          <div class="next-match__date">${formatMatchDate(nextMatch.kickoff_utc)}</div>
+        </div>
+      `;
+    }
+
     let html = `
       <div class="hero">
-        <h1>🏆 ${CONFIG.appName}</h1>
-        <p class="hero-subtitle">Mundial 2026 · ${CONFIG.participants} participantes · Premio: ${CONFIG.prize}</p>
+        <div class="hero__eyebrow">FIFA World Cup 2026 · USA · México · Canadá</div>
+        <h1>${CONFIG.appName}</h1>
+        <div class="hero__meta">
+          <span class="hero__chip">${CONFIG.participants} participantes</span>
+          <span class="hero__chip">${CONFIG.entryFee} € de entrada</span>
+          <span class="hero__chip hero__chip--prize">🏆 ${escapeHtml(CONFIG.prize)}</span>
+        </div>
+        ${countdownHtml}
+        ${renderReminderControls(reminderEvents)}
       </div>
       <div class="card fade-in">
-        <h2 class="card-title">📊 Clasificación General</h2>
+        <h2 class="card-title">Clasificación general</h2>
         <div class="table-container">
           <table class="leaderboard-table">
             <thead>
@@ -1004,10 +1385,22 @@ const App = (() => {
               </tr>
             </thead>
             <tbody>
-              ${board.map((p, i) => `
-                <tr class="leaderboard-row leaderboard-row--pos-${p.position}">
-                  <td class="pos-cell">${posEmoji(p.position)}</td>
-                  <td class="name-cell">${escapeHtml(p.name)}</td>
+              ${board.map((p) => {
+                const isLantern = someonePlayed && p.position === lastPos && lastPos > 3;
+                return `
+                <tr class="leaderboard-row leaderboard-row--pos-${p.position} ${isLantern ? "leaderboard-row--lantern" : ""}">
+                  <td class="pos-cell">
+                    <span class="pos-cell__rank">${posEmoji(p.position)}</span>
+                    ${hasDeltas ? PorraExtras.deltaBadgeHtml(deltas[p.id]) : ""}
+                  </td>
+                  <td class="name-cell">
+                    <span class="name-cell__inner">
+                      ${PorraExtras.avatarHtml(p.name, 30)}
+                      <span class="name-cell__name">${escapeHtml(p.name)}</span>
+                      ${isLantern ? '<span class="achievement" title="Farolillo rojo: último clasificado">🏮</span>' : ""}
+                      ${PorraExtras.achievementsHtml(achievements[p.id])}
+                    </span>
+                  </td>
                   <td class="total-cell"><strong>${p.totalPoints}</strong></td>
                   <td>${p.matchPoints}</td>
                   <td>${p.scorerPoints}</td>
@@ -1015,11 +1408,27 @@ const App = (() => {
                   <td>${p.specialEventPoints}</td>
                   <td>${p.paid ? '<span class="badge badge--paid">✓ Pagado</span>' : '<span class="badge badge--unpaid">Pendiente</span>'}</td>
                 </tr>
-              `).join("")}
+              `;
+              }).join("")}
             </tbody>
           </table>
         </div>
       </div>
+
+      ${chartHtml ? `
+      <div class="card fade-in mt-2">
+        <h2 class="card-title">Evolución por jornada</h2>
+        ${chartHtml}
+      </div>` : ""}
+
+      ${statsHtml ? `
+      <div class="card fade-in mt-2">
+        <h2 class="card-title">El dato</h2>
+        ${statsHtml}
+      </div>` : ""}
+
+      ${renderComebackSimulator(board)}
+      ${renderHeadToHead()}
 
       <div class="card fade-in mt-2" style="border: 1px solid var(--color-border);">
         <h3 class="card-title" id="rules-toggle-btn" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin: 0; user-select: none;">
@@ -1074,6 +1483,11 @@ const App = (() => {
 
     container.innerHTML = html;
 
+    // Cuenta atrás del próximo partido
+    if (nextMatch) {
+      PorraExtras.startCountdown("next-match-countdown", nextMatch.kickoff_utc);
+    }
+
     // Attach collapsible rules listener
     const rulesBtn = $("#rules-toggle-btn");
     const rulesContent = $("#rules-content");
@@ -1089,6 +1503,18 @@ const App = (() => {
         rulesArrow.style.transform = "rotate(0deg)";
       }
     });
+
+    attachLeaderboardTools(reminderEvents);
+
+    const leader = leaderParticipant(board);
+    if (leader && someonePlayed) {
+      const lastLeader = localStorage.getItem("porra_last_leader");
+      if (lastLeader && lastLeader !== leader.id) {
+        launchBrazilianCelebration();
+        showToast(`Nuevo lider: ${escapeHtml(leader.name)}`, "success");
+      }
+      localStorage.setItem("porra_last_leader", leader.id);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1150,6 +1576,42 @@ const App = (() => {
 
     const roundSelector = buildRoundSelector();
     const roundMatches = getMatchesByRound(_currentRound);
+    const roundOpen = isRoundOpen(_currentRound);
+
+    // Banner de cuenta atrás (jornada abierta) o candado (jornada cerrada)
+    let roundStatusBanner = "";
+    if (roundMatches.length > 0) {
+      const kickoffs = roundMatches
+        .map(m => m.kickoff_utc).filter(Boolean)
+        .map(k => new Date(k).getTime()).filter(t => !isNaN(t));
+      const earliestKickoff = kickoffs.length > 0 ? Math.min(...kickoffs) : null;
+
+      if (roundOpen && earliestKickoff) {
+        // Jornada abierta: banner con cuenta atrás al primer partido
+        const cdId = "cd-matches-" + _currentRound;
+        const msTillClose = earliestKickoff - Date.now();
+        const urgency = msTillClose < 3 * 3600000 ? "round-banner--red"
+                      : msTillClose < 24 * 3600000 ? "round-banner--amber"
+                      : "round-banner--green";
+        roundStatusBanner = `
+          <div class="round-banner ${urgency}">
+            <span class="round-banner__icon">⏰</span>
+            <span>Cierre de pronósticos en <span id="${cdId}" class="round-banner__countdown"></span></span>
+          </div>
+        `;
+        // Arranca cuenta atrás tras render
+        setTimeout(() => PorraExtras.startCountdown(cdId, new Date(earliestKickoff).toISOString()), 0);
+      } else if (!roundOpen && earliestKickoff) {
+        // Jornada cerrada: banner candado con fecha de inicio
+        const closedSince = formatDateTime(new Date(earliestKickoff).toISOString());
+        roundStatusBanner = `
+          <div class="round-banner round-banner--locked">
+            <span class="round-banner__icon">🔒</span>
+            <span>Jornada cerrada — empezó el ${closedSince}. Los pronósticos de todos están visibles.</span>
+          </div>
+        `;
+      }
+    }
 
     let matchCardsHtml = "";
     if (roundMatches.length === 0) {
@@ -1161,6 +1623,7 @@ const App = (() => {
         const isFinished = match.status === "finished";
         const isLive = match.status === "live";
         const isWild = match.is_double_points === true || match.is_double_points === "true" || match.is_double_points === "TRUE";
+        const matchOpen = new Date(match.kickoff_utc) > new Date();
 
         const predictions = _data.matchPredictions.filter(mp => mp.match_id === match.id);
         const predictionsHtml = predictions.map(pred => {
@@ -1178,10 +1641,17 @@ const App = (() => {
 
         const statusClass = isLive ? "match-card--live" : isFinished ? "match-card--finished" : "";
         const wildClass = isWild ? "match-card--wild" : "";
+        const lockClass = !matchOpen ? "match-card--locked" : "";
+        const lockOverlay = !matchOpen ? `
+          <div class="match-card__lock-overlay" aria-hidden="true">
+            <span>🔒</span>
+            <span>Pronósticos bloqueados desde ${formatDateTime(match.kickoff_utc)}</span>
+          </div>
+        ` : "";
 
         let userEditHtml = "";
-        const matchOpen = new Date(match.kickoff_utc) > new Date();
         if (activeUser && matchOpen) {
+          // Partido individual aún no empezado: input editable
           const draft = loadUserDraft(activeUser);
           const userPred = draft.matchPredictions[match.id] || { home: "", away: "" };
           userEditHtml = `
@@ -1194,10 +1664,23 @@ const App = (() => {
               </div>
             </div>
           `;
+        } else if (activeUser && !matchOpen) {
+          // Partido cerrado: mostrar el pronóstico guardado del usuario (solo lectura)
+          const submitted = _submissionsMap[activeUser.trim().toLowerCase()];
+          const userPred = submitted && submitted.matchPredictions && submitted.matchPredictions[match.id];
+          if (userPred) {
+            userEditHtml = `
+              <div class="user-prediction-edit user-prediction-edit--locked" style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--color-border);">
+                <span style="font-size:var(--font-sm); color:var(--color-text-secondary); display:block; margin-bottom:4px;">🔒 Tu pronóstico:</span>
+                <span class="text-muted" style="font-size:var(--font-sm);">${userPred.home ?? "?"} - ${userPred.away ?? "?"}</span>
+              </div>
+            `;
+          }
         }
 
         return `
-          <div class="card match-card ${statusClass} ${wildClass} fade-in">
+          <div class="card match-card ${statusClass} ${wildClass} ${lockClass} fade-in">
+            ${lockOverlay}
             ${isWild ? '<span class="badge badge--wild">🔥 Partido Salvaje ×2</span>' : ""}
             <div class="match-card__date" style="text-align: center; font-size: var(--font-xs); color: var(--color-text-secondary); margin-bottom: var(--space-2); font-weight: 600; opacity: 0.85;">
               📅 ${formatMatchDate(match.kickoff_utc)} · ${formatTime(match.kickoff_utc)}
@@ -1215,12 +1698,12 @@ const App = (() => {
               ${!isFinished && !isLive ? '<span class="badge badge--closed">Programado</span>' : ""}
             </div>
             ${userEditHtml}
-            ${predictions.length > 0 ? `
+            ${(!roundOpen && predictions.length > 0) || isFinished ? `
               <div class="match-card__predictions">
                 <h4>Predicciones</h4>
                 ${predictionsHtml}
               </div>
-            ` : ""}
+            ` : (roundOpen && predictions.length > 0 ? "" : "")}
           </div>
         `;
       }).join("");
@@ -1229,6 +1712,7 @@ const App = (() => {
     container.innerHTML = `
       <h1 class="page-title">⚽ Predicciones de Partidos</h1>
       ${roundSelector}
+      ${roundStatusBanner}
       <div class="matches-grid">${matchCardsHtml}</div>
     `;
 
@@ -1270,6 +1754,38 @@ const App = (() => {
     const roundSelector = buildRoundSelector();
     const roundScorers = _data.scorerPicks.filter(sp => sp.round_key === _currentRound);
     const roundGKs = _data.goalkeeperPicks.filter(gp => gp.round_key === _currentRound);
+    const rdOpen = isRoundOpen(_currentRound);
+
+    // Banner de estado de la jornada
+    const roundMatches = getMatchesByRound(_currentRound);
+    let roundStatusBanner = "";
+    if (roundMatches.length > 0) {
+      const kickoffs = roundMatches.map(m => m.kickoff_utc).filter(Boolean)
+        .map(k => new Date(k).getTime()).filter(t => !isNaN(t));
+      const earliestKickoff = kickoffs.length > 0 ? Math.min(...kickoffs) : null;
+
+      if (rdOpen && earliestKickoff) {
+        const cdId = "cd-sgk-" + _currentRound;
+        const msTillClose = earliestKickoff - Date.now();
+        const urgency = msTillClose < 3 * 3600000 ? "round-banner--red"
+                      : msTillClose < 24 * 3600000 ? "round-banner--amber"
+                      : "round-banner--green";
+        roundStatusBanner = `
+          <div class="round-banner ${urgency}">
+            <span class="round-banner__icon">⏰</span>
+            <span>Elige tu goleador y portero antes de <span id="${cdId}" class="round-banner__countdown"></span></span>
+          </div>
+        `;
+        setTimeout(() => PorraExtras.startCountdown(cdId, new Date(earliestKickoff).toISOString()), 0);
+      } else if (!rdOpen && earliestKickoff) {
+        roundStatusBanner = `
+          <div class="round-banner round-banner--locked">
+            <span class="round-banner__icon">🔒</span>
+            <span>Jornada cerrada — empezó el ${formatDateTime(new Date(earliestKickoff).toISOString())}. Las selecciones son públicas.</span>
+          </div>
+        `;
+      }
+    }
 
     const buildPicksTable = (picks, type) => {
       if (picks.length === 0) return `<p class="text-muted">No picks for this round yet.</p>`;
@@ -1308,9 +1824,9 @@ const App = (() => {
 
     let userSelectionHtml = "";
     const activeUser = getActiveUser();
-    const rdOpen = isRoundOpen(_currentRound);
 
     if (activeUser && rdOpen) {
+      // Jornada abierta: selects editables
       const draft = loadUserDraft(activeUser);
       const selectedScorerId = draft.scorerPicks[_currentRound] || "";
       const selectedGKId = draft.goalkeeperPicks[_currentRound] || "";
@@ -1340,11 +1856,37 @@ const App = (() => {
           </div>
         </div>
       `;
+    } else if (activeUser && !rdOpen) {
+      // Jornada cerrada: mostrar selección enviada (solo lectura)
+      const submitted = _submissionsMap[activeUser.trim().toLowerCase()];
+      const scorerId = submitted && submitted.scorerPicks && submitted.scorerPicks[_currentRound];
+      const gkId = submitted && submitted.goalkeeperPicks && submitted.goalkeeperPicks[_currentRound];
+      const scorerPlayer = scorerId && _data.players.find(p => p.id === scorerId);
+      const gkPlayer = gkId && _data.players.find(p => p.id === gkId);
+
+      if (scorerPlayer || gkPlayer) {
+        userSelectionHtml = `
+          <div class="card fade-in mb-2 round-locked-card">
+            <h2 class="card-title">🔒 Tu Selección para ${CONFIG.roundLabels[_currentRound]}</h2>
+            <div style="display:flex; flex-wrap:wrap; gap:16px; opacity:0.75;">
+              <div style="flex:1; min-width:180px;">
+                <div class="text-muted" style="font-size:var(--font-sm); margin-bottom:4px;">🎯 Goleador</div>
+                <div>${scorerPlayer ? `${escapeHtml(scorerPlayer.name)} (${escapeHtml(scorerPlayer.team)})` : '<span class="text-muted">Sin selección</span>'}</div>
+              </div>
+              <div style="flex:1; min-width:180px;">
+                <div class="text-muted" style="font-size:var(--font-sm); margin-bottom:4px;">🧤 Portero</div>
+                <div>${gkPlayer ? `${escapeHtml(gkPlayer.name)} (${escapeHtml(gkPlayer.team)})` : '<span class="text-muted">Sin selección</span>'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
     }
 
     container.innerHTML = `
       <h1 class="page-title">🎯 Goleador y Portero</h1>
       ${roundSelector}
+      ${roundStatusBanner}
       ${userSelectionHtml}
       <div class="card fade-in mt-2">
         <h2 class="card-title">🎯 Goleador de la Jornada</h2>
@@ -1359,7 +1901,7 @@ const App = (() => {
     `;
 
     attachRoundListeners();
-    attachPlayerSelectListeners();
+    if (rdOpen) attachPlayerSelectListeners();
   }
 
   function attachPlayerSelectListeners() {
@@ -1399,17 +1941,48 @@ const App = (() => {
 
     const eventsEmojis = { E1: "⚽", E2: "🔥", E3: "🧤", E4: "😈", E5: "🎩", E6: "😬" };
     const activeUser = getActiveUser();
+    const now = Date.now();
 
     const eventsHtml = _data.specialEvents.filter(ev => ev.id !== "E2").map(ev => {
       const picks = _data.specialEventPicks.filter(sp => sp.event_id === ev.id);
       const isResolved = ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE";
       const isActive = ev.is_active === true || ev.is_active === "true" || ev.is_active === "TRUE";
 
+      // Calcular si está cerrado por deadline
+      const deadlineTs = ev.deadline_utc ? new Date(ev.deadline_utc).getTime() : null;
+      const isPastDeadline = deadlineTs && deadlineTs <= now;
+      const isEditable = isActive && !isResolved && !isPastDeadline;
+
+      // Badge de estado
       const statusBadge = isResolved
         ? '<span class="badge badge--resolved">✅ Resuelto</span>'
-        : isActive
-          ? '<span class="badge badge--open">🟢 Abierto</span>'
-          : '<span class="badge badge--closed">🟡 Cerrado</span>';
+        : isPastDeadline
+          ? '<span class="badge badge--locked">🔒 Cerrado</span>'
+          : isActive
+            ? '<span class="badge badge--open">🟢 Abierto</span>'
+            : '<span class="badge badge--closed">🟡 Cerrado</span>';
+
+      // Banner de cuenta atrás o candado para el evento
+      let eventBanner = "";
+      if (isEditable && deadlineTs) {
+        const cdId = "cd-ev-" + ev.id;
+        const msTillClose = deadlineTs - now;
+        const urgency = msTillClose < 3 * 3600000 ? "round-banner--red"
+                      : msTillClose < 24 * 3600000 ? "round-banner--amber"
+                      : "round-banner--green";
+        eventBanner = `
+          <div class="round-banner ${urgency}" style="margin:8px 0; padding:8px 12px; font-size:var(--font-sm);">
+            <span>⏰ Cierre en <span id="${cdId}" class="round-banner__countdown"></span></span>
+          </div>
+        `;
+        setTimeout(() => PorraExtras.startCountdown(cdId, ev.deadline_utc), 0);
+      } else if (isPastDeadline && !isResolved) {
+        eventBanner = `
+          <div class="round-banner round-banner--locked" style="margin:8px 0; padding:8px 12px; font-size:var(--font-sm);">
+            <span>🔒 Cerrado el ${formatDateTime(ev.deadline_utc)}. Las apuestas son públicas.</span>
+          </div>
+        `;
+      }
 
       const picksHtml = picks.length > 0
         ? picks.map(pick => {
@@ -1434,7 +2007,7 @@ const App = (() => {
         : '<p class="text-muted">No picks yet.</p>';
 
       let userEditHtml = "";
-      if (activeUser && isActive) {
+      if (activeUser && isEditable) {
         const draft = loadUserDraft(activeUser);
         const draftVal = draft.specialEventPicks[ev.id] || "";
         userEditHtml = `
@@ -1443,7 +2016,27 @@ const App = (() => {
             ${renderEventInput(ev, draftVal)}
           </div>
         `;
+      } else if (activeUser && (isPastDeadline || !isActive) && !isResolved) {
+        // Evento cerrado pero no resuelto: mostrar el pick enviado (solo lectura)
+        const submitted = _submissionsMap[activeUser.trim().toLowerCase()];
+        const submittedVal = submitted && submitted.specialEventPicks && submitted.specialEventPicks[ev.id];
+        if (submittedVal) {
+          let displaySubmitted = String(submittedVal);
+          if (ev.id === "E3" || ev.id === "E5") {
+            const pl = _data.players.find(p => p.id === submittedVal);
+            if (pl) displaySubmitted = `${pl.name} (${pl.team})`;
+          }
+          userEditHtml = `
+            <div class="user-event-edit" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--color-border);">
+              <span style="font-size:var(--font-sm); color:var(--color-text-secondary); display:block; margin-bottom:4px;">🔒 Tu apuesta:</span>
+              <span class="text-muted">${escapeHtml(displaySubmitted)}</span>
+            </div>
+          `;
+        }
       }
+
+      // Mostrar picks de todos si está cerrado/resuelto; solo el propio si está abierto
+      const showAllPicks = isResolved || isPastDeadline || !isActive;
 
       return `
         <div class="card event-card fade-in">
@@ -1455,13 +2048,15 @@ const App = (() => {
             </div>
           </div>
           <p class="event-description">${escapeHtml(ev.description)}</p>
-          ${ev.deadline_utc ? `<p class="text-muted">⏰ Deadline: ${formatDateTime(ev.deadline_utc)}</p>` : ""}
+          ${eventBanner}
           ${isResolved && ev.result_description ? `<p class="text-gold">📋 Resultado: ${escapeHtml(ev.result_description)}</p>` : ""}
           ${userEditHtml}
-          <div class="event-card__picks">
-            <h4>Picks</h4>
-            ${picksHtml}
-          </div>
+          ${showAllPicks ? `
+            <div class="event-card__picks">
+              <h4>Picks</h4>
+              ${picksHtml}
+            </div>
+          ` : ""}
         </div>
       `;
     }).join("");
@@ -1617,9 +2212,82 @@ const App = (() => {
       </div>
 
       <div class="card fade-in mt-2">
+        <h2 class="card-title">🔄 Resultados API</h2>
+        <p class="text-muted">Fuerza la actualización inmediata de resultados y goleadores vía football-data.org (requiere que Apps Script esté configurado con el token FD_TOKEN).</p>
+        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; margin-top:var(--space-2);">
+          <button id="admin-refresh-btn" class="btn btn--primary">🔄 Actualizar resultados ahora</button>
+          <button id="admin-close-round-btn" class="btn btn--ghost">🔒 Cerrar jornada…</button>
+        </div>
+        <div id="admin-api-result" class="text-muted" style="margin-top:var(--space-2); font-size:var(--font-sm); min-height:1.5em;"></div>
+        <div id="admin-close-round-ui" class="hidden" style="margin-top:var(--space-2); display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap;">
+          <select id="admin-round-select" class="form-input" style="max-width:200px;">
+            ${Object.entries(CONFIG.roundLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
+          </select>
+          <button id="admin-close-round-confirm" class="btn btn--primary">Cerrar esta jornada</button>
+          <button id="admin-close-round-cancel" class="btn btn--ghost">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card fade-in mt-2">
         <button id="admin-logout-btn" class="btn btn--danger">🚪 Cerrar sesión admin</button>
       </div>
     `;
+
+    // --- Botón actualizar resultados ---
+    $("#admin-refresh-btn")?.addEventListener("click", async () => {
+      const btn = $("#admin-refresh-btn");
+      const result = $("#admin-api-result");
+      btn.disabled = true;
+      btn.textContent = "⏳ Actualizando…";
+      result.textContent = "";
+      try {
+        const resp = await fetch(CONFIG.appsScriptUrl + "?action=refresh");
+        const json = await resp.json();
+        if (json.error) {
+          result.textContent = "❌ Error: " + json.error;
+        } else {
+          result.textContent = "✅ Listo — " +
+            (json.matches_updated || 0) + " partidos, " +
+            (json.scorers_updated || 0) + " goleadores, " +
+            (json.rounds_closed && json.rounds_closed.length > 0 ? "jornadas cerradas: " + json.rounds_closed.join(", ") : "sin jornadas cerradas") +
+            " · " + new Date().toLocaleTimeString("es-ES");
+        }
+      } catch (e) {
+        result.textContent = "❌ Error de red: " + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔄 Actualizar resultados ahora";
+      }
+    });
+
+    // --- Botón cerrar jornada ---
+    $("#admin-close-round-btn")?.addEventListener("click", () => {
+      const ui = $("#admin-close-round-ui");
+      if (ui) { ui.classList.remove("hidden"); ui.style.display = "flex"; }
+    });
+    $("#admin-close-round-cancel")?.addEventListener("click", () => {
+      const ui = $("#admin-close-round-ui");
+      if (ui) { ui.classList.add("hidden"); ui.style.display = "none"; }
+    });
+    $("#admin-close-round-confirm")?.addEventListener("click", async () => {
+      const round = $("#admin-round-select")?.value;
+      if (!round) return;
+      const result = $("#admin-api-result");
+      result.textContent = "⏳ Cerrando jornada " + round + "…";
+      try {
+        const resp = await fetch(CONFIG.appsScriptUrl + "?action=closeRound&round=" + encodeURIComponent(round));
+        const json = await resp.json();
+        if (json.error) {
+          result.textContent = "❌ Error: " + json.error;
+        } else {
+          result.textContent = "✅ Jornada " + round + " cerrada · " + new Date().toLocaleTimeString("es-ES");
+        }
+      } catch (e) {
+        result.textContent = "❌ Error de red: " + e.message;
+      }
+      const ui = $("#admin-close-round-ui");
+      if (ui) { ui.classList.add("hidden"); ui.style.display = "none"; }
+    });
 
     $("#admin-logout-btn")?.addEventListener("click", () => {
       sessionStorage.removeItem("admin_auth");
@@ -2124,10 +2792,22 @@ const App = (() => {
     const hasUrls = Object.values(CONFIG.googleSheets).every(url => url && !url.startsWith("URL_CSV"));
 
     if (hasUrls) {
-      await loadAllData();
-      renderUserSelector();
-      updateFloatingSaveBar();
-      handleRoute();
+      // Pintado instantáneo desde caché si hay copia local, refresco en segundo plano
+      if (hydrateFromCache()) {
+        renderUserSelector();
+        updateFloatingSaveBar();
+        handleRoute();
+        loadAllData(true).then(() => {
+          renderUserSelector();
+          updateFloatingSaveBar();
+          handleRoute();
+        }).catch(() => {});
+      } else {
+        await loadAllData();
+        renderUserSelector();
+        updateFloatingSaveBar();
+        handleRoute();
+      }
     } else {
       console.info("Google Sheets URLs not configured. Showing tutorial notice.");
       showConfigNotice();
