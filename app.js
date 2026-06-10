@@ -47,10 +47,11 @@ const App = (() => {
       try { draft = JSON.parse(local); } catch (e) {}
     }
     
+    const published = _submissionsMap[name.trim().toLowerCase()];
+    
     if (!draft) {
       needsSave = true;
       // Si no hay borrador local, inicializar desde la predicción publicada
-      const published = _submissionsMap[name.trim().toLowerCase()];
       if (published) {
         draft = {
           name: name,
@@ -67,6 +68,70 @@ const App = (() => {
           goalkeeperPicks: {},
           specialEventPicks: {}
         };
+      }
+    } else if (published) {
+      // Si ya hay borrador local, mezclar los datos publicados del backend
+      // que falten en el local o tengan valores no válidos.
+      if (!draft.matchPredictions) draft.matchPredictions = {};
+      if (!draft.scorerPicks) draft.scorerPicks = {};
+      if (!draft.goalkeeperPicks) draft.goalkeeperPicks = {};
+      if (!draft.specialEventPicks) draft.specialEventPicks = {};
+
+      Object.entries(published.matchPredictions || {}).forEach(([k, v]) => {
+        const localVal = draft.matchPredictions[k];
+        if (localVal === undefined || localVal === null) {
+          draft.matchPredictions[k] = v;
+          needsSave = true;
+        }
+      });
+      Object.entries(published.scorerPicks || {}).forEach(([k, v]) => {
+        const localVal = draft.scorerPicks[k];
+        if (v && v !== "undefined" && (localVal === undefined || localVal === null || localVal === "" || localVal === "undefined")) {
+          draft.scorerPicks[k] = v;
+          needsSave = true;
+        }
+      });
+      Object.entries(published.goalkeeperPicks || {}).forEach(([k, v]) => {
+        const localVal = draft.goalkeeperPicks[k];
+        if (v && v !== "undefined" && (localVal === undefined || localVal === null || localVal === "" || localVal === "undefined")) {
+          draft.goalkeeperPicks[k] = v;
+          needsSave = true;
+        }
+      });
+      Object.entries(published.specialEventPicks || {}).forEach(([k, v]) => {
+        const localVal = draft.specialEventPicks[k];
+        if (v && v !== "undefined" && (localVal === undefined || localVal === null || localVal === "" || localVal === "undefined")) {
+          draft.specialEventPicks[k] = v;
+          needsSave = true;
+        }
+      });
+    }
+
+    // Limpieza de posibles valores "undefined" residuales
+    if (draft) {
+      if (draft.scorerPicks) {
+        Object.keys(draft.scorerPicks).forEach(k => {
+          if (draft.scorerPicks[k] === "undefined") {
+            delete draft.scorerPicks[k];
+            needsSave = true;
+          }
+        });
+      }
+      if (draft.goalkeeperPicks) {
+        Object.keys(draft.goalkeeperPicks).forEach(k => {
+          if (draft.goalkeeperPicks[k] === "undefined") {
+            delete draft.goalkeeperPicks[k];
+            needsSave = true;
+          }
+        });
+      }
+      if (draft.specialEventPicks) {
+        Object.keys(draft.specialEventPicks).forEach(k => {
+          if (draft.specialEventPicks[k] === "undefined") {
+            delete draft.specialEventPicks[k];
+            needsSave = true;
+          }
+        });
       }
     }
 
@@ -363,7 +428,7 @@ const App = (() => {
 
       if (payload.scorerPicks) {
         Object.entries(payload.scorerPicks).forEach(([roundKey, playerId]) => {
-          if (playerId) {
+          if (playerId && playerId !== "undefined") {
             _data.scorerPicks.push({
               participant_id: participantId,
               round_key: roundKey,
@@ -377,7 +442,7 @@ const App = (() => {
 
       if (payload.goalkeeperPicks) {
         Object.entries(payload.goalkeeperPicks).forEach(([roundKey, playerId]) => {
-          if (playerId) {
+          if (playerId && playerId !== "undefined") {
             _data.goalkeeperPicks.push({
               participant_id: participantId,
               round_key: roundKey,
@@ -390,7 +455,7 @@ const App = (() => {
 
       if (payload.specialEventPicks) {
         Object.entries(payload.specialEventPicks).forEach(([eventId, pickValue]) => {
-          if (pickValue) {
+          if (pickValue && pickValue !== "undefined") {
             _data.specialEventPicks.push({
               participant_id: participantId,
               event_id: eventId,
@@ -1422,6 +1487,64 @@ const App = (() => {
     `;
   }
 
+  function getMissingPicks(name) {
+    if (!name) return [];
+    const draft = loadUserDraft(name);
+    const missing = [];
+    const now = Date.now();
+
+    // 1. Partidos, Goleador y Portero solo de la jornada actual si está abierta
+    if (isRoundOpen(_currentRound)) {
+      const label = CONFIG.roundLabels[_currentRound] || _currentRound;
+
+      // Partidos
+      const roundMatches = getMatchesByRound(_currentRound);
+      if (roundMatches.length > 0) {
+        const missingMatches = roundMatches.filter(match => {
+          const pred = draft && draft.matchPredictions && draft.matchPredictions[match.id];
+          const hasHome = pred && pred.home !== undefined && pred.home !== null && pred.home !== "";
+          const hasAway = pred && pred.away !== undefined && pred.away !== null && pred.away !== "";
+          return !hasHome || !hasAway;
+        });
+        if (missingMatches.length > 0) {
+          missing.push(`⚽ Faltan <strong>${missingMatches.length} partidos</strong> por pronosticar en la <a href="partidos.html?round=${_currentRound}" class="text-green" style="text-decoration: underline; font-weight: bold;">${escapeHtml(label)}</a>.`);
+        }
+      }
+
+      // Goleador
+      const hasScorer = draft && draft.scorerPicks && draft.scorerPicks[_currentRound] && draft.scorerPicks[_currentRound] !== "undefined";
+      if (!hasScorer) {
+        missing.push(`🎯 Falta elegir <strong>goleador</strong> en la <a href="goleador-portero.html?round=${_currentRound}" class="text-green" style="text-decoration: underline; font-weight: bold;">${escapeHtml(label)}</a>.`);
+      }
+
+      // Portero
+      const hasGK = draft && draft.goalkeeperPicks && draft.goalkeeperPicks[_currentRound] && draft.goalkeeperPicks[_currentRound] !== "undefined";
+      if (!hasGK) {
+        missing.push(`🧤 Falta elegir <strong>portero</strong> en la <a href="goleador-portero.html?round=${_currentRound}" class="text-green" style="text-decoration: underline; font-weight: bold;">${escapeHtml(label)}</a>.`);
+      }
+    }
+
+    // 2. Eventos especiales activos y editables
+    if (_data.specialEvents) {
+      _data.specialEvents.forEach(ev => {
+        if (ev.id === "E2") return; // Partido Salvaje no se elige
+        const isActive = ev.is_active === true || ev.is_active === "true" || ev.is_active === "TRUE";
+        const isResolved = ev.is_resolved === true || ev.is_resolved === "true" || ev.is_resolved === "TRUE";
+        const deadlineTs = ev.deadline_utc ? new Date(ev.deadline_utc).getTime() : null;
+        const isPastDeadline = deadlineTs && deadlineTs <= now;
+
+        if (isActive && !isResolved && !isPastDeadline) {
+          const hasPick = draft && draft.specialEventPicks && draft.specialEventPicks[ev.id] && draft.specialEventPicks[ev.id] !== "undefined";
+          if (!hasPick) {
+            missing.push(`🌟 Falta responder al evento especial <a href="eventos.html" class="text-green" style="text-decoration: underline; font-weight: bold;"><strong>${escapeHtml(ev.id)} — ${escapeHtml(ev.name)}</strong></a>.`);
+          }
+        }
+      });
+    }
+
+    return missing;
+  }
+
   function renderLeaderboard() {
     const container = $("#app-content");
     if (!container) return;
@@ -1485,6 +1608,29 @@ const App = (() => {
       `;
     }
 
+    let missingBannerHtml = "";
+    if (activeUser) {
+      const missing = getMissingPicks(activeUser);
+      if (missing.length > 0) {
+        missingBannerHtml = `
+          <div class="card alert-card fade-in" style="border-left: 4px solid var(--color-gold); background: rgba(255, 215, 0, 0.05); margin-bottom: var(--space-6); padding: var(--space-4);">
+            <div style="display: flex; gap: var(--space-3); align-items: flex-start;">
+              <span style="font-size: 1.5rem; line-height: 1;">⚠️</span>
+              <div>
+                <h3 style="margin: 0 0 var(--space-1); color: var(--color-gold); font-size: var(--font-base);">Pronósticos pendientes para <strong>${escapeHtml(activeUser)}</strong></h3>
+                <p class="text-muted" style="margin: 0; font-size: var(--font-sm); line-height: 1.5;">
+                  Asegúrate de rellenar y <strong>enviar</strong> estos apartados antes del cierre de plazos:
+                </p>
+                <ul style="margin: var(--space-2) 0 0; padding-left: var(--space-4); font-size: var(--font-sm); color: var(--color-text-secondary); display: flex; flex-direction: column; gap: var(--space-1);">
+                  ${missing.map(item => `<li>${item}</li>`).join("")}
+                </ul>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
     let html = `
       <div class="hero">
         <div class="hero__eyebrow">FIFA World Cup 2026 · USA · México · Canadá</div>
@@ -1497,6 +1643,8 @@ const App = (() => {
         ${countdownHtml}
         ${renderReminderControls(reminderEvents)}
       </div>
+
+      ${missingBannerHtml}
 
       <div class="leaderboard-selector-container fade-in">
         ${buildLeaderboardRoundSelector()}
@@ -3588,6 +3736,12 @@ const App = (() => {
   // ---------------------------------------------------------------------------
 
   async function init() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roundParam = urlParams.get("round");
+    if (roundParam) {
+      _currentRound = roundParam;
+    }
+
     if (typeof window.confetti === "undefined") {
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js";
