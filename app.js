@@ -685,12 +685,8 @@ const App = (() => {
   }
 
   function normalizeMatchesDates(matchesArray) {
-    if (!Array.isArray(matchesArray)) return;
-    matchesArray.forEach(m => {
-      if (m.kickoff_utc && typeof m.kickoff_utc === 'string' && m.kickoff_utc.endsWith('Z')) {
-        m.kickoff_utc = m.kickoff_utc.slice(0, -1);
-      }
-    });
+    // No modificamos las fechas con Z de UTC para permitir que el navegador las convierta
+    // automáticamente al huso horario local de España (CET/CEST, UTC+2).
   }
 
   // Carga instantánea desde caché (si hay copia de todas las hojas).
