@@ -880,7 +880,6 @@ const PorraExtras = (() => {
           <span class="oracle-panel__header-emoji">🧙‍♂️</span>
           <div>
             <div class="oracle-panel__header-title">El Oráculo del Cuñao</div>
-            <div class="oracle-panel__header-sub">Powered by Gemma 4 31B</div>
           </div>
         </div>
         <div class="oracle-panel__messages" id="oracle-messages">

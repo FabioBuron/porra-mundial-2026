@@ -46,7 +46,7 @@ const PorraMusic = (() => {
       .porra-music-container {
         position: fixed;
         bottom: 24px;
-        right: 24px;
+        left: 24px;
         z-index: 9999;
         display: flex;
         align-items: center;
@@ -71,7 +71,7 @@ const PorraMusic = (() => {
       .porra-music-bubble {
         position: absolute;
         bottom: 50px;
-        right: 0;
+        left: 0;
         background: var(--color-gold, #f59e0b);
         color: #000;
         font-size: 11px;
@@ -357,7 +357,7 @@ const PorraMusic = (() => {
       @media (max-width: 768px) {
         .porra-music-container {
           bottom: 16px;
-          right: 16px;
+          left: 16px;
           padding: 6px 10px;
         }
         .music-disc-wrapper {
