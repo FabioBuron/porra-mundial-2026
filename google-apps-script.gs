@@ -745,7 +745,7 @@ function generarCronicaConGemini(round, leaderboard) {
     leaderboard.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
     "\n\nGenera la cronica con la estructura JSON solicitada.";
 
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=" + apiKey;
 
   const requestBody = {
     contents: [{
