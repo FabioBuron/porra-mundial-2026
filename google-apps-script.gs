@@ -845,9 +845,32 @@ function _buildPorraContextFromSheet() {
     var partData = partSheet ? partSheet.getDataRange().getValues() : [];
     var partHeaders = partData[0] || [];
     var nameIdx = partHeaders.indexOf("name");
+    var partIdIdx = partHeaders.indexOf("id");
+
+    // Mapa participant_id -> nombre
+    var partNameMap = {};
+    for (var i = 1; i < partData.length; i++) {
+      if (partIdIdx !== -1 && nameIdx !== -1) {
+        partNameMap[String(partData[i][partIdIdx])] = partData[i][nameIdx];
+      }
+    }
+
+    // Mapa player_id -> nombre (desde hoja players)
+    var playerNameMap = {};
+    var playersSheet = ss.getSheetByName("players");
+    if (playersSheet) {
+      var pd = playersSheet.getDataRange().getValues();
+      var ph = pd[0] || [];
+      var pIdIdx = ph.indexOf("id");
+      var pNameIdx = ph.indexOf("name");
+      for (var i = 1; i < pd.length; i++) {
+        if (pIdIdx !== -1 && pNameIdx !== -1) {
+          playerNameMap[String(pd[i][pIdIdx])] = pd[i][pNameIdx];
+        }
+      }
+    }
 
     // Picks de scorer y goalkeeper de la jornada actual
-    // Determinamos jornada activa buscando la última con picks
     var scorerSheet = ss.getSheetByName("scorer_picks");
     var gkSheet = ss.getSheetByName("goalkeeper_picks");
 
@@ -859,14 +882,16 @@ function _buildPorraContextFromSheet() {
       var sd = scorerSheet.getDataRange().getValues();
       var sh = sd[0] || [];
       var sRoundIdx = sh.indexOf("round_key");
-      var sPlayerIdx = sh.indexOf("player_name");
-      var sPartIdx = sh.indexOf("participant_name") !== -1 ? sh.indexOf("participant_name") : sh.indexOf("participant_id");
+      var sPlayerIdx = sh.indexOf("player_id");
+      var sPartIdx = sh.indexOf("participant_id");
       for (var i = sd.length - 1; i >= 1; i--) {
         if (sd[i][sRoundIdx]) { currentRound = sd[i][sRoundIdx]; break; }
       }
       for (var i = 1; i < sd.length; i++) {
         if (sd[i][sRoundIdx] === currentRound) {
-          scorerLines.push((sd[i][sPartIdx] || "?") + ": " + (sd[i][sPlayerIdx] || "?"));
+          var partName = partNameMap[String(sd[i][sPartIdx])] || sd[i][sPartIdx] || "?";
+          var playerName = playerNameMap[String(sd[i][sPlayerIdx])] || sd[i][sPlayerIdx] || "?";
+          scorerLines.push(partName + ": " + playerName);
         }
       }
     }
@@ -875,11 +900,13 @@ function _buildPorraContextFromSheet() {
       var gd = gkSheet.getDataRange().getValues();
       var gh = gd[0] || [];
       var gRoundIdx = gh.indexOf("round_key");
-      var gPlayerIdx = gh.indexOf("player_name");
-      var gPartIdx = gh.indexOf("participant_name") !== -1 ? gh.indexOf("participant_name") : gh.indexOf("participant_id");
+      var gPlayerIdx = gh.indexOf("player_id");
+      var gPartIdx = gh.indexOf("participant_id");
       for (var i = 1; i < gd.length; i++) {
         if (gd[i][gRoundIdx] === currentRound) {
-          gkLines.push((gd[i][gPartIdx] || "?") + ": " + (gd[i][gPlayerIdx] || "?"));
+          var gPartName = partNameMap[String(gd[i][gPartIdx])] || gd[i][gPartIdx] || "?";
+          var gPlayerName = playerNameMap[String(gd[i][gPlayerIdx])] || gd[i][gPlayerIdx] || "?";
+          gkLines.push(gPartName + ": " + gPlayerName);
         }
       }
     }
