@@ -2940,13 +2940,12 @@ const App = (() => {
     }
 
     /**
-     * Calls Gemini streamGenerateContent directly from the browser and streams tokens
-     * into the provided streamingBubble. Returns the full accumulated text.
+     * Calls Gemini generateContent directly from the browser (non-streaming).
      */
-    async function streamFromGemini(promptText, apiKey, streamingBubble) {
+    async function callGemini(promptText, apiKey) {
       const key = apiKey || CONFIG.geminiApiKey;
       const modelName = "gemma-4-31b-it";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse&key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
 
       const resp = await fetch(url, {
         method: "POST",
@@ -2961,37 +2960,16 @@ const App = (() => {
         throw new Error(`Gemini error ${resp.status}: ${errText}`);
       }
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop(); // keep incomplete last line
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(data);
-            const parts = parsed?.candidates?.[0]?.content?.parts ?? [];
-            for (const part of parts) {
-              // Skip thought parts (Gemma internal reasoning)
-              if (part.thought === true) continue;
-              if (part.text) streamingBubble.append(part.text);
-            }
-          } catch {
-            // malformed JSON chunk — skip
-          }
+      const data = await resp.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      let text = "";
+      for (const part of parts) {
+        if (part.thought !== true && part.text) {
+          text += part.text;
         }
       }
-
-      return streamingBubble.finalize();
+      if (!text) throw new Error("Respuesta vacía de la IA");
+      return text;
     }
 
     async function sendMessage() {
@@ -3009,17 +2987,17 @@ const App = (() => {
       // Step 1: fetch porra context from GAS (lightweight, no AI)
       appendTypingIndicator();
       const resultObj = await fetchPorraContext();
-      removeTypingIndicator();
 
-      // Step 2: stream directly from Gemini
-      const streamingBubble = createStreamingBubble();
+      // Step 2: call Gemini
       try {
         const promptText = buildOraclePrompt(question, chatHistory.slice(-10), resultObj?.context);
         const apiKey = resultObj?.geminiApiKey;
-        const fullAnswer = await streamFromGemini(promptText, apiKey, streamingBubble);
+        const fullAnswer = await callGemini(promptText, apiKey);
+        removeTypingIndicator();
+        appendMessage("oracle", fullAnswer);
         chatHistory.push({ role: "oracle", text: fullAnswer });
       } catch (err) {
-        streamingBubble.finalize();
+        removeTypingIndicator();
         appendMessage("oracle", "Tío, que se ha caído la Wi-Fi del bar. Vuelve a intentarlo, que mi primo el del bar ya está mirando el router. (" + err.message + ")");
       } finally {
         sendBtn.disabled = false;

@@ -1020,39 +1020,26 @@ const PorraExtras = (() => {
     return prompt;
   }
 
-  // ── Gemini stream ──────────────────────────────────────────────────────────
-  async function streamGemini(promptText, apiKey, bubble) {
+  // ── Gemini call (non-streaming) ───────────────────────────────────────────
+  async function callGemini(promptText, apiKey) {
     const key = apiKey || CONFIG.geminiApiKey;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:streamGenerateContent?alt=sse&key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:generateContent?key=${key}`;
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
     });
     if (!resp.ok) throw new Error(`Gemini ${resp.status}`);
-
-    const reader = resp.body.getReader();
-    const dec = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split("\n");
-      buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") break;
-        try {
-          const parsed = JSON.parse(data);
-          for (const part of parsed?.candidates?.[0]?.content?.parts ?? []) {
-            if (!part.thought && part.text) bubble.append(part.text);
-          }
-        } catch { /* skip malformed */ }
+    const data = await resp.json();
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    let text = "";
+    for (const part of parts) {
+      if (part.thought !== true && part.text) {
+        text += part.text;
       }
     }
-    return bubble.finalize();
+    if (!text) throw new Error("Respuesta vacía de la IA");
+    return text;
   }
 
   // ── Send ───────────────────────────────────────────────────────────────────
@@ -1072,16 +1059,16 @@ const PorraExtras = (() => {
 
     appendTyping();
     const resultObj = await fetchContext();
-    removeTyping();
-
-    const bubble = createStreamBubble();
+    
     try {
       const prompt = buildPrompt(question, resultObj?.context);
       const apiKey = resultObj?.geminiApiKey;
-      const full = await streamGemini(prompt, apiKey, bubble);
+      const full = await callGemini(prompt, apiKey);
+      removeTyping();
+      appendMsg("oracle", full);
       chatHistory.push({ role: "oracle", text: full });
     } catch (err) {
-      bubble.finalize();
+      removeTyping();
       appendMsg("oracle", "Se ha caído la Wi-Fi del bar 😤 (" + err.message + ")");
     } finally {
       isBusy = false;
