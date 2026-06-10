@@ -1001,7 +1001,7 @@ const PorraExtras = (() => {
   }
 
   // ── Prompt builder ─────────────────────────────────────────────────────────
-  function buildPrompt(question, ctx) {
+  function buildPrompt(question, activeUser, ctx) {
     let ctxBlock = "";
     if (ctx) {
       ctxBlock = "\n\n--- DATOS ACTUALES DE LA PORRA ---\n" +
@@ -1010,7 +1010,7 @@ const PorraExtras = (() => {
         "Goleadores: " + ctx.goleadores + "\n" +
         "Porteros: " + ctx.porteros + "\n--- FIN ---";
     }
-    const system = "Eres 'El Oráculo de la Barra', un tío que sabe demasiado de fútbol y no puede callarse. Tu tono es humor español de Twitter: takes calientes, ironía seca, frases cortas y contundentes, algún emoji bien puesto (no más de 2), nada de parrafadas. Tienes acceso a los datos reales de una porra del Mundial entre amigos y DEBES usarlos cuando sean relevantes: liquida al colista, ensalza al líder, opina sobre los picks con total seguridad. Responde en máximo 3-4 frases. Estilo: si alguien dice algo obvio tú ya lo sabías. Si hay un colista, es culpa suya. Si hay un líder, es por suerte. Nunca admitas incertidumbre." + ctxBlock;
+    const system = "Eres 'El Oráculo de la Barra', un cuñado ilustrado de barra de bar con palillo en la boca y veterano de foros de fútbol y Twitter español (estilo Forocoches). Tu tono es extremadamente sarcástico, vacilón y con jerga forocochera ('shur', 'shurmano', 'vendehumos', 'es un tieso', 'ni cotiza', 'cero unidades de...'). Tienes acceso a los datos de la porra y DEBES usarlos. Tu objetivo es meterte sobre todo con el usuario que te está preguntando (" + activeUser + "). Si va mal en la porra, búrlate sin piedad de su fracaso futbolístico. Si va bien o líder, dile que va de flor en el culo, que es pura potra y que no tiene ni idea de fútbol. No te ensañes siempre con el último, sé más variado y ensáñate con " + activeUser + ". Responde en máximo 3 frases cortas y contundentes, con 1-2 emojis (como 🤡, 🤫, 🤦‍♂️, 🤣). Estilo: humillación futbolística sana pero directa. Nunca admitas que no sabes." + ctxBlock;
 
     let prompt = system + "\n\n";
     chatHistory.slice(-8).forEach(m => {
@@ -1061,7 +1061,8 @@ const PorraExtras = (() => {
     const resultObj = await fetchContext();
     
     try {
-      const prompt = buildPrompt(question, resultObj?.context);
+      const activeUser = localStorage.getItem("porra_active_user") || "Ver General (Público)";
+      const prompt = buildPrompt(question, activeUser, resultObj?.context);
       const apiKey = resultObj?.geminiApiKey;
       const full = await callGemini(prompt, apiKey);
       removeTyping();
