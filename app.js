@@ -2014,8 +2014,9 @@ const App = (() => {
       const selectedScorerId = draft.scorerPicks[_currentRound] || "";
       const selectedGKId = draft.goalkeeperPicks[_currentRound] || "";
 
-      const outfieldPlayers = _data.players.filter(p => p.position === "outfield" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
-      const goalkeeperPlayers = _data.players.filter(p => p.position === "goalkeeper" && (p.active === true || p.active === "TRUE" || p.active === "true")).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+      const isActive = p => p.active !== "FALSE" && p.active !== false && p.active !== "false";
+      const outfieldPlayers = _data.players.filter(p => p.position === "outfield" && isActive(p)).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+      const goalkeeperPlayers = _data.players.filter(p => p.position === "goalkeeper" && isActive(p)).sort((a,b) => (a.name || "").localeCompare(b.name || ""));
 
       userSelectionHtml = `
         <div class="card fade-in mb-2" style="border: 1px solid var(--color-green);">
