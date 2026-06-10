@@ -1809,7 +1809,18 @@ body.has-save-bar .porra-music-container {
 
 .custom-select-wrapper--active,
 .custom-select-wrapper:focus-within {
-  z-index: 1001;
+  z-index: 10005 !important;
+}
+
+/* Forzar que las tarjetas o secciones que contengan un buscador abierto suban de z-index y no recorten su contenido */
+.card:has(.custom-select-wrapper--active),
+.form-group:has(.custom-select-wrapper--active),
+.user-event-edit:has(.custom-select-wrapper--active),
+.user-prediction-edit:has(.custom-select-wrapper--active),
+.prediction-row:has(.custom-select-wrapper--active) {
+  position: relative;
+  z-index: 10002 !important;
+  overflow: visible !important;
 }
 
 .custom-select-trigger {
