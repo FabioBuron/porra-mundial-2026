@@ -101,3 +101,54 @@ const CONFIG = {
 * **Module 3 — Goalkeeper:** Choose 1 goalkeeper per round. 0 goals conceded (+2 pts), 1 goal (+1 pt), 2+ goals (conceded goals subtracted from 2, e.g. 3 goals = -1 pt).
 * **Module 4 — Special Events:** 6 unique bets throughout the tournament (E1-E6) with custom points.
 * **Tiebreakers:** 1st Match points (M1) → 2nd Scorer + Goalkeeper points (M2+M3) → 3rd Special events (M4) → 4th Alphabetical.
+
+---
+
+## 🤖 Actualización Automática de Resultados (football-data.org)
+
+### Obtener el token de la API
+
+1. Regístrate gratis en [https://www.football-data.org/client/register](https://www.football-data.org/client/register).
+2. Una vez registrado, recibirás tu `X-Auth-Token` por email.
+3. El plan gratuito (TIER ONE) incluye el Mundial FIFA (`WC`) y permite 10 peticiones/minuto. Más que suficiente.
+
+### Configurar el Apps Script
+
+1. Abre tu proyecto de Apps Script (desde Google Sheets > Extensiones > Apps Script).
+2. Pega el contenido de **`apps-script-results.gs`** en un nuevo archivo del proyecto (no reemplaces `google-apps-script.gs`).
+3. Ejecuta `ensureResultsSchema()` una vez si el Sheet viene de una versión anterior. Añade `api_id`, `api_name` y `api_snapshots` si faltan.
+4. Ve a ⚙️ **Configuración del proyecto > Propiedades del script** y añade:
+   - Clave: `FD_TOKEN` / Valor: `<tu token de football-data.org>`
+5. ⚠️ **No pongas el token en `config.js`** — el repo es público. El token vive solo en Script Properties.
+
+> **Nota sobre `doGet`:** `google-apps-script.gs` ya delega las acciones `?action=refresh`, `?action=closeRound`, `?action=syncMatchIds` y `?action=ensureSchema` a `doGetResults()` cuando `apps-script-results.gs` está pegado en el mismo proyecto.
+
+### Sincronizar partidos (una sola vez)
+
+1. En Apps Script, ejecuta la función `syncMatchIds()` manualmente (botón ▶ Ejecutar).
+2. Revisa los logs: debería emparejar ≥ 100 de los 104 partidos automáticamente.
+3. Para los partidos que no se emparejaron, rellena `api_id` manualmente en la hoja `matches`.
+
+### Instalar el trigger automático
+
+1. Ejecuta la función `installTrigger()` una sola vez desde Apps Script.
+2. Esto instala un cron de **cada 10 minutos** que llama a `syncAndUpdate()`.
+3. `syncAndUpdate()` actualiza resultados, goleadores y detecta/cierra jornadas automáticamente.
+
+### Botones del Admin
+
+Desde `admin.html` puedes:
+- **🔄 Actualizar resultados ahora**: fuerza una actualización inmediata (útil justo al terminar un partido).
+- **🔒 Cerrar jornada…**: cierra manualmente una jornada (guarda snapshot de goleadores y calcula porteros).
+
+### Esquema adicional en el Google Sheet
+
+Asegúrate de que tu Sheet tiene estas columnas/hojas nuevas (el Excel template ya las incluye):
+
+- Hoja `matches`: columna `api_id` (al final) — el ID del partido en football-data.org.
+- Hoja `players`: columna `api_name` (después de `active`) — nombre exacto del jugador según la API para matching preciso. Si está vacío, se hace matching aproximado por nombre normalizado.
+- **Nueva hoja `api_snapshots`** con columnas: `round_key`, `player_api_name`, `goals_total`, `taken_at`.
+
+### Porteros: nota sobre la aproximación
+
+Los goles encajados por portero se calculan como los goles en contra de su selección en cada partido de la jornada. Esto asume que el portero elegido por el participante fue titular. Esta es una aproximación necesaria porque la API gratuita no proporciona alineaciones.

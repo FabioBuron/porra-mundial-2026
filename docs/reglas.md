@@ -153,3 +153,11 @@ En caso de empate al final del torneo, se resuelve por este orden:
 4. Los penaltis en tanda **no cuentan** para el módulo de goleador ni de portero (solo para E6).
 5. Si un partido se suspende y no se completa, no puntúa en ningún módulo.
 6. El pago de la cuota (5 €) debe realizarse antes del partido inaugural del torneo.
+
+---
+
+## Nota sobre el Módulo 3 (Portero) y la actualización automática
+
+Los goles encajados por el portero elegido por cada participante se calculan automáticamente a partir de los goles encajados por su **selección** en cada partido de la jornada.
+
+**Importante:** esto presupone que el portero elegido fue titular en todos los partidos de la jornada. No existe forma de verificarlo automáticamente en el plan gratuito de la API de resultados utilizada (football-data.org no proporciona alineaciones). Si el portero elegido no jugó un partido concreto (lesión, rotación, etc.), el cálculo de esa jornada podría no ser exacto. El administrador puede corregirlo manualmente en la hoja `players` si fuera necesario.
