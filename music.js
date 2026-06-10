@@ -2,28 +2,50 @@
 // La Porra del Mundial — Music Player & World Cup Ambient
 // =============================================================================
 // Encapsulates all background music playback, states, and the welcome overlay.
-// Uses YouTube IFrame API to stream music without local hosting.
+// Uses YouTube IFrame API via youtube-nocookie.com to stream music ad-free.
 // =============================================================================
 
 const PorraMusic = (() => {
   "use strict";
 
   const PLAYLIST_IDS = [
-    "YOm6fMOoy_A", // Shakira - Waka Waka (Español) - Lyric Video
-    "RzFUy2cqQ6c", // Cali y El Dandee - Gol - Lyric Video
-    "w_Wi90rSOCw", // K'NAAN ft. David Bisbal - Wavin' Flag (Coca-Cola 2010 Español) - Lyric Video
-    "czWcyZRAMtk", // Shakira - Waka Waka (English) - Lyric Video
-    "o1zAYjyEwdY", // K'NAAN - Wavin' Flag (English) - Lyric Video
-    "Q8aL_msltWY", // Ricky Martin - La Copa de la Vida (Español) - Lyric Video
-    "guwZDKE-MDM", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola) - Lyric Video
-    "2igups6VdcA", // Shakira - La La La (Brazil 2014) - Lyric Video
-    "ibqyu7bQ4-w"  // Jason Derulo - Colors (Coca-Cola 2018) - Lyric Video
+    "YOm6fMOoy_A", // Shakira - Waka Waka (Español)
+    "RzFUy2cqQ6c", // Cali y El Dandee - Gol
+    "w_Wi90rSOCw", // K'NAAN ft. David Bisbal - Wavin' Flag (Español)
+    "czWcyZRAMtk", // Shakira - Waka Waka (English)
+    "o1zAYjyEwdY", // K'NAAN - Wavin' Flag (English)
+    "Q8aL_msltWY", // Ricky Martin - La Copa de la Vida (Español)
+    "guwZDKE-MDM", // Pitbull ft. Jennifer Lopez - We Are One (Ole Ola)
+    "2igups6VdcA", // Shakira - La La La (Brazil 2014)
+    "ibqyu7bQ4-w", // Jason Derulo - Colors (Coca-Cola 2018)
+    "S0T0-m0q6yM", // ¿Dónde está Curazao? (Línea de Cal)
+    "hUPd426G6z8", // Gianna Nannini - Un'estate italiana (Italia 1990)
+    "V0-vQ48j0yE", // Il Divo - The Time of Our Lives (Alemania 2006)
+    "8p2_8L45xJg"  // Daryl Hall - Gloryland (USA 1994)
   ];
+
+  const TRACK_DETAILS = {
+    "YOm6fMOoy_A": "Shakira - Waka Waka (Español)",
+    "RzFUy2cqQ6c": "Cali y El Dandee - Gol",
+    "w_Wi90rSOCw": "K'NAAN ft. Bisbal - Wavin' Flag",
+    "czWcyZRAMtk": "Shakira - Waka Waka (English)",
+    "o1zAYjyEwdY": "K'NAAN - Wavin' Flag (English)",
+    "Q8aL_msltWY": "Ricky Martin - La Copa de la Vida",
+    "guwZDKE-MDM": "Pitbull ft. J.Lo - We Are One",
+    "2igups6VdcA": "Shakira - La La La (Brazil 2014)",
+    "ibqyu7bQ4-w": "Jason Derulo - Colors",
+    "S0T0-m0q6yM": "¿Dónde está Curazao? (Línea de Cal)",
+    "hUPd426G6z8": "Gianna Nannini - Un'estate italiana",
+    "V0-vQ48j0yE": "Il Divo - The Time of Our Lives",
+    "8p2_8L45xJg": "Daryl Hall - Gloryland"
+  };
+
   let _player = null;
   let _isMuted = false;
   let _saveInterval = null;
   let _consecutiveErrors = 0;
   let _shuffledPlaylist = [];
+  let _currentTrackIndex = 0;
 
   function shuffleArray(array) {
     const arr = [...array];
@@ -386,18 +408,22 @@ const PorraMusic = (() => {
 
   // Create Player elements
   function createPlayerUI() {
-    // 1. YouTube Hidden Player Div
+    // 1. YouTube Hidden Player Iframe (Forced to youtube-nocookie.com)
     if (!document.getElementById("youtube-audio-player")) {
-      const playerDiv = document.createElement("div");
-      playerDiv.id = "youtube-audio-player";
-      playerDiv.style.position = "absolute";
-      playerDiv.style.top = "-9999px";
-      playerDiv.style.left = "-9999px";
-      playerDiv.style.width = "200px";
-      playerDiv.style.height = "200px";
-      playerDiv.style.opacity = "0.01";
-      playerDiv.style.pointerEvents = "none";
-      document.body.appendChild(playerDiv);
+      const playerIframe = document.createElement("iframe");
+      playerIframe.id = "youtube-audio-player";
+      const initialVideo = _shuffledPlaylist[_currentTrackIndex] || PLAYLIST_IDS[0];
+      
+      playerIframe.src = "https://www.youtube-nocookie.com/embed/" + initialVideo + "?enablejsapi=1&origin=" + encodeURIComponent(window.location.origin) + "&controls=0&disablekb=1&fs=0&rel=0&modestbranding=1";
+      playerIframe.style.position = "absolute";
+      playerIframe.style.top = "-9999px";
+      playerIframe.style.left = "-9999px";
+      playerIframe.style.width = "200px";
+      playerIframe.style.height = "200px";
+      playerIframe.style.opacity = "0.01";
+      playerIframe.style.pointerEvents = "none";
+      playerIframe.setAttribute("allow", "autoplay; encrypted-media");
+      document.body.appendChild(playerIframe);
     }
 
     // 2. Floating Controller Widget
@@ -503,8 +529,8 @@ const PorraMusic = (() => {
       localStorage.setItem("porra_music_playing", "true");
       if (_player && typeof _player.playVideo === "function") {
         try {
-          _player.setShuffle(true);
-          _player.playVideo();
+          const currentVideo = _shuffledPlaylist[_currentTrackIndex];
+          _player.loadVideoById(currentVideo);
         } catch (e) {
           console.error("Error starting music playback:", e);
         }
@@ -547,13 +573,11 @@ const PorraMusic = (() => {
 
   // Load YouTube Player script
   function loadYoutubeAPI() {
-    // If API already loading or loaded, just setup player
     if (window.YT && window.YT.Player) {
       initPlayer();
       return;
     }
 
-    // Set callback
     window.onYouTubeIframeAPIReady = () => {
       initPlayer();
     };
@@ -568,7 +592,7 @@ const PorraMusic = (() => {
     }
   }
 
-  // Initialize YT.Player
+  // Initialize YT.Player targeting pre-existing youtube-nocookie.com iframe
   function initPlayer() {
     const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
     const savedVideoId = localStorage.getItem("porra_music_track_id");
@@ -576,22 +600,15 @@ const PorraMusic = (() => {
     const savedMute = localStorage.getItem("porra_music_muted") === "true";
 
     _isMuted = savedMute;
-    _shuffledPlaylist = shuffleArray(PLAYLIST_IDS);
+
+    if (savedVideoId) {
+      const idx = _shuffledPlaylist.indexOf(savedVideoId);
+      if (idx !== -1) {
+        _currentTrackIndex = idx;
+      }
+    }
 
     _player = new YT.Player("youtube-audio-player", {
-      height: "200",
-      width: "200",
-      playerVars: {
-        playlist: _shuffledPlaylist.join(","),
-        loop: 1,
-        shuffle: 1,
-        controls: 0,
-        disablekb: 1,
-        fs: 0,
-        rel: 0,
-        modestbranding: 1,
-        origin: window.location.origin
-      },
       events: {
         onReady: (event) => {
           onPlayerReady(event, wasPlaying, savedVideoId, savedTime);
@@ -602,16 +619,12 @@ const PorraMusic = (() => {
           _consecutiveErrors++;
           if (_consecutiveErrors < _shuffledPlaylist.length) {
             console.log("YouTube track error, trying to skip to next video...");
-            setTimeout(() => {
-              if (_player && typeof _player.nextVideo === "function") {
-                _player.nextVideo();
-              }
-            }, 500);
+            playNext();
           } else {
             const trackTitle = document.getElementById("music-track-title");
             if (trackTitle) {
               trackTitle.textContent = "Error de carga (adblock?)";
-              trackTitle.title = "Todos los videos de la playlist han fallado. Si tienes un bloqueador de publicidad o usas Brave, desactívalo o permite la reproducción para escuchar la música.";
+              trackTitle.title = "Todos los videos han fallado. Desactiva tu adblocker.";
             }
           }
         }
@@ -621,55 +634,32 @@ const PorraMusic = (() => {
 
   function onPlayerReady(event, wasPlaying, savedVideoId, savedTime) {
     const player = event.target;
-    player.setVolume(50); // Moderate volume
+    player.setVolume(50);
     if (_isMuted) {
       player.mute();
       updateMuteUI(true);
     }
 
     const hasIntroSeen = sessionStorage.getItem("porra_intro_seen") === "true";
+    const activeVideoId = _shuffledPlaylist[_currentTrackIndex];
+    const startTime = savedTime ? parseFloat(savedTime) : 0;
 
     if (wasPlaying && hasIntroSeen) {
-      // User is already navigating pages, so resume playback
-      let index = 0;
-      if (savedVideoId) {
-        const idx = _shuffledPlaylist.indexOf(savedVideoId);
-        if (idx !== -1) {
-          index = idx;
-        }
-      }
-      const time = savedTime ? parseFloat(savedTime) : 0;
-      
-      player.cuePlaylist({
-        playlist: _shuffledPlaylist,
-        index: index,
-        startSeconds: time
-      });
-      player.setShuffle(true);
-
-      // Try autoplaying since user navigated within the app (interacted already)
+      player.cueVideoById(activeVideoId, startTime);
       setTimeout(() => {
         player.playVideo();
-        // Check if autoplay was blocked
         setTimeout(() => {
           const state = player.getPlayerState();
           if (state !== YT.PlayerState.PLAYING) {
-            // Autoplay blocked by browser. Show notification bubble
             showResumeBubble(true);
           }
         }, 1000);
       }, 500);
     } else {
-      // Initial load, cue up
-      player.cuePlaylist({
-        playlist: _shuffledPlaylist,
-        index: 0,
-        startSeconds: 0
-      });
-      player.setShuffle(true);
+      player.cueVideoById(activeVideoId, 0);
+      updateTrackInfo();
     }
 
-    // Start state saving loop
     startStateSaving();
   }
 
@@ -684,7 +674,7 @@ const PorraMusic = (() => {
         playBtn.textContent = "⏸️";
         playBtn.title = "Pausar";
         localStorage.setItem("porra_music_playing", "true");
-        showResumeBubble(false); // Hide bubble once playing
+        showResumeBubble(false);
         updateTrackInfo();
         _consecutiveErrors = 0;
         break;
@@ -698,13 +688,7 @@ const PorraMusic = (() => {
         }
         break;
       case YT.PlayerState.ENDED:
-        if (_player && typeof _player.getPlaylistIndex === "function") {
-          const idx = _player.getPlaylistIndex();
-          const playlist = _player.getPlaylist();
-          if (playlist && idx === playlist.length - 1) {
-            _player.playVideoAt(0);
-          }
-        }
+        playNext();
         break;
     }
   }
@@ -713,11 +697,22 @@ const PorraMusic = (() => {
     if (_player && typeof _player.getVideoData === "function") {
       const data = _player.getVideoData();
       const trackTitle = document.getElementById("music-track-title");
-      if (trackTitle && data && data.title) {
-        // Clean title (remove common YouTube clutter like Official Video, etc)
-        let title = data.title;
-        title = title.replace(/\([^)]*\)/g, "").replace(/\[[^\]]*\]/g, "").trim();
-        trackTitle.textContent = title;
+      if (trackTitle) {
+        const videoId = data ? data.video_id : null;
+        const localTitle = TRACK_DETAILS[videoId];
+        
+        if (localTitle) {
+          trackTitle.textContent = localTitle;
+        } else if (data && data.title) {
+          let title = data.title;
+          title = title.replace(/\([^)]*\)/g, "").replace(/\[[^\]]*\]/g, "").trim();
+          trackTitle.textContent = title;
+        } else {
+          const defaultTitle = TRACK_DETAILS[_shuffledPlaylist[_currentTrackIndex]];
+          if (defaultTitle) {
+            trackTitle.textContent = defaultTitle;
+          }
+        }
       }
     }
   }
@@ -727,7 +722,6 @@ const PorraMusic = (() => {
     if (!bubble) return;
     if (show) {
       bubble.classList.add("porra-music-bubble--visible");
-      // Add one-time window click to resume and hide
       const resumeHandler = (e) => {
         if (e && e.target.closest("#porra-music-container")) return;
         if (_player && typeof _player.playVideo === "function") {
@@ -753,31 +747,19 @@ const PorraMusic = (() => {
   }
 
   function playNext() {
-    if (_player && typeof _player.getPlaylistIndex === "function") {
-      const idx = _player.getPlaylistIndex();
-      const playlist = _player.getPlaylist();
-      if (playlist && idx === playlist.length - 1) {
-        _player.playVideoAt(0);
-      } else {
-        _player.nextVideo();
-      }
-    } else if (_player && typeof _player.nextVideo === "function") {
-      _player.nextVideo();
-    }
+    if (!_player || typeof _player.loadVideoById !== "function") return;
+    _currentTrackIndex = (_currentTrackIndex + 1) % _shuffledPlaylist.length;
+    const nextVideo = _shuffledPlaylist[_currentTrackIndex];
+    _player.loadVideoById(nextVideo);
+    updateTrackInfo();
   }
 
   function playPrev() {
-    if (_player && typeof _player.getPlaylistIndex === "function") {
-      const idx = _player.getPlaylistIndex();
-      const playlist = _player.getPlaylist();
-      if (playlist && idx === 0) {
-        _player.playVideoAt(playlist.length - 1);
-      } else {
-        _player.previousVideo();
-      }
-    } else if (_player && typeof _player.previousVideo === "function") {
-      _player.previousVideo();
-    }
+    if (!_player || typeof _player.loadVideoById !== "function") return;
+    _currentTrackIndex = (_currentTrackIndex - 1 + _shuffledPlaylist.length) % _shuffledPlaylist.length;
+    const prevVideo = _shuffledPlaylist[_currentTrackIndex];
+    _player.loadVideoById(prevVideo);
+    updateTrackInfo();
   }
 
   function toggleMute() {
@@ -816,11 +798,10 @@ const PorraMusic = (() => {
             const time = _player.getCurrentTime();
             if (videoId) {
               localStorage.setItem("porra_music_track_id", videoId);
-              localStorage.removeItem("porra_music_track_index");
             }
             localStorage.setItem("porra_music_time", time);
           } catch (e) {
-            // ignore cross-origin errors if playing ads
+            // ignore cross-origin errors
           }
         }
       }
@@ -829,11 +810,11 @@ const PorraMusic = (() => {
 
   // Initialize
   function init() {
+    _shuffledPlaylist = shuffleArray(PLAYLIST_IDS);
     injectStyles();
     createPlayerUI();
     loadYoutubeAPI();
 
-    // Reanudar reproducción con la primera interacción del usuario en la página
     const startAudioOnInteraction = (e) => {
       if (e && e.target.closest("#porra-music-container")) return;
       const wasPlaying = localStorage.getItem("porra_music_playing") === "true";
@@ -844,7 +825,7 @@ const PorraMusic = (() => {
             _player.playVideo();
           }
         } catch (e) {
-          // El reproductor puede no estar listo todavía
+          // player might not be fully ready yet
         }
       }
       window.removeEventListener("click", startAudioOnInteraction);
