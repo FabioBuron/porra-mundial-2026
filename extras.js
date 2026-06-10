@@ -858,3 +858,235 @@ const PorraExtras = (() => {
     headToHead
   };
 })();
+
+// =============================================================================
+// Oracle Floating Widget — self-contained, mounts on every page
+// =============================================================================
+(function initOracleWidget() {
+  "use strict";
+
+  const chatHistory = [];
+  let isOpen = false;
+  let isBusy = false;
+
+  // ── Build DOM ──────────────────────────────────────────────────────────────
+  function mount() {
+    const widget = document.createElement("div");
+    widget.className = "oracle-widget";
+    widget.id = "oracle-widget";
+    widget.innerHTML = `
+      <div class="oracle-panel" id="oracle-panel" style="display:none;">
+        <div class="oracle-panel__header">
+          <span class="oracle-panel__header-emoji">🧙‍♂️</span>
+          <div>
+            <div class="oracle-panel__header-title">El Oráculo del Cuñao</div>
+            <div class="oracle-panel__header-sub">Powered by Gemma 4 31B</div>
+          </div>
+        </div>
+        <div class="oracle-panel__messages" id="oracle-messages">
+          <div class="oraculo-msg oraculo-msg--oracle">
+            <span class="oraculo-avatar">🧙‍♂️</span>
+            <div class="oraculo-bubble oraculo-bubble--oracle">Buenas. El Oráculo al aparato. Pregunta lo que quieras, que de esto sé un rato.</div>
+          </div>
+        </div>
+        <div class="oracle-panel__footer">
+          <textarea id="oracle-input" class="oracle-panel__input" rows="1"
+            placeholder="Pregunta algo…"></textarea>
+          <button id="oracle-send" class="oracle-panel__send" title="Enviar">➤</button>
+        </div>
+      </div>
+      <button class="oracle-fab" id="oracle-fab" aria-label="Abrir el Oráculo">🧙‍♂️</button>
+    `;
+    document.body.appendChild(widget);
+
+    document.getElementById("oracle-fab").addEventListener("click", togglePanel);
+    document.getElementById("oracle-send").addEventListener("click", sendMessage);
+    document.getElementById("oracle-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+  }
+
+  // ── Toggle panel ──────────────────────────────────────────────────────────
+  function togglePanel() {
+    isOpen = !isOpen;
+    const panel = document.getElementById("oracle-panel");
+    const fab   = document.getElementById("oracle-fab");
+    if (isOpen) {
+      panel.style.display = "flex";
+      panel.style.flexDirection = "column";
+      fab.textContent = "✕";
+      fab.classList.add("oracle-fab--open");
+      document.getElementById("oracle-input").focus();
+    } else {
+      panel.style.display = "none";
+      fab.textContent = "🧙‍♂️";
+      fab.classList.remove("oracle-fab--open");
+    }
+  }
+
+  // ── Messaging helpers ──────────────────────────────────────────────────────
+  function scrollBottom() {
+    const box = document.getElementById("oracle-messages");
+    if (box) box.scrollTop = box.scrollHeight;
+  }
+
+  function appendMsg(role, text) {
+    const isOracle = role === "oracle";
+    const div = document.createElement("div");
+    div.className = `oraculo-msg ${isOracle ? "oraculo-msg--oracle" : "oraculo-msg--user"}`;
+    div.innerHTML = `
+      ${isOracle ? '<span class="oraculo-avatar">🧙‍♂️</span>' : ""}
+      <div class="oraculo-bubble ${isOracle ? "oraculo-bubble--oracle" : "oraculo-bubble--user"}">${escHtml(text)}</div>
+      ${!isOracle ? '<span class="oraculo-avatar">👤</span>' : ""}
+    `;
+    document.getElementById("oracle-messages").appendChild(div);
+    scrollBottom();
+  }
+
+  function createStreamBubble() {
+    const div = document.createElement("div");
+    div.className = "oraculo-msg oraculo-msg--oracle";
+    div.innerHTML = `
+      <span class="oraculo-avatar">🧙‍♂️</span>
+      <div class="oraculo-bubble oraculo-bubble--oracle oraculo-bubble--streaming"></div>
+    `;
+    document.getElementById("oracle-messages").appendChild(div);
+    scrollBottom();
+    const bubble = div.querySelector(".oraculo-bubble");
+    let acc = "";
+    return {
+      append(chunk) { acc += chunk; bubble.textContent = acc; scrollBottom(); },
+      finalize() { bubble.classList.remove("oraculo-bubble--streaming"); return acc; }
+    };
+  }
+
+  function appendTyping() {
+    const div = document.createElement("div");
+    div.className = "oraculo-msg oraculo-msg--oracle";
+    div.id = "oracle-typing";
+    div.innerHTML = `
+      <span class="oraculo-avatar">🧙‍♂️</span>
+      <div class="oraculo-bubble oraculo-bubble--oracle oraculo-typing">
+        <span></span><span></span><span></span>
+      </div>`;
+    document.getElementById("oracle-messages").appendChild(div);
+    scrollBottom();
+  }
+
+  function removeTyping() {
+    document.getElementById("oracle-typing")?.remove();
+  }
+
+  function escHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // ── GAS context ───────────────────────────────────────────────────────────
+  async function fetchContext() {
+    try {
+      const r = await fetch(CONFIG.appsScriptUrl, {
+        method: "POST", mode: "cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getOracleContext" })
+      });
+      const j = await r.json();
+      return (j.success && j.result?.context) ? j.result.context : null;
+    } catch { return null; }
+  }
+
+  // ── Prompt builder ─────────────────────────────────────────────────────────
+  function buildPrompt(question, ctx) {
+    let ctxBlock = "";
+    if (ctx) {
+      ctxBlock = "\n\n--- DATOS ACTUALES DE LA PORRA ---\n" +
+        "Jornada: " + ctx.jornada + "\n" +
+        "Clasificación:\n" + ctx.clasificacion + "\n" +
+        "Goleadores: " + ctx.goleadores + "\n" +
+        "Porteros: " + ctx.porteros + "\n--- FIN ---";
+    }
+    const system = "Eres 'El Oráculo de la Barra', un tío que sabe demasiado de fútbol y no puede callarse. Tu tono es humor español de Twitter: takes calientes, ironía seca, frases cortas y contundentes, algún emoji bien puesto (no más de 2), nada de parrafadas. Tienes acceso a los datos reales de una porra del Mundial entre amigos y DEBES usarlos cuando sean relevantes: liquida al colista, ensalza al líder, opina sobre los picks con total seguridad. Responde en máximo 3-4 frases. Estilo: si alguien dice algo obvio tú ya lo sabías. Si hay un colista, es culpa suya. Si hay un líder, es por suerte. Nunca admitas incertidumbre." + ctxBlock;
+
+    let prompt = system + "\n\n";
+    chatHistory.slice(-8).forEach(m => {
+      prompt += (m.role === "user" ? "Usuario: " : "Cuñado: ") + m.text + "\n";
+    });
+    prompt += "Usuario: " + question + "\nCuñado:";
+    return prompt;
+  }
+
+  // ── Gemini stream ──────────────────────────────────────────────────────────
+  async function streamGemini(promptText, bubble) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:streamGenerateContent?alt=sse&key=${CONFIG.geminiApiKey}`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+    });
+    if (!resp.ok) throw new Error(`Gemini ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") break;
+        try {
+          const parsed = JSON.parse(data);
+          for (const part of parsed?.candidates?.[0]?.content?.parts ?? []) {
+            if (!part.thought && part.text) bubble.append(part.text);
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+    return bubble.finalize();
+  }
+
+  // ── Send ───────────────────────────────────────────────────────────────────
+  async function sendMessage() {
+    if (isBusy) return;
+    const input = document.getElementById("oracle-input");
+    const sendBtn = document.getElementById("oracle-send");
+    const question = input.value.trim();
+    if (!question) return;
+
+    input.value = "";
+    isBusy = true;
+    sendBtn.disabled = true;
+
+    appendMsg("user", question);
+    chatHistory.push({ role: "user", text: question });
+
+    appendTyping();
+    const ctx = await fetchContext();
+    removeTyping();
+
+    const bubble = createStreamBubble();
+    try {
+      const full = await streamGemini(buildPrompt(question, ctx), bubble);
+      chatHistory.push({ role: "oracle", text: full });
+    } catch (err) {
+      bubble.finalize();
+      appendMsg("oracle", "Se ha caído la Wi-Fi del bar 😤 (" + err.message + ")");
+    } finally {
+      isBusy = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mount);
+  } else {
+    mount();
+  }
+})();
+
