@@ -2272,6 +2272,7 @@ const App = (() => {
       const tryLogin = () => {
         if (input.value === CONFIG.adminPassword) {
           sessionStorage.setItem("admin_auth", "true");
+          sessionStorage.setItem("admin_password", input.value);
           renderAdmin();
         } else {
           error.textContent = "Contraseña incorrecta.";
@@ -2461,12 +2462,12 @@ const App = (() => {
         }));
 
         // Recuperar la password que se usó al hacer login
-        const password = document.getElementById("admin-password")?.value || "";
+        const password = sessionStorage.getItem("admin_password") || "";
 
         const resp = await fetch(CONFIG.appsScriptUrl, {
           method: "POST",
           mode: "cors",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain" },
           body: JSON.stringify({
             action: "generarCronica",
             round: round,
