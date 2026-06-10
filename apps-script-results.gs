@@ -593,9 +593,10 @@ function detectAndCloseRounds() {
     // Generar la crónica con la IA de Gemini automáticamente
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const leaderboard = calcularLeaderboardEnBackend(ss);
+      const leaderboardGlobal = calcularLeaderboardEnBackend(ss);
+      const leaderboardJornada = calcularLeaderboardEnBackend(ss, rKey);
       Logger.log("Auto-generando crónica de Gemini para " + rKey);
-      generarCronicaConGemini(rKey, leaderboard);
+      generarCronicaConGemini(rKey, leaderboardGlobal, leaderboardJornada);
       Logger.log("✅ Crónica auto-generada con éxito.");
     } catch (e) {
       Logger.log("⚠️ No se pudo generar la crónica de Gemini automáticamente: " + e.message);

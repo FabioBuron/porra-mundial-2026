@@ -736,13 +736,25 @@ function setupSpreadsheet() {
   Logger.log("Configuración completada.");
 }
 
-function generarCronicaConGemini(round, leaderboard) {
+function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  if (!leaderboardGlobal) {
+    leaderboardGlobal = calcularLeaderboardEnBackend(ss);
+  }
+  if (!leaderboardJornada) {
+    leaderboardJornada = calcularLeaderboardEnBackend(ss, round);
+  }
+
   var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
   
-  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre los resultados de una jornada de 'La Porra del Mundial 2026' basandote en la clasificacion que te proporciono.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que van ultimos (especialmente del colista) llamandolos 'farolillo rojo', 'con el agua al cuello', 'especialista en fracasos'.\n3. Lanza comentarios ironicos sobre el lider: insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados.\n4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n  \"noticias_secundarias\": [\n    {\n      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n      \"resumen\": \"Texto corto, ironico y directo sobre esta noticia secundaria.\"\n    },\n    {\n      \"titular\": \"OTRO TITULO SECUNDARIO\",\n      \"resumen\": \"Otro chisme gracioso sobre otro participante.\"\n    }\n  ]\n}";
+  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre una jornada de 'La Porra del Mundial 2026' basandote en el rendimiento de los participantes en esta jornada especifica y en la clasificacion general global.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo.\n3. Lanza comentarios ironicos sobre el lider general del torneo (insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados) y elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n  \"noticias_secundarias\": [\n    {\n      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n      \"resumen\": \"Texto corto, ironico y directo sobre esta noticia secundaria.\"\n    },\n    {\n      \"titular\": \"OTRO TITULO SECUNDARIO\",\n      \"resumen\": \"Otro chisme gracioso sobre otro participante.\"\n    }\n  ]\n}";
 
-  const promptUsuario = "Jornada finalizada: " + round + "\nClasificacion de los amigos en esta jornada:\n" + 
-    leaderboard.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
+  const promptUsuario = "Jornada finalizada: " + round + "\n\n" +
+    "Puntos conseguidos SOLO en esta jornada (Rendimiento de la jornada):\n" + 
+    leaderboardJornada.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
+    "\n\nClasificacion General Global (Acumulado de todo el torneo):\n" +
+    leaderboardGlobal.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
     "\n\nGenera la cronica con la estructura JSON solicitada.";
 
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
@@ -822,7 +834,19 @@ function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSec
   sheet.appendRow(["noticias_secundarias", typeof noticiasSecundarias === 'string' ? noticiasSecundarias : JSON.stringify(noticiasSecundarias || [])]);
 }
 
-function calcularLeaderboardEnBackend(ss) {
+function _matchRoundKeyLocal(phase, matchday) {
+  if (!phase) return null;
+  const p = String(phase).trim().toLowerCase();
+  if (p === "group") {
+    const md = Number(matchday);
+    if (!md || md < 1 || md > 3) return null;
+    return "group_md" + md;
+  }
+  const validKeys = ["r32", "r16", "qf", "sf", "3rd", "final"];
+  return validKeys.includes(p) ? p : null;
+}
+
+function calcularLeaderboardEnBackend(ss, targetRoundKey) {
   const sheetParticipants = ss.getSheetByName("participants");
   const sheetMatches = ss.getSheetByName("matches");
   const sheetPredictions = ss.getSheetByName("match_predictions");
@@ -861,19 +885,26 @@ function calcularLeaderboardEnBackend(ss) {
   const mDoubleIdx = mHeaders.indexOf("is_double_points");
 
   const matchesMap = {};
+  const mPhaseIdx = mHeaders.indexOf("phase");
+  const mMdIdx = mHeaders.indexOf("matchday");
   for (let i = 1; i < matchesData.length; i++) {
     const mId = String(matchesData[i][mIdIdx]).trim();
     const status = String(matchesData[i][mStatusIdx]).trim().toLowerCase();
     const hScore = matchesData[i][mHScoreIdx];
     const aScore = matchesData[i][mAScoreIdx];
     const isDouble = String(matchesData[i][mDoubleIdx]).trim().toLowerCase() === "true";
+    const phase = matchesData[i][mPhaseIdx];
+    const matchday = matchesData[i][mMdIdx];
 
     if (mId && status === "finished" && hScore !== "" && aScore !== "") {
-      matchesMap[mId] = {
-        home: Number(hScore),
-        away: Number(aScore),
-        isDouble: isDouble
-      };
+      const roundKey = _matchRoundKeyLocal(phase, matchday);
+      if (!targetRoundKey || roundKey === targetRoundKey) {
+        matchesMap[mId] = {
+          home: Number(hScore),
+          away: Number(aScore),
+          isDouble: isDouble
+        };
+      }
     }
   }
 
@@ -935,11 +966,14 @@ function calcularLeaderboardEnBackend(ss) {
     participants.forEach(p => {
       const pPicks = [];
       for (let i = 1; i < scorerPicksData.length; i++) {
+        const roundKey = String(scorerPicksData[i][spRoundIdx]).trim();
         if (String(scorerPicksData[i][spPartIdx]).trim() === p.id) {
-          pPicks.push({
-            roundKey: String(scorerPicksData[i][spRoundIdx]).trim(),
-            playerId: String(scorerPicksData[i][spPlayerIdx]).trim()
-          });
+          if (!targetRoundKey || roundKey === targetRoundKey) {
+            pPicks.push({
+              roundKey: roundKey,
+              playerId: String(scorerPicksData[i][spPlayerIdx]).trim()
+            });
+          }
         }
       }
 
@@ -974,11 +1008,14 @@ function calcularLeaderboardEnBackend(ss) {
     participants.forEach(p => {
       const pPicks = [];
       for (let i = 1; i < gkPicksData.length; i++) {
+        const roundKey = String(gkPicksData[i][gpRoundIdx]).trim();
         if (String(gkPicksData[i][gpPartIdx]).trim() === p.id) {
-          pPicks.push({
-            roundKey: String(gkPicksData[i][gpRoundIdx]).trim(),
-            playerId: String(gkPicksData[i][gpPlayerIdx]).trim()
-          });
+          if (!targetRoundKey || roundKey === targetRoundKey) {
+            pPicks.push({
+              roundKey: roundKey,
+              playerId: String(gkPicksData[i][gpPlayerIdx]).trim()
+            });
+          }
         }
       }
 
@@ -1002,8 +1039,8 @@ function calcularLeaderboardEnBackend(ss) {
     });
   }
 
-  // 4. Eventos Especiales (special_event_picks)
-  if (sheetSpecialEvents && sheetSpecialEventPicks) {
+  // 4. Eventos Especiales (special_event_picks) - Solo cuentan para el acumulado global
+  if (!targetRoundKey && sheetSpecialEvents && sheetSpecialEventPicks) {
     const eventsData = sheetSpecialEvents.getDataRange().getValues();
     const evHeaders = eventsData[0];
     const evIdIdx = evHeaders.indexOf("id");

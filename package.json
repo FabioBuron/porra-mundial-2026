@@ -1,0 +1,12 @@
+{
+  "name": "porra-mundial-2026",
+  "version": "1.0.0",
+  "description": "Porra del Mundial 2026",
+  "main": "app.js",
+  "scripts": {
+    "test": "node tests/scoring.test.js && node tests/extras.test.js && node tests/google-apps-script.test.js && node tests/apps-script.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
