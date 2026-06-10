@@ -13,7 +13,19 @@ const context = {
   clearInterval,
   document: {
     getElementById() {
-      return null;
+      return {
+        addEventListener() {}
+      };
+    },
+    createElement() {
+      return {
+        appendChild() {},
+        style: {},
+        addEventListener() {}
+      };
+    },
+    body: {
+      appendChild() {}
     }
   },
   CONFIG: {

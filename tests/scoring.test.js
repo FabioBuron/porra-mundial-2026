@@ -90,13 +90,12 @@ assert.equal(Scoring.calculateSpecialEventPoints("E3", "pl03", "pl04"), 0);
 assert.equal(Scoring.calculateSpecialEventPoints("E3", "pl03", "annulled"), 0);
 assert.equal(Scoring.calculateSpecialEventPoints("E3", "pl03", "none"), 0);
 
-// E4: La Maldición del Favorito (R16 = 3 pts, QF = 2 pts, resto = 0 pts)
-assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "Brazil : R16"), 3);
-assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "Brazil : QF"), 2);
-assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "Brazil : SF"), 0);
-assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", { team: "Brazil", eliminated_in: "r16" }), 3);
-assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", { team: "Brazil", eliminated_in: "qf" }), 2);
-assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "France : R16"), 0);
+// E4: ¿Qué selección caerá antes? (acierto = 3 pts fijos, soporta empates separados por comas)
+assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "Brazil"), 3);
+assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "Brazil, France"), 3);
+assert.equal(Scoring.calculateSpecialEventPoints("E4", "France", "Brazil, France"), 3);
+assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", { team: "Brazil" }), 3);
+assert.equal(Scoring.calculateSpecialEventPoints("E4", "Brazil", "France"), 0);
 
 // E5: Hat-Trick Salvaje (acierto = 5 pts)
 assert.equal(Scoring.calculateSpecialEventPoints("E5", "pl01", "pl01"), 5);
