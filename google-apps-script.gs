@@ -739,7 +739,7 @@ function setupSpreadsheet() {
 function generarCronicaConGemini(round, leaderboard) {
   var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
   
-  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre los resultados de una jornada de 'La Porra del Mundial 2026' basandote en la clasificacion que te proporciono.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'a mi que no me cuenten peliculas', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que van ultimos (especialmente del colista) llamandolos 'farolillo rojo', 'con el agua al cuello', 'especialista en fracasos'.\n3. Lanza comentarios ironicos sobre el lider: insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados.\n4. Usa metaforas futbolisticas disparatadas.\n5. Se muy ironico y comico, no te cortes con las bromas entre colegas.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos. Se extenso y detallista, mofandote de los nombres que veas en la clasificacion.\"\n}";
+  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre los resultados de una jornada de 'La Porra del Mundial 2026' basandote en la clasificacion que te proporciono.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que van ultimos (especialmente del colista) llamandolos 'farolillo rojo', 'con el agua al cuello', 'especialista en fracasos'.\n3. Lanza comentarios ironicos sobre el lider: insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados.\n4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n  \"noticias_secundarias\": [\n    {\n      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n      \"resumen\": \"Texto corto, ironico y directo sobre esta noticia secundaria.\"\n    },\n    {\n      \"titular\": \"OTRO TITULO SECUNDARIO\",\n      \"resumen\": \"Otro chisme gracioso sobre otro participante.\"\n    }\n  ]\n}";
 
   const promptUsuario = "Jornada finalizada: " + round + "\nClasificacion de los amigos en esta jornada:\n" + 
     leaderboard.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
@@ -801,12 +801,12 @@ function generarCronicaConGemini(round, leaderboard) {
 
   const labelEdicion = roundLabels[round] || round;
   
-  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion);
+  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias);
 
   return "Cronica de IA generada y guardada con exito para " + labelEdicion;
 }
 
-function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion) {
+function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("periodico");
   if (!sheet) {
@@ -819,5 +819,238 @@ function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion) {
   sheet.appendRow(["fecha", new Date().toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })]);
   sheet.appendRow(["edicion", edicion]);
   sheet.appendRow(["cronica", cronica]);
+  sheet.appendRow(["noticias_secundarias", typeof noticiasSecundarias === 'string' ? noticiasSecundarias : JSON.stringify(noticiasSecundarias || [])]);
 }
 
+function calcularLeaderboardEnBackend(ss) {
+  const sheetParticipants = ss.getSheetByName("participants");
+  const sheetMatches = ss.getSheetByName("matches");
+  const sheetPredictions = ss.getSheetByName("match_predictions");
+  const sheetPlayers = ss.getSheetByName("players");
+  const sheetScorerPicks = ss.getSheetByName("scorer_picks");
+  const sheetGkPicks = ss.getSheetByName("goalkeeper_picks");
+  const sheetSpecialEvents = ss.getSheetByName("special_events");
+  const sheetSpecialEventPicks = ss.getSheetByName("special_event_picks");
+
+  if (!sheetParticipants || !sheetMatches || !sheetPredictions) {
+    throw new Error("No se encontraron las hojas necesarias para calcular el leaderboard");
+  }
+
+  const participantsData = sheetParticipants.getDataRange().getValues();
+  const pHeaders = participantsData[0];
+  const pIdIdx = pHeaders.indexOf("id");
+  const pNameIdx = pHeaders.indexOf("name");
+
+  // Crear mapa de participantes
+  const participants = [];
+  for (let i = 1; i < participantsData.length; i++) {
+    const pId = String(participantsData[i][pIdIdx]).trim();
+    const pName = String(participantsData[i][pNameIdx]).trim();
+    if (pId && pName) {
+      participants.push({ id: pId, name: pName, points: 0 });
+    }
+  }
+
+  // 1. Puntos de partidos
+  const matchesData = sheetMatches.getDataRange().getValues();
+  const mHeaders = matchesData[0];
+  const mIdIdx = mHeaders.indexOf("id");
+  const mHScoreIdx = mHeaders.indexOf("home_score");
+  const mAScoreIdx = mHeaders.indexOf("away_score");
+  const mStatusIdx = mHeaders.indexOf("status");
+  const mDoubleIdx = mHeaders.indexOf("is_double_points");
+
+  const matchesMap = {};
+  for (let i = 1; i < matchesData.length; i++) {
+    const mId = String(matchesData[i][mIdIdx]).trim();
+    const status = String(matchesData[i][mStatusIdx]).trim().toLowerCase();
+    const hScore = matchesData[i][mHScoreIdx];
+    const aScore = matchesData[i][mAScoreIdx];
+    const isDouble = String(matchesData[i][mDoubleIdx]).trim().toLowerCase() === "true";
+
+    if (mId && status === "finished" && hScore !== "" && aScore !== "") {
+      matchesMap[mId] = {
+        home: Number(hScore),
+        away: Number(aScore),
+        isDouble: isDouble
+      };
+    }
+  }
+
+  const predictionsData = sheetPredictions.getDataRange().getValues();
+  const predHeaders = predictionsData[0];
+  const prPartIdx = predHeaders.indexOf("participant_id");
+  const prMatchIdx = predHeaders.indexOf("match_id");
+  const prHomeIdx = predHeaders.indexOf("predicted_home");
+  const prAwayIdx = predHeaders.indexOf("predicted_away");
+
+  const predictions = [];
+  for (let i = 1; i < predictionsData.length; i++) {
+    const pId = String(predictionsData[i][prPartIdx]).trim();
+    const mId = String(predictionsData[i][prMatchIdx]).trim();
+    const pHome = predictionsData[i][prHomeIdx];
+    const pAway = predictionsData[i][prAwayIdx];
+
+    if (pId && mId && pHome !== "" && pAway !== "") {
+      predictions.push({
+        participantId: pId,
+        matchId: mId,
+        home: Number(pHome),
+        away: Number(pAway)
+      });
+    }
+  }
+
+  // Sumar puntos por predicción
+  participants.forEach(p => {
+    const pPreds = predictions.filter(pr => pr.participantId === p.id);
+    pPreds.forEach(pr => {
+      const match = matchesMap[pr.matchId];
+      if (match) {
+        let pts = 0;
+        if (pr.home === match.home && pr.away === match.away) {
+          pts = 3;
+        } else if ((pr.home - pr.away) === (match.home - match.away)) {
+          pts = 2;
+        } else if (Math.sign(pr.home - pr.away) === Math.sign(match.home - match.away)) {
+          pts = 1;
+        }
+        p.points += match.isDouble ? pts * 2 : pts;
+      }
+    });
+  });
+
+  // 2. Goleadores (scorer_picks)
+  if (sheetPlayers && sheetScorerPicks) {
+    const playersData = sheetPlayers.getDataRange().getValues();
+    const plHeaders = playersData[0];
+    const plIdIdx = plHeaders.indexOf("id");
+
+    const scorerPicksData = sheetScorerPicks.getDataRange().getValues();
+    const spHeaders = scorerPicksData[0];
+    const spPartIdx = spHeaders.indexOf("participant_id");
+    const spRoundIdx = spHeaders.indexOf("round_key");
+    const spPlayerIdx = spHeaders.indexOf("player_id");
+
+    participants.forEach(p => {
+      const pPicks = [];
+      for (let i = 1; i < scorerPicksData.length; i++) {
+        if (String(scorerPicksData[i][spPartIdx]).trim() === p.id) {
+          pPicks.push({
+            roundKey: String(scorerPicksData[i][spRoundIdx]).trim(),
+            playerId: String(scorerPicksData[i][spPlayerIdx]).trim()
+          });
+        }
+      }
+
+      pPicks.forEach(pick => {
+        const colName = "goals_" + pick.roundKey;
+        const colIdx = plHeaders.indexOf(colName);
+        if (colIdx !== -1) {
+          for (let rowIdx = 1; rowIdx < playersData.length; rowIdx++) {
+            if (String(playersData[rowIdx][plIdIdx]).trim() === pick.playerId) {
+              const goals = Number(playersData[rowIdx][colIdx]) || 0;
+              p.points += goals;
+              break;
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // 3. Porteros (goalkeeper_picks)
+  if (sheetPlayers && sheetGkPicks) {
+    const playersData = sheetPlayers.getDataRange().getValues();
+    const plHeaders = playersData[0];
+    const plIdIdx = plHeaders.indexOf("id");
+
+    const gkPicksData = sheetGkPicks.getDataRange().getValues();
+    const gpHeaders = gkPicksData[0];
+    const gpPartIdx = gpHeaders.indexOf("participant_id");
+    const gpRoundIdx = gpHeaders.indexOf("round_key");
+    const gpPlayerIdx = gpHeaders.indexOf("player_id");
+
+    participants.forEach(p => {
+      const pPicks = [];
+      for (let i = 1; i < gkPicksData.length; i++) {
+        if (String(gkPicksData[i][gpPartIdx]).trim() === p.id) {
+          pPicks.push({
+            roundKey: String(gkPicksData[i][gpRoundIdx]).trim(),
+            playerId: String(gkPicksData[i][gpPlayerIdx]).trim()
+          });
+        }
+      }
+
+      pPicks.forEach(pick => {
+        const colName = "conceded_" + pick.roundKey;
+        const colIdx = plHeaders.indexOf(colName);
+        if (colIdx !== -1) {
+          for (let rowIdx = 1; rowIdx < playersData.length; rowIdx++) {
+            if (String(playersData[rowIdx][plIdIdx]).trim() === pick.playerId) {
+              const conceded = Number(playersData[rowIdx][colIdx]);
+              if (!isNaN(conceded)) {
+                if (conceded === 0) p.points += 2;
+                else if (conceded === 1) p.points += 1;
+                else p.points += (2 - conceded);
+              }
+              break;
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // 4. Eventos Especiales (special_event_picks)
+  if (sheetSpecialEvents && sheetSpecialEventPicks) {
+    const eventsData = sheetSpecialEvents.getDataRange().getValues();
+    const evHeaders = eventsData[0];
+    const evIdIdx = evHeaders.indexOf("id");
+    const evResIdx = evHeaders.indexOf("result_description");
+
+    const eventPicksData = sheetSpecialEventPicks.getDataRange().getValues();
+    const epHeaders = eventPicksData[0];
+    const epPartIdx = epHeaders.indexOf("participant_id");
+    const epEventIdx = epHeaders.indexOf("event_id");
+    const epPickIdx = epHeaders.indexOf("pick_value");
+
+    const eventsMap = {};
+    for (let i = 1; i < eventsData.length; i++) {
+      const evId = String(eventsData[i][evIdIdx]).trim();
+      const res = String(eventsData[i][evResIdx]).trim();
+      if (evId && res && res !== "none" && res !== "") {
+        eventsMap[evId] = res;
+      }
+    }
+
+    participants.forEach(p => {
+      for (let i = 1; i < eventPicksData.length; i++) {
+        if (String(eventPicksData[i][epPartIdx]).trim() === p.id) {
+          const evId = String(eventPicksData[i][epEventIdx]).trim();
+          const pickVal = String(eventPicksData[i][epPickIdx]).trim();
+          const actualRes = eventsMap[evId];
+
+          if (actualRes) {
+            if (evId === "E1" && pickVal === actualRes) p.points += 5;
+            else if (evId === "E3" && pickVal === actualRes) p.points += 4;
+            else if (evId === "E4" && pickVal === actualRes) p.points += 3;
+            else if (evId === "E5" && pickVal === actualRes) p.points += 5;
+            else if (evId === "E6") {
+              const pickGoals = parseInt(pickVal, 10);
+              const actualGoals = parseInt(actualRes, 10);
+              if (!isNaN(pickGoals) && !isNaN(actualGoals)) {
+                if (pickGoals === actualGoals) p.points += 3;
+                else if (Math.abs(pickGoals - actualGoals) === 1) p.points += 1;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Ordenar de mayor a menor puntuación
+  participants.sort(function(a, b) { return b.points - a.points; });
+  return participants;
+}

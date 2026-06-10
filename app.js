@@ -883,6 +883,14 @@ const App = (() => {
       }
     ];
 
+    _data.periodico = [
+      { clave: "edicion", valor: "1" },
+      { clave: "fecha", valor: "Viernes, 12 de junio de 2026" },
+      { clave: "titular", valor: "¡PACO COMPRA EL MUNDIAL Y CARLOS PIDE EXPLICACIONES EN EL BAR!" },
+      { clave: "subtitulo", valor: "El líder de la porra se desmarca sospechosamente y Luis (farolillo rojo) afirma que 'el fútbol moderno está corrompido'." },
+      { clave: "cronica", valor: "Señores, lo que vimos ayer en la primera jornada no tiene explicación científica. Paco se ha colocado líder con una flor en el culo de proporciones bíblicas. Que no nos vendan películas: aquí ha habido mano negra. Mi primo el del bar, que de esto sabe un rato largo, me lo confirmó anoche mientras me servía un carajillo templado: 'A Paco le ha soplado los resultados un cuñado que trabaja limpiando la sede de la FIFA'. Vaya tela, para habernos matao.\n\nMientras tanto, la risa de la jornada la protagoniza el figura de Luis, nuestro queridísimo farolillo rojo. Con el agua al cuello y una puntuación que parece el saldo de mi tarjeta después de pasar por la gasolinera. Es un auténtico especialista en fracasos deportivos. Ayer pronosticó un empate entre Curazao y los suplentes de la selección de solteros y casados, y casi le toca volverse a casa pidiendo aventón en la autopista. Cuidao con el figura, que sigue viendo los partidos con el palillo en la boca y dando lecciones tácticas a Carlo Ancelotti.\n\nEl grupo de WhatsApp está que echa chispas y las mofas ya rozan la ilegalidad en varios países de la Unión Europea. Por su parte, Diego va segundo de puro milagro: se le cayó el móvil al váter y al intentar rescatarlo pulsó sin querer tres resultados correctos. Esto es fútbol de verdad, señores, y no las tonterías del VAR. Paco ya está ofreciendo cubatas a cuenta del premio final, pero que no se confíe, que el Mundial es muy largo y la venganza se sirve con hielo en vaso de tubo. ¡A seguir remando!" }
+    ];
+
     processPredictions();
     calculateScores();
     _loaded = true;
@@ -2537,10 +2545,34 @@ const App = (() => {
               <div class="newspaper-coming-soon__stamp">
                 PRÓXIMAMENTE<br>Edición Nº 1 tras la Jornada 1
               </div>
+              <div style="margin-top: 35px; text-align: center; z-index: 5; position: relative;">
+                <button id="btn-simular-periodico-directo" class="btn btn--primary" style="font-family: 'Special Elite', monospace; font-size: 0.95rem; padding: 10px 20px;">
+                  🍷 Simular edición de muestra (Demo)
+                </button>
+              </div>
             </div>
           </div>
         </div>
       `;
+
+      const btnSim = $("#btn-simular-periodico-directo");
+      if (btnSim) {
+        btnSim.addEventListener("click", (e) => {
+          e.preventDefault();
+          _data.periodico = [
+            { clave: "edicion", valor: "1" },
+            { clave: "fecha", valor: new Date().toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) },
+            { clave: "titular", valor: "¡PACO COMPRA EL MUNDIAL Y CARLOS PIDE EXPLICACIONES EN EL BAR!" },
+            { clave: "subtitulo", valor: "El líder de la porra se desmarca sospechosamente y Luis (farolillo rojo) afirma que 'el fútbol moderno está corrompido'." },
+            { clave: "cronica", valor: "Señores, lo que vimos ayer en la primera jornada no tiene explicación científica. Paco se ha colocado líder con una flor en el culo de proporciones bíblicas. Que no nos vendan películas: aquí ha habido mano negra. Mi primo el del bar, que de esto sabe un rato largo, me lo confirmó anoche mientras me servía un carajillo templado: 'A Paco le ha soplado los resultados un cuñado que trabaja limpiando la sede de la FIFA'. Vaya tela, para habernos matao.\n\nMientras tanto, la risa de la jornada la protagoniza el figura de Luis, nuestro queridísimo farolillo rojo. Con el agua al cuello y una puntuación que parece el saldo de mi tarjeta después de pasar por la gasolinera. Es un auténtico especialista en fracasos deportivos. Ayer pronosticó un empate entre Curazao y los suplentes de la selección de solteros y casados, y casi le toca volverse a casa pidiendo aventón en la autopista. Cuidao con el figura, que sigue viendo los partidos con el palillo en la boca y dando lecciones tácticas a Carlo Ancelotti.\n\nEl grupo de WhatsApp está que echa chispas y las mofas ya rozan la ilegalidad en varios países de la Unión Europea. Por su parte, Diego va segundo de puro milagro: se le cayó el móvil al váter y al intentar rescatarlo pulsó sin querer tres resultados correctos. Esto es fútbol de verdad, señores, y no las tonterías del VAR. Paco ya está ofreciendo cubatas a cuenta del premio final, pero que no se confíe, que el Mundial es muy largo y la venganza se sirve con hielo en vaso de tubo. ¡A seguir remando!" },
+            { clave: "noticias_secundarias", valor: JSON.stringify([
+              { titular: "¡MOCIÓN DE CENSURA CONTRA EL LÍDER!", resumen: "María y Laura se alían para cambiar la contraseña del administrador alegando 'falta de transparencia en el pesaje del premio'." },
+              { titular: "EL FENÓMENO JAVI: 0 ACIERTOS EN 6 PARTIDOS", resumen: "Los matemáticos estudian el caso de Javi, quien ha logrado fallar todos los resultados exactos y ganadores. 'Ni queriendo se hace', afirman." }
+            ])}
+          ];
+          renderPeriodico();
+        });
+      }
       return;
     }
 
@@ -2554,6 +2586,55 @@ const App = (() => {
       .filter(p => p.trim() !== "")
       .map(p => `<p class="newspaper-paragraph">${escapeHtml(p)}</p>`)
       .join("");
+
+    let noticiasSecundarias = [];
+    if (info.noticias_secundarias) {
+      try {
+        noticiasSecundarias = JSON.parse(info.noticias_secundarias);
+      } catch (e) {
+        try {
+          const clean = info.noticias_secundarias.replace(/\\"/g, '"');
+          noticiasSecundarias = JSON.parse(clean);
+        } catch(err) {
+          console.warn("No se pudieron parsear las noticias secundarias:", err);
+        }
+      }
+    }
+
+    if (!Array.isArray(noticiasSecundarias) || noticiasSecundarias.length === 0) {
+      noticiasSecundarias = [
+        {
+          titular: "EL GRUPO DE WHATSAPP AL BORDE DE LA ESCISIÓN",
+          resumen: "Varios participantes exigen audios del VAR tras los últimos resultados. 'A mí que no me vengan con películas', declara un participante anónimo desde la barra."
+        },
+        {
+          titular: "EL COLISTA PROTESTA: 'HAY MANO NEGRA EN EL RECUENTO'",
+          resumen: "El último de la clasificación insinúa que el líder tiene contactos en la FIFA. Se está debatiendo una moción de censura en el bar."
+        }
+      ];
+    }
+
+    const noticiasHtml = noticiasSecundarias.map(n => `
+      <div class="newspaper-sec-news-item">
+        <h4 class="newspaper-sec-news-title">${escapeHtml(n.titular)}</h4>
+        <p class="newspaper-sec-news-desc">${escapeHtml(n.resumen)}</p>
+      </div>
+    `).join("");
+
+    const publicidadHtml = `
+      <div class="newspaper-ad">
+        <div class="newspaper-ad__highlight">🔥 SEXO ES VIDA 🔥</div>
+        <p class="newspaper-ad__desc">Y el fútbol de la porra también. Visita el Club 'La Flor de Paco'. Carretera Nacional, Km 124. Cubatas baratos y debate de fútbol con palillo gratis en barra.</p>
+      </div>
+      <div class="newspaper-ad">
+        <div class="newspaper-ad__highlight">👴 ¿TE CLAREA EL CARTÓN?</div>
+        <p class="newspaper-ad__desc">Crecepelo milagroso 'El Cuñao'. Resultados garantizados en tres jornadas o te regalamos una boina de rosca. De venta en la trastienda del bar.</p>
+      </div>
+      <div class="newspaper-ad">
+        <div class="newspaper-ad__highlight">💼 SE COMPRAN PUNTOS</div>
+        <p class="newspaper-ad__desc">Trato discreto. Cambio tus puntos de la porra por cobre o piezas de recambio de un Seat Ibiza del 98. Razón aquí.</p>
+      </div>
+    `;
 
     container.innerHTML = `
       <div class="newspaper-paper">
@@ -2578,6 +2659,13 @@ const App = (() => {
         <div class="newspaper-columns-container">
           <div class="newspaper-text-columns">
             ${parrafosHtml}
+          </div>
+          <div class="newspaper-sidebar">
+            <div class="newspaper-sec-news-box">
+              <h3 class="newspaper-sec-news-title" style="border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 12px; font-size: 15px; text-transform: uppercase;">Breves de la Porra</h3>
+              ${noticiasHtml}
+            </div>
+            ${publicidadHtml}
           </div>
         </div>
       </div>

@@ -589,6 +589,17 @@ function detectAndCloseRounds() {
     Logger.log("🔒 Cerrando automáticamente jornada: " + rKey);
     closeRound(rKey);
     closed.push(rKey);
+
+    // Generar la crónica con la IA de Gemini automáticamente
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const leaderboard = calcularLeaderboardEnBackend(ss);
+      Logger.log("Auto-generando crónica de Gemini para " + rKey);
+      generarCronicaConGemini(rKey, leaderboard);
+      Logger.log("✅ Crónica auto-generada con éxito.");
+    } catch (e) {
+      Logger.log("⚠️ No se pudo generar la crónica de Gemini automáticamente: " + e.message);
+    }
   });
 
   Logger.log("detectAndCloseRounds: " + (closed.length > 0 ? "cerradas: " + closed.join(", ") : "nada que cerrar."));

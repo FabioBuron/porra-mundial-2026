@@ -2960,8 +2960,105 @@ body {
   line-height: 1.4;
 }
 
+/* --- Columnas, Noticias Secundarias y Anuncios --- */
 .newspaper-columns-container {
+  display: grid;
+  grid-template-columns: 2.5fr 1.2fr;
+  gap: 28px;
+  border-top: 2px solid #000;
+  padding-top: 20px;
   margin-top: 16px;
+}
+
+.newspaper-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-left: 1px solid rgba(0,0,0,0.15);
+  padding-left: 24px;
+}
+
+@media (max-width: 768px) {
+  .newspaper-columns-container {
+    grid-template-columns: 1fr;
+  }
+  .newspaper-sidebar {
+    border-left: none;
+    border-top: 1px solid rgba(0,0,0,0.15);
+    padding-left: 0;
+    padding-top: 24px;
+  }
+}
+
+/* Noticias secundarias */
+.newspaper-sec-news-box {
+  border-bottom: 2px solid #000;
+  padding-bottom: 16px;
+}
+
+.newspaper-sec-news-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 900;
+  color: #000;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.newspaper-sec-news-desc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #333;
+  margin: 0;
+  text-align: justify;
+}
+
+.newspaper-sec-news-item {
+  margin-bottom: 16px;
+}
+
+.newspaper-sec-news-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Estilo de Anuncios Cuñados retro */
+.newspaper-ad {
+  border: 2px dashed #b82a2a;
+  padding: 12px;
+  background-color: rgba(184, 42, 42, 0.04);
+  position: relative;
+  text-align: center;
+}
+
+.newspaper-ad::before {
+  content: "PUBLICIDAD DE LA BUENA";
+  position: absolute;
+  top: -9px;
+  left: 10px;
+  background-color: #f4efe2;
+  padding: 0 6px;
+  font-family: 'Special Elite', monospace;
+  font-size: 10px;
+  color: #b82a2a;
+  letter-spacing: 0.1em;
+}
+
+.newspaper-ad__highlight {
+  font-family: 'Special Elite', monospace;
+  font-size: 15px;
+  font-weight: bold;
+  color: #b82a2a;
+  margin: 4px 0 8px 0;
+  text-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+}
+
+.newspaper-ad__desc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #4a4a4a;
+  margin: 0;
+  font-style: italic;
 }
 
 .newspaper-text-columns {
