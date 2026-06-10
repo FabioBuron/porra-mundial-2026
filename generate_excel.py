@@ -132,7 +132,9 @@ goalkeepers_list = {
     'Thibaut Courtois', 'Senne Lammens', 'Mike Penders',
     'Santiago Mele', 'Fernando Muslera', 'Sergio Rochet',
     'Dominik Livaković', 'Dominik Kotarski', 'Ivor Pandur',
-    'Raúl Rangel', 'Guillermo Ochoa', 'Carlos Acevedo'
+    'Raúl Rangel', 'Guillermo Ochoa', 'Carlos Acevedo',
+    'Camilo Vargas', 'David Ospina', 'Matt Freese', 'Chris Brady',
+    'Munir El Kajoui', 'Reda Tagnaouti'
 }
 
 player_id_counter = 1
@@ -148,7 +150,7 @@ for name, country in player_matches:
     p_id = f"pl{player_id_counter:03d}"
     player_id_counter += 1
     
-    position = 'goalkeeper' if name in goalkeepers_list else 'outfield'
+    position = 'goalkeeper' if name in goalkeepers_list and not (name == 'Emiliano Martínez' and country == 'Uruguay') else 'outfield'
     
     players_rows.append({
         'id': p_id,
