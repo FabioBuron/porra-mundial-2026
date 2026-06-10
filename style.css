@@ -2868,3 +2868,207 @@ body {
     transform: none !important;
   }
 }
+
+/* =============================================================================
+   El Diario del Cuñao — Newspaper Aesthetic
+   ============================================================================= */
+
+.newspaper-paper {
+  background-color: #f4efe2;
+  color: #1a1a1a;
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  border: 1px solid #e2d9c2;
+  position: relative;
+  max-width: 900px;
+  margin: 24px auto;
+  overflow: hidden;
+}
+
+.newspaper-paper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #b89e6c,
+    #b89e6c 10px,
+    #a88e5c 10px,
+    #a88e5c 20px
+  );
+  opacity: 0.7;
+}
+
+.newspaper-header {
+  border-top: 4px double #1a1a1a;
+  border-bottom: 4px double #1a1a1a;
+  padding: 16px 0;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.newspaper-header__top,
+.newspaper-header__bottom {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #4a4a4a;
+  font-family: sans-serif;
+}
+
+.newspaper-header__logo {
+  font-family: 'Playfair Display', serif;
+  font-weight: 900;
+  font-size: 42px;
+  letter-spacing: -0.02em;
+  color: #000;
+  margin: 10px 0;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0px #fff;
+}
+
+.newspaper-main-headline {
+  margin-bottom: 24px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  padding-bottom: 20px;
+}
+
+.newspaper-headline-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 1.15;
+  color: #000;
+  margin: 0 0 10px 0;
+}
+
+.newspaper-headline-subtitle {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 18px;
+  color: #4a4a4a;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.newspaper-columns-container {
+  margin-top: 16px;
+}
+
+.newspaper-text-columns {
+  column-count: 2;
+  column-gap: 28px;
+  column-rule: 1px solid rgba(0, 0, 0, 0.15);
+  text-align: justify;
+}
+
+@media (max-width: 768px) {
+  .newspaper-text-columns {
+    column-count: 1;
+  }
+  .newspaper-header__logo {
+    font-size: 28px;
+  }
+  .newspaper-headline-title {
+    font-size: 24px;
+  }
+}
+
+.newspaper-paragraph {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 14px 0;
+  color: #1a1a1a;
+  text-indent: 20px;
+}
+
+.newspaper-paragraph::first-letter {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+/* --- Coming Soon Styling --- */
+.newspaper-coming-soon {
+  text-align: center;
+  padding: 48px 20px;
+  position: relative;
+}
+
+.newspaper-coming-soon__icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 16px;
+  animation: wineWobble 4s ease-in-out infinite alternate;
+}
+
+@keyframes wineWobble {
+  0% { transform: rotate(-5deg) scale(1); }
+  100% { transform: rotate(5deg) scale(1.05); }
+}
+
+.newspaper-coming-soon__title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #000;
+  margin: 0 0 16px 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.newspaper-coming-soon__desc {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #4a4a4a;
+  max-width: 500px;
+  margin: 0 auto 16px auto;
+}
+
+.newspaper-coming-soon__subdesc {
+  font-size: 13px;
+  font-style: italic;
+  color: #6a6a6a;
+  max-width: 450px;
+  margin: 0 auto 32px auto;
+}
+
+.newspaper-coming-soon__stamp {
+  display: inline-block;
+  border: 4px double #b82a2a;
+  color: #b82a2a;
+  font-family: 'Special Elite', monospace;
+  font-weight: bold;
+  font-size: 18px;
+  padding: 8px 16px;
+  text-transform: uppercase;
+  transform: rotate(-12deg);
+  margin-top: 12px;
+  box-shadow: 0 0 0 3px #f4efe2, 0 4px 8px rgba(0,0,0,0.1);
+  border-radius: 4px;
+  background: rgba(244, 239, 226, 0.9);
+  animation: stampStamp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+}
+
+@keyframes stampStamp {
+  0% {
+    transform: scale(2) rotate(-30deg);
+    opacity: 0;
+    filter: blur(4px);
+  }
+  100% {
+    transform: scale(1) rotate(-12deg);
+    opacity: 0.85;
+    filter: blur(0);
+  }
+}

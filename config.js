@@ -19,7 +19,8 @@ const CONFIG = {
     matches:        "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=matches",
     players:        "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=players",
     special_events: "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=special_events",
-    predictions:    "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=Respuestas de formulario 1"
+    predictions:    "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=Respuestas de formulario 1",
+    periodico:      "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=periodico"
   },
 
   googleForm: {

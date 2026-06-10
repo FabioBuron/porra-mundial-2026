@@ -720,11 +720,21 @@ const App = (() => {
           fetchSheet(sheets.predictions)
         ]);
 
+      let periodico = [];
+      if (sheets.periodico) {
+        try {
+          periodico = await fetchSheet(sheets.periodico);
+        } catch (e) {
+          console.warn("No se pudo cargar la hoja 'periodico':", e);
+        }
+      }
+
       _data.participants = participants;
       _data.matches = matches;
       _data.players = players;
       _data.specialEvents = specialEvents;
       _data.predictions = predictions;
+      _data.periodico = periodico;
       _data.matchPredictions = [];
       _data.scorerPicks = [];
       _data.goalkeeperPicks = [];
@@ -2346,6 +2356,18 @@ const App = (() => {
       </div>
 
       <div class="card fade-in mt-2">
+        <h2 class="card-title">🤖 El Diario (Gemini IA)</h2>
+        <p class="text-muted">Genera la crónica satírica y cuñada de la jornada con inteligencia artificial basándote en la clasificación actual de la porra.</p>
+        <div style="display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap; margin-top:var(--space-2);">
+          <select id="admin-cronica-round" class="form-input" style="max-width:200px;">
+            ${Object.entries(CONFIG.roundLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
+          </select>
+          <button id="admin-gen-cronica-btn" class="btn btn--primary">✍️ Redactar crónica con IA</button>
+        </div>
+        <div id="admin-cronica-result" class="text-muted" style="margin-top:var(--space-2); font-size:var(--font-sm); min-height:1.5em;"></div>
+      </div>
+
+      <div class="card fade-in mt-2">
         <button id="admin-logout-btn" class="btn btn--danger">🚪 Cerrar sesión admin</button>
       </div>
     `;
@@ -2406,10 +2428,160 @@ const App = (() => {
       if (ui) { ui.classList.add("hidden"); ui.style.display = "none"; }
     });
 
+    $("#admin-gen-cronica-btn")?.addEventListener("click", async () => {
+      const btn = $("#admin-gen-cronica-btn");
+      const result = $("#admin-cronica-result");
+      const round = $("#admin-cronica-round")?.value;
+      if (!round) return;
+
+      btn.disabled = true;
+      btn.textContent = "⏳ Generando crónica cuñada...";
+      result.textContent = "";
+
+      try {
+        const board = Scoring.buildLeaderboard(
+          _data.participants,
+          _data.matchPredictions,
+          _data.scorerPicks,
+          _data.goalkeeperPicks,
+          _data.specialEventPicks
+        );
+
+        const leaderboardData = board.map(item => ({
+          name: item.name,
+          points: item.totalPoints
+        }));
+
+        // Recuperar la password que se usó al hacer login
+        const password = document.getElementById("admin-password")?.value || "";
+
+        const resp = await fetch(CONFIG.appsScriptUrl, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "generarCronica",
+            round: round,
+            leaderboard: leaderboardData,
+            password: password
+          })
+        });
+
+        const json = await resp.json();
+        if (json.success) {
+          result.innerHTML = `<span style="color:var(--color-green)">✅ Crónica generada con éxito. ¡Recarga la app!</span>`;
+        } else {
+          result.textContent = "❌ Error: " + (json.error || "Fallo de comunicación.");
+        }
+      } catch (e) {
+        result.textContent = "❌ Error de red: " + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "✍️ Redactar crónica con IA";
+      }
+    });
+
     $("#admin-logout-btn")?.addEventListener("click", () => {
       sessionStorage.removeItem("admin_auth");
       renderAdmin();
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // View: El Diario del Cuñao (periodico.html)
+  // ---------------------------------------------------------------------------
+
+  function renderPeriodico() {
+    const container = $("#app-content");
+    if (!container) return;
+
+    // Transformar los datos del CSV en un objeto key-value
+    const info = {};
+    if (Array.isArray(_data.periodico)) {
+      _data.periodico.forEach(row => {
+        const key = row.clave || row.Clave;
+        const val = row.valor || row.Valor;
+        if (key) {
+          info[String(key).trim().toLowerCase()] = val || "";
+        }
+      });
+    }
+
+    // Si no hay crónica o está vacía, mostramos el cartel de "Próximamente"
+    if (!info.cronica || info.cronica.trim() === "") {
+      container.innerHTML = `
+        <div class="newspaper-paper">
+          <div class="newspaper-header">
+            <div class="newspaper-header__top">
+              <span>Edición Especial</span>
+              <span>El Diario de la Porra</span>
+              <span>Precio: 1 Cubata</span>
+            </div>
+            <h1 class="newspaper-header__logo">EL CUÑADO DEPORTIVO</h1>
+            <div class="newspaper-header__bottom">
+              <span>Nº 0 — Pretemporada</span>
+              <span>Edición Mundial 2026</span>
+            </div>
+          </div>
+          
+          <div class="newspaper-body">
+            <div class="newspaper-coming-soon">
+              <span class="newspaper-coming-soon__icon">🍷</span>
+              <h2 class="newspaper-coming-soon__title">ROTATIVA CERRADA POR ALMUERZO DE REDACCIÓN</h2>
+              <p class="newspaper-coming-soon__desc">
+                Nuestros redactores están todos metidos en el bar de la esquina debatiendo con un palillo en la boca y no van a escribir nada hasta que termine la primera jornada. 
+              </p>
+              <p class="newspaper-coming-soon__subdesc">
+                Vuelve cuando haya partidos finalizados y veas la clasificación moverse. Ahí es cuando empezará el verdadero festival de la mofa, la cuñadez y la ironía.
+              </p>
+              <div class="newspaper-coming-soon__stamp">
+                PRÓXIMAMENTE<br>Edición Nº 1 tras la Jornada 1
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const title = info.titular || "¡BOMBAZO EN LA PORRA!";
+    const subtitle = info.subtitulo || "La clasificación echa humo y las mofas ya están aquí.";
+    const date = info.fecha || new Date().toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const edicion = info.edicion || "1";
+
+    const parrafosHtml = info.cronica
+      .split("\n")
+      .filter(p => p.trim() !== "")
+      .map(p => `<p class="newspaper-paragraph">${escapeHtml(p)}</p>`)
+      .join("");
+
+    container.innerHTML = `
+      <div class="newspaper-paper">
+        <div class="newspaper-header">
+          <div class="newspaper-header__top">
+            <span>Edición Especial</span>
+            <span>El Diario de la Porra</span>
+            <span>Precio: 1 Cubata</span>
+          </div>
+          <h1 class="newspaper-header__logo">EL CUÑADO DEPORTIVO</h1>
+          <div class="newspaper-header__bottom">
+            <span>Edición Nº ${escapeHtml(edicion)}</span>
+            <span>${escapeHtml(date)}</span>
+          </div>
+        </div>
+
+        <div class="newspaper-main-headline">
+          <h2 class="newspaper-headline-title">${escapeHtml(title)}</h2>
+          <p class="newspaper-headline-subtitle">${escapeHtml(subtitle)}</p>
+        </div>
+
+        <div class="newspaper-columns-container">
+          <div class="newspaper-text-columns">
+            ${parrafosHtml}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // ---------------------------------------------------------------------------
@@ -2458,6 +2630,7 @@ const App = (() => {
     if (path.includes("goleador") || path.includes("portero")) return "goleador-portero";
     if (path.includes("eventos")) return "eventos";
     if (path.includes("analisis")) return "analisis";
+    if (path.includes("periodico")) return "periodico";
     if (path.includes("admin")) return "admin";
     return "index";
   }
@@ -2840,6 +3013,9 @@ const App = (() => {
       case "analisis":
         renderAnalysis();
         break;
+      case "periodico":
+        renderPeriodico();
+        break;
       case "admin":
         renderAdmin();
         break;
@@ -2969,7 +3145,7 @@ const App = (() => {
   // Public API
   // ---------------------------------------------------------------------------
 
-  return { init, loadAllData, renderLeaderboard, renderMatches, renderScorerGoalkeeper, renderSpecialEvents, renderAnalysis, renderAdmin };
+  return { init, loadAllData, renderLeaderboard, renderMatches, renderScorerGoalkeeper, renderSpecialEvents, renderAnalysis, renderPeriodico, renderAdmin };
 })();
 
 // Boot

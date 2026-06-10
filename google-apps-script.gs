@@ -63,6 +63,15 @@ function doGet(e) {
 function processSaveRequest(payload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  // Acción para generar la crónica humorística con la IA de Gemini
+  if (payload.action === "generarCronica") {
+    var adminPass = PropertiesService.getScriptProperties().getProperty("ADMIN_PASSWORD") || "CAMBIAR_ESTO";
+    if (payload.password !== adminPass) {
+      throw new Error("Contraseña de administrador incorrecta.");
+    }
+    return generarCronicaConGemini(payload.round, payload.leaderboard);
+  }
+  
   // Si es un borrador completo (tiene propiedad 'name' y no tiene 'type' o su 'type' es 'draft')
   if (payload.name && (payload.type === "draft" || !payload.type)) {
     processDraft(ss, payload, false); // No omitir append
@@ -706,6 +715,10 @@ function setupSpreadsheet() {
     {
       name: "Respuestas de formulario 1",
       headers: ["Timestamp", "Borrador"]
+    },
+    {
+      name: "periodico",
+      headers: ["clave", "valor"]
     }
   ];
   
@@ -721,5 +734,90 @@ function setupSpreadsheet() {
   });
   
   Logger.log("Configuración completada.");
+}
+
+function generarCronicaConGemini(round, leaderboard) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
+  
+  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre los resultados de una jornada de 'La Porra del Mundial 2026' basandote en la clasificacion que te proporciono.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'a mi que no me cuenten peliculas', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que van ultimos (especialmente del colista) llamandolos 'farolillo rojo', 'con el agua al cuello', 'especialista en fracasos'.\n3. Lanza comentarios ironicos sobre el lider: insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados.\n4. Usa metaforas futbolisticas disparatadas.\n5. Se muy ironico y comico, no te cortes con las bromas entre colegas.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos. Se extenso y detallista, mofandote de los nombres que veas en la clasificacion.\"\n}";
+
+  const promptUsuario = "Jornada finalizada: " + round + "\nClasificacion de los amigos en esta jornada:\n" + 
+    leaderboard.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
+    "\n\nGenera la cronica con la estructura JSON solicitada.";
+
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
+
+  const requestBody = {
+    contents: [{
+      parts: [{ text: systemPrompt + "\n\n" + promptUsuario }]
+    }],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(requestBody),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  const responseCode = response.getResponseCode();
+  const responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    throw new Error("Error en la llamada a Gemini (codigo " + responseCode + "): " + responseText);
+  }
+
+  const jsonResponse = JSON.parse(responseText);
+  let text = "";
+  try {
+    text = jsonResponse.candidates[0].content.parts[0].text;
+  } catch (e) {
+    throw new Error("Respuesta invalida de la API de Gemini: " + responseText);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    var cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    data = JSON.parse(cleanText);
+  }
+
+  const roundLabels = {
+    group_md1: "Jornada 1",
+    group_md2: "Jornada 2",
+    group_md3: "Jornada 3",
+    r32: "Ronda de 32",
+    r16: "Octavos de Final",
+    qf: "Cuartos de Final",
+    sf: "Semifinales",
+    "3rd": "Tercer Puesto",
+    final: "Final"
+  };
+
+  const labelEdicion = roundLabels[round] || round;
+  
+  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion);
+
+  return "Cronica de IA generada y guardada con exito para " + labelEdicion;
+}
+
+function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName("periodico");
+  if (!sheet) {
+    sheet = ss.insertSheet("periodico");
+  }
+  sheet.clear();
+  sheet.appendRow(["clave", "valor"]);
+  sheet.appendRow(["titular", titular]);
+  sheet.appendRow(["subtitulo", subtitulo]);
+  sheet.appendRow(["fecha", new Date().toLocaleDateString("es-ES", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })]);
+  sheet.appendRow(["edicion", edicion]);
+  sheet.appendRow(["cronica", cronica]);
 }
 
