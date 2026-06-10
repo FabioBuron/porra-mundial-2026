@@ -2901,7 +2901,13 @@ const App = (() => {
           body: JSON.stringify({ action: "getOracleContext" })
         });
         const json = await resp.json();
-        return (json.success && json.result && json.result.context) ? json.result.context : null;
+        if (json.success && json.result) {
+          return {
+            context: json.result.context,
+            geminiApiKey: json.result.geminiApiKey
+          };
+        }
+        return null;
       } catch {
         return null;
       }
@@ -2937,10 +2943,10 @@ const App = (() => {
      * Calls Gemini streamGenerateContent directly from the browser and streams tokens
      * into the provided streamingBubble. Returns the full accumulated text.
      */
-    async function streamFromGemini(promptText, streamingBubble) {
-      const apiKey = CONFIG.geminiApiKey;
+    async function streamFromGemini(promptText, apiKey, streamingBubble) {
+      const key = apiKey || CONFIG.geminiApiKey;
       const modelName = "gemma-4-31b-it";
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse&key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:streamGenerateContent?alt=sse&key=${key}`;
 
       const resp = await fetch(url, {
         method: "POST",
@@ -3002,14 +3008,15 @@ const App = (() => {
 
       // Step 1: fetch porra context from GAS (lightweight, no AI)
       appendTypingIndicator();
-      const porraContext = await fetchPorraContext();
+      const resultObj = await fetchPorraContext();
       removeTypingIndicator();
 
       // Step 2: stream directly from Gemini
       const streamingBubble = createStreamingBubble();
       try {
-        const promptText = buildOraclePrompt(question, chatHistory.slice(-10), porraContext);
-        const fullAnswer = await streamFromGemini(promptText, streamingBubble);
+        const promptText = buildOraclePrompt(question, chatHistory.slice(-10), resultObj?.context);
+        const apiKey = resultObj?.geminiApiKey;
+        const fullAnswer = await streamFromGemini(promptText, apiKey, streamingBubble);
         chatHistory.push({ role: "oracle", text: fullAnswer });
       } catch (err) {
         streamingBubble.finalize();

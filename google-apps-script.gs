@@ -82,7 +82,8 @@ function processSaveRequest(payload) {
   // Devuelve solo el contexto de la porra (sin llamar a Gemini) para streaming en cliente
   if (payload.action === "getOracleContext") {
     var ctx = _buildPorraContextFromSheet();
-    return { context: ctx };
+    var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
+    return { context: ctx, geminiApiKey: apiKey };
   }
 
   // Acción para el Consultorio del Cuñao (Gemma 4 31B)

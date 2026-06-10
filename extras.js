@@ -990,7 +990,13 @@ const PorraExtras = (() => {
         body: JSON.stringify({ action: "getOracleContext" })
       });
       const j = await r.json();
-      return (j.success && j.result?.context) ? j.result.context : null;
+      if (j.success && j.result) {
+        return {
+          context: j.result.context,
+          geminiApiKey: j.result.geminiApiKey
+        };
+      }
+      return null;
     } catch { return null; }
   }
 
@@ -1015,8 +1021,9 @@ const PorraExtras = (() => {
   }
 
   // ── Gemini stream ──────────────────────────────────────────────────────────
-  async function streamGemini(promptText, bubble) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:streamGenerateContent?alt=sse&key=${CONFIG.geminiApiKey}`;
+  async function streamGemini(promptText, apiKey, bubble) {
+    const key = apiKey || CONFIG.geminiApiKey;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-31b-it:streamGenerateContent?alt=sse&key=${key}`;
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1064,12 +1071,14 @@ const PorraExtras = (() => {
     chatHistory.push({ role: "user", text: question });
 
     appendTyping();
-    const ctx = await fetchContext();
+    const resultObj = await fetchContext();
     removeTyping();
 
     const bubble = createStreamBubble();
     try {
-      const full = await streamGemini(buildPrompt(question, ctx), bubble);
+      const prompt = buildPrompt(question, resultObj?.context);
+      const apiKey = resultObj?.geminiApiKey;
+      const full = await streamGemini(prompt, apiKey, bubble);
       chatHistory.push({ role: "oracle", text: full });
     } catch (err) {
       bubble.finalize();
