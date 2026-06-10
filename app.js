@@ -2636,20 +2636,67 @@ const App = (() => {
       </div>
     `).join("");
 
-    const publicidadHtml = `
+    const adsPool = [
+      {
+        highlight: "CLUB LA FLOR DE PACO",
+        desc: "El fútbol de la porra también es vida. Visita nuestro local en la Carretera Nacional, Km 124. Cubatas baratos y debate táctico con palillo gratis en barra."
+      },
+      {
+        highlight: "¿TE CLAREA EL CARTÓN?",
+        desc: "Crecepelo milagroso 'El Cuñao'. Resultados garantizados en tres jornadas o te regalamos una boina de rosca. De venta en la trastienda de la taberna."
+      },
+      {
+        highlight: "COMPRA DE PUNTOS",
+        desc: "Trato discreto. Se compran puntos de la clasificación general. Pago en cobre, baterías usadas o recambios para un Seat Ibiza del 98. Razón aquí."
+      },
+      {
+        highlight: "GAFAS ANTI-VAR HOMOLOGADAS",
+        desc: "Las únicas del mercado que borran las líneas del fuera de juego semiautomático en televisores de bar. Cristales oscuros. Garantía del fabricante."
+      },
+      {
+        highlight: "FUTUROLOGÍA Y CARAJILLOS",
+        desc: "Acierto garantizado en empates a cero y expulsiones rigurosas. Lectura del porvenir en la espuma del café de media mañana. Preguntar por Pepe."
+      },
+      {
+        highlight: "SE ALQUILA CUÑADO",
+        desc: "Especialista para comidas dominicales o debates deportivos. Experto en táctica nacional, mecánica general y 'saber de fútbol'. Tarifas a convenir."
+      },
+      {
+        highlight: "TALLERES EL FIGURA",
+        desc: "Reparamos tu coche para que aguante el viaje de huida de las broncas de la parienta. Especialistas en embragues gastados y excusas para quedarte en el bar."
+      },
+      {
+        highlight: "PENALTIS DE URGENCIA",
+        desc: "Servicio 24h para el Real Madrid. ¿Llega el minuto 90 y vais perdiendo? Te tramitamos una mano en el área o un tropiezo sospechoso. Efectividad garantizada."
+      },
+      {
+        highlight: "ASESORÍA NEGREIRA",
+        desc: "Informes arbitrales de máxima confidencialidad. Asegura tus ligas de la porra sin levantar sospechas en el VAR. Pagos en cómodas facturas de consultoría."
+      },
+      {
+        highlight: "VITRINAS EL COLCHÓN",
+        desc: "Especialistas en estanterías reforzadas para guardar subcampeonatos de Champions League. Espacio de sobra garantizado. Descuento para socios del Atleti."
+      },
+      {
+        highlight: "PASAPORTES EXPRESS",
+        desc: "¿Sin físico en tu porra? Nacionalizamos atletas franceses en tiempo récord. Si corren los 100 metros en menos de 10 segundos, no hacemos preguntas sobre su origen."
+      },
+      {
+        highlight: "BENGALAS LAS RAMBLAS",
+        desc: "Banderas y bengalas para celebrar victorias de Marruecos en el centro de Barcelona. Descuento si traes un iPhone robado o sabes regatear a la autoridad como Achraf."
+      }
+    ];
+
+    // Seleccionar 3 anuncios aleatorios sin repetir
+    const shuffledAds = [...adsPool].sort(() => 0.5 - Math.random());
+    const selectedAds = shuffledAds.slice(0, 3);
+
+    const publicidadHtml = selectedAds.map(ad => `
       <div class="newspaper-ad">
-        <div class="newspaper-ad__highlight">🔥 SEXO ES VIDA 🔥</div>
-        <p class="newspaper-ad__desc">Y el fútbol de la porra también. Visita el Club 'La Flor de Paco'. Carretera Nacional, Km 124. Cubatas baratos y debate de fútbol con palillo gratis en barra.</p>
+        <div class="newspaper-ad__highlight">${escapeHtml(ad.highlight)}</div>
+        <p class="newspaper-ad__desc">${escapeHtml(ad.desc)}</p>
       </div>
-      <div class="newspaper-ad">
-        <div class="newspaper-ad__highlight">👴 ¿TE CLAREA EL CARTÓN?</div>
-        <p class="newspaper-ad__desc">Crecepelo milagroso 'El Cuñao'. Resultados garantizados en tres jornadas o te regalamos una boina de rosca. De venta en la trastienda del bar.</p>
-      </div>
-      <div class="newspaper-ad">
-        <div class="newspaper-ad__highlight">💼 SE COMPRAN PUNTOS</div>
-        <p class="newspaper-ad__desc">Trato discreto. Cambio tus puntos de la porra por cobre o piezas de recambio de un Seat Ibiza del 98. Razón aquí.</p>
-      </div>
-    `;
+    `).join("");
 
     container.innerHTML = `
       <div class="newspaper-paper">

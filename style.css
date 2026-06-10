@@ -3024,41 +3024,45 @@ body {
 
 /* Estilo de Anuncios Cuñados retro */
 .newspaper-ad {
-  border: 2px dashed #b82a2a;
+  border: 1px solid #1a1a1a;
   padding: 12px;
-  background-color: rgba(184, 42, 42, 0.04);
+  background-color: transparent;
   position: relative;
-  text-align: center;
+  text-align: left;
+  margin-bottom: 16px;
 }
 
 .newspaper-ad::before {
-  content: "PUBLICIDAD DE LA BUENA";
+  content: "ANUNCIO CLASIFICADO";
   position: absolute;
-  top: -9px;
+  top: -8px;
   left: 10px;
   background-color: #f4efe2;
-  padding: 0 6px;
-  font-family: 'Special Elite', monospace;
-  font-size: 10px;
-  color: #b82a2a;
+  padding: 0 4px;
+  font-family: 'Georgia', serif;
+  font-size: 8px;
+  font-weight: bold;
+  color: #1a1a1a;
   letter-spacing: 0.1em;
 }
 
 .newspaper-ad__highlight {
-  font-family: 'Special Elite', monospace;
-  font-size: 15px;
-  font-weight: bold;
-  color: #b82a2a;
-  margin: 4px 0 8px 0;
-  text-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+  font-family: 'Playfair Display', 'Georgia', serif;
+  font-size: 13px;
+  font-weight: 900;
+  color: #1a1a1a;
+  margin: 4px 0 6px 0;
+  text-transform: uppercase;
+  border-bottom: 1px solid #1a1a1a;
+  padding-bottom: 4px;
 }
 
 .newspaper-ad__desc {
-  font-size: 12px;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 11.5px;
   line-height: 1.4;
-  color: #4a4a4a;
+  color: #2b2b2b;
   margin: 0;
-  font-style: italic;
 }
 
 .newspaper-text-columns {
