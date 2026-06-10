@@ -1297,7 +1297,12 @@ const App = (() => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.chartFocus;
         _chartFocusParticipantId = _chartFocusParticipantId === id ? null : id;
-        renderLeaderboard();
+        const page = detectCurrentPage();
+        if (page === "analisis") {
+          renderAnalysis();
+        } else {
+          renderLeaderboard();
+        }
       });
     });
   }
@@ -1415,20 +1420,11 @@ const App = (() => {
         </div>
       </div>
 
-      ${chartHtml ? `
-      <div class="card fade-in mt-2">
-        <h2 class="card-title">Evolución por jornada</h2>
-        ${chartHtml}
-      </div>` : ""}
-
       ${statsHtml ? `
       <div class="card fade-in mt-2">
         <h2 class="card-title">El dato</h2>
         ${statsHtml}
       </div>` : ""}
-
-      ${renderComebackSimulator(board)}
-      ${renderHeadToHead()}
 
       <div class="card fade-in mt-2" style="border: 1px solid var(--color-border);">
         <h3 class="card-title" id="rules-toggle-btn" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin: 0; user-select: none;">
@@ -1515,6 +1511,64 @@ const App = (() => {
       }
       localStorage.setItem("porra_last_leader", leader.id);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // View: Analysis (analisis.html)
+  // ---------------------------------------------------------------------------
+
+  function renderAnalysis() {
+    const container = $("#app-content");
+    if (!container) return;
+
+    const board = Scoring.buildLeaderboard(
+      _data.participants,
+      _data.matchPredictions,
+      _data.scorerPicks,
+      _data.goalkeeperPicks,
+      _data.specialEventPicks
+    );
+
+    const activeUser = getActiveUser();
+    const activeParticipant = activeUser ? _data.participants.find(p => p.name === activeUser) : null;
+    if (!_chartFocusParticipantId && activeParticipant) _chartFocusParticipantId = activeParticipant.id;
+
+    const evoModel = PorraExtras.computeRoundTotals(_data);
+    const chartPointsHtml = PorraExtras.evolutionChartHtml(evoModel, _chartFocusParticipantId);
+    const chartPositionHtml = PorraExtras.evolutionPositionChartHtml(evoModel, _chartFocusParticipantId);
+    const reminderEvents = PorraExtras.buildReminderEvents(_data);
+
+    let html = `
+      <div class="hero">
+        <div class="hero__eyebrow">Análisis de la Porra</div>
+        <h1>Estadísticas y Análisis</h1>
+        <div class="hero__meta">
+          <span class="hero__chip">Gráficas de Evolución</span>
+          <span class="hero__chip">Simulador de Remontadas</span>
+          <span class="hero__chip">Cara a Cara</span>
+        </div>
+      </div>
+
+      ${chartPointsHtml ? `
+      <div class="card fade-in">
+        <h2 class="card-title">Evolución de Puntos por Jornada</h2>
+        <p class="text-muted mb-3" style="font-size: var(--font-sm);">Puntos acumulados de cada participante jornada tras jornada. Pulsa en la leyenda para destacar a un jugador.</p>
+        ${chartPointsHtml}
+      </div>` : ""}
+
+      ${chartPositionHtml ? `
+      <div class="card fade-in mt-2">
+        <h2 class="card-title">Evolución de Posiciones en la Tabla</h2>
+        <p class="text-muted mb-3" style="font-size: var(--font-sm);">Posición en el ranking de cada participante por jornada (1º arriba de todo). Pulsa en la leyenda para destacar.</p>
+        ${chartPositionHtml}
+      </div>` : ""}
+
+      ${renderComebackSimulator(board)}
+      ${renderHeadToHead()}
+    `;
+
+    container.innerHTML = html;
+    attachLeaderboardTools(reminderEvents);
   }
 
   // ---------------------------------------------------------------------------
@@ -2335,6 +2389,7 @@ const App = (() => {
     if (path.includes("partidos")) return "partidos";
     if (path.includes("goleador") || path.includes("portero")) return "goleador-portero";
     if (path.includes("eventos")) return "eventos";
+    if (path.includes("analisis")) return "analisis";
     if (path.includes("admin")) return "admin";
     return "index";
   }
@@ -2714,6 +2769,9 @@ const App = (() => {
       case "eventos":
         renderSpecialEvents();
         break;
+      case "analisis":
+        renderAnalysis();
+        break;
       case "admin":
         renderAdmin();
         break;
@@ -2813,7 +2871,7 @@ const App = (() => {
   // Public API
   // ---------------------------------------------------------------------------
 
-  return { init, loadAllData, renderLeaderboard, renderMatches, renderScorerGoalkeeper, renderSpecialEvents, renderAdmin };
+  return { init, loadAllData, renderLeaderboard, renderMatches, renderScorerGoalkeeper, renderSpecialEvents, renderAnalysis, renderAdmin };
 })();
 
 // Boot
