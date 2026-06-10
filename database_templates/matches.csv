@@ -1,7 +1,7 @@
-id,phase,group,matchday,round_label,home_team,away_team,kickoff_utc,home_score,away_score,status,is_double_points
-m001,group,A,1,Jornada 1,USA,Morocco,2026-06-11T18:00:00Z,2,1,finished,false
-m002,group,A,1,Jornada 1,Mexico,Colombia,2026-06-11T21:00:00Z,1,1,finished,false
-m003,group,B,1,Jornada 1,Spain,Brazil,2026-06-12T18:00:00Z,3,0,finished,true
-m004,group,B,1,Jornada 1,Germany,Japan,2026-06-12T21:00:00Z,,,scheduled,false
-m005,group,A,2,Jornada 2,Morocco,Mexico,2026-06-15T18:00:00Z,,,scheduled,false
-m006,group,A,2,Jornada 2,Colombia,USA,2026-06-15T21:00:00Z,,,scheduled,true
+id,phase,group,matchday,round_label,home_team,away_team,kickoff_utc,home_score,away_score,status,is_double_points,api_id
+m001,group,A,1,Jornada 1,USA,Morocco,2026-06-11T18:00:00Z,2,1,finished,false,
+m002,group,A,1,Jornada 1,Mexico,Colombia,2026-06-11T21:00:00Z,1,1,finished,false,
+m003,group,B,1,Jornada 1,Spain,Brazil,2026-06-12T18:00:00Z,3,0,finished,true,
+m004,group,B,1,Jornada 1,Germany,Japan,2026-06-12T21:00:00Z,,,scheduled,false,
+m005,group,A,2,Jornada 2,Morocco,Mexico,2026-06-15T18:00:00Z,,,scheduled,false,
+m006,group,A,2,Jornada 2,Colombia,USA,2026-06-15T21:00:00Z,,,scheduled,true,

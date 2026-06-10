@@ -95,7 +95,8 @@ for m in raw_matches:
         'home_score': '',
         'away_score': '',
         'status': 'scheduled',
-        'is_double_points': 'FALSE'
+        'is_double_points': 'FALSE',
+        'api_id': ''  # Relleno por syncMatchIds() en Apps Script
     })
 
 # Select a random match for E2 (Partido Salvaje) per matchday
@@ -154,7 +155,8 @@ for name, country in player_matches:
         'name': name,
         'team': country,
         'position': position,
-        'active': 'TRUE'
+        'active': 'TRUE',
+        'api_name': ''  # Nombre exacto de la API football-data.org para matching robusto
     })
 
 # 3. Define participants
@@ -230,9 +232,11 @@ player_rounds_headers = [
 
 sheets_configs = [
     ('participants', ['id', 'name', 'paid', 'password'], participants_rows),
-    ('matches', ['id', 'phase', 'group', 'matchday', 'round_label', 'home_team', 'away_team', 'kickoff_utc', 'home_score', 'away_score', 'status', 'is_double_points'], matches_rows),
-    ('players', ['id', 'name', 'team', 'position', 'active'] + player_rounds_headers, players_rows),
+    ('matches', ['id', 'phase', 'group', 'matchday', 'round_label', 'home_team', 'away_team', 'kickoff_utc', 'home_score', 'away_score', 'status', 'is_double_points', 'api_id'], matches_rows),
+    ('players', ['id', 'name', 'team', 'position', 'active', 'api_name'] + player_rounds_headers, players_rows),
     ('special_events', ['id', 'name', 'description', 'deadline_utc', 'is_active', 'is_resolved', 'result_description'], special_events_rows),
+    # Nueva hoja para snapshots de goleadores al cierre de cada jornada
+    ('api_snapshots', ['round_key', 'player_api_name', 'goals_total', 'taken_at'], []),
 ]
 
 for idx, (sheet_name, headers, rows) in enumerate(sheets_configs):
