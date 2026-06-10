@@ -1938,8 +1938,6 @@ const App = (() => {
   function renderSpecialEvents() {
     const container = $("#app-content");
     if (!container) return;
-
-    const eventsEmojis = { E1: "⚽", E2: "🔥", E3: "🧤", E4: "😈", E5: "🎩", E6: "😬" };
     const activeUser = getActiveUser();
     const now = Date.now();
 
@@ -2041,11 +2039,8 @@ const App = (() => {
       return `
         <div class="card event-card fade-in">
           <div class="event-card__header">
-            <span class="event-emoji">${eventsEmojis[ev.id] || "🎯"}</span>
-            <div>
-              <h3>${escapeHtml(ev.id)} — ${escapeHtml(ev.name)}</h3>
-              ${statusBadge}
-            </div>
+            <h3>${escapeHtml(ev.id)} — ${escapeHtml(ev.name)}</h3>
+            ${statusBadge}
           </div>
           <p class="event-description">${escapeHtml(ev.description)}</p>
           ${eventBanner}
