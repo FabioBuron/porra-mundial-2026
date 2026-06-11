@@ -205,6 +205,7 @@ function _superClean(name) {
     .replace(/[^a-z0-9]/g, "") // quitar todo lo que no sea letra o número
     .replace("and", "")
     .replace("y", "")
+    .replace("islands", "") // quitar islands para Cape Verde Islands
     .replace("cabo", "cape")
     .replace("czechia", "czechrepublic")
     .replace("unitedstates", "usa")
@@ -222,6 +223,8 @@ function _teamMatches(apiName, sheetName) {
 
   // Casos especiales directos
   if (apiName === "Bosnia and Herzegovina" && (cleanSheet === "bosnia" || cleanSheet === "bosniaherzegovina")) return true;
+  if ((apiName === "Cape Verde Islands" || apiName === "Cabo Verde" || apiName === "Cape Verde") && 
+      (cleanSheet === "capeverde" || cleanSheet === "caboverde")) return true;
 
   // Caso 2: Coincide el alias en español/inglés de TEAM_ALIAS
   const alias = TEAM_ALIAS[apiName];
