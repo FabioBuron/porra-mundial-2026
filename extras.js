@@ -746,11 +746,8 @@ const PorraExtras = (() => {
     const allPending = (data.matches || [])
       .filter(m => matchRoundKey(m) === roundKey && m.status !== "finished")
       .filter(m => m.home_score === null || m.home_score === undefined || m.home_score === "");
-    const matches = allPending
-      .sort((a, b) => new Date(a.kickoff_utc || 0) - new Date(b.kickoff_utc || 0))
-      .slice(0, 6);
 
-    const details = matches.map(match => {
+    const allSimulated = allPending.map(match => {
       const predA = normalizePrediction((data.matchPredictions || []).find(mp => mp.participant_id === aId && mp.match_id === match.id));
       const predB = normalizePrediction((data.matchPredictions || []).find(mp => mp.participant_id === bId && mp.match_id === match.id));
       let best = null;
@@ -768,8 +765,14 @@ const PorraExtras = (() => {
       return { match, predA, predB, best, worst };
     });
 
-    const bestDelta = details.reduce((sum, item) => sum + (item.best ? item.best.diff : 0), 0);
-    const worstDelta = details.reduce((sum, item) => sum + (item.worst ? item.worst.diff : 0), 0);
+    const relevantSimulated = allSimulated.filter(item => !(item.best.diff === 0 && item.worst.diff === 0));
+
+    const matches = relevantSimulated
+      .sort((a, b) => new Date(a.match.kickoff_utc || 0) - new Date(b.match.kickoff_utc || 0))
+      .slice(0, 6);
+
+    const bestDelta = matches.reduce((sum, item) => sum + (item.best ? item.best.diff : 0), 0);
+    const worstDelta = matches.reduce((sum, item) => sum + (item.worst ? item.worst.diff : 0), 0);
     const currentDiff = currentA - currentB;
 
     return {
@@ -783,8 +786,8 @@ const PorraExtras = (() => {
       worstDiff: currentDiff + worstDelta,
       bestDelta,
       worstDelta,
-      limited: allPending.length > matches.length,
-      matches: details
+      limited: relevantSimulated.length > matches.length,
+      matches: matches
     };
   }
 
