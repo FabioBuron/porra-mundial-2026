@@ -5,12 +5,13 @@
 //
 // CONFIGURACIÓN INICIAL:
 //   1. Ve a Extensiones > Apps Script > ⚙️ Configuración del proyecto > Propiedades del script
-//   2. Añade la propiedad: FD_TOKEN = <tu token de football-data.org>
-//      Regístrate gratis en: https://www.football-data.org/client/register
+//   2. Añade la propiedad: AF_TOKEN = <tu token de api-football.com>
+//      Regístrate gratis en: https://www.api-football.com/
 //   3. Ejecuta syncMatchIds() UNA vez a mano para emparejar partidos.
-//   4. Instala el trigger de tiempo: syncAndUpdate() cada 30 min.
+//   4. Instala el trigger de tiempo: syncAndUpdate() cada 10 min (smart trigger).
 //
-// PRESUPUESTO API: 2 requests/ejecución × 2 ejecuciones/hora ≈ 96 req/día. Límite: 10/min. ✅
+// PRESUPUESTO API: Smart trigger solo llama a la API durante partidos en vivo.
+// ~60 req/día máximo en días de grupo. Límite free: 100 req/día. ✅
 // =============================================================================
 
 // ---------------------------------------------------------------------------
@@ -18,42 +19,43 @@
 // ---------------------------------------------------------------------------
 
 function _getConfig() {
-  const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty("FD_TOKEN");
-  if (!token) throw new Error("FD_TOKEN no configurado. Ve a Propiedades del script y añade la clave FD_TOKEN.");
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty("AF_TOKEN");
+  if (!token) throw new Error("AF_TOKEN no configurado. Ve a Propiedades del script y añade la clave AF_TOKEN.");
   return {
     token: token,
-    base: "https://api.football-data.org/v4",
-    competition: "WC"
+    base: "https://v3.football.api-sports.io",
+    league: "1",
+    season: "2026"
   };
 }
 
 function _getSheet(name) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(name);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(name);
   if (!sheet) throw new Error("Hoja '" + name + "' no encontrada. Verifica el nombre en tu Google Sheet.");
   return sheet;
 }
 
 function ensureResultsSchema() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const matches = _getSheet("matches");
-  const matchHeaders = matches.getRange(1, 1, 1, matches.getLastColumn()).getValues()[0];
+  var matches = _getSheet("matches");
+  var matchHeaders = matches.getRange(1, 1, 1, matches.getLastColumn()).getValues()[0];
   if (matchHeaders.indexOf("api_id") === -1) {
     matches.getRange(1, matches.getLastColumn() + 1).setValue("api_id");
   }
 
-  const players = _getSheet("players");
-  const playerHeaders = players.getRange(1, 1, 1, players.getLastColumn()).getValues()[0];
+  var players = _getSheet("players");
+  var playerHeaders = players.getRange(1, 1, 1, players.getLastColumn()).getValues()[0];
   if (playerHeaders.indexOf("api_name") === -1) {
-    const activeIdx = playerHeaders.indexOf("active");
-    const insertCol = activeIdx === -1 ? players.getLastColumn() + 1 : activeIdx + 2;
+    var activeIdx = playerHeaders.indexOf("active");
+    var insertCol = activeIdx === -1 ? players.getLastColumn() + 1 : activeIdx + 2;
     players.insertColumnBefore(insertCol);
     players.getRange(1, insertCol).setValue("api_name");
   }
 
-  let snapshots = ss.getSheetByName("api_snapshots");
+  var snapshots = ss.getSheetByName("api_snapshots");
   if (!snapshots) {
     snapshots = ss.insertSheet("api_snapshots");
     snapshots.appendRow(["round_key", "player_api_name", "goals_total", "taken_at"]);
@@ -70,14 +72,14 @@ function ensureResultsSchema() {
 // Llamadas a la API
 // ---------------------------------------------------------------------------
 
-function _apiGet(path) {
-  const cfg = _getConfig();
-  const url = cfg.base + path.replace("{comp}", cfg.competition);
-  const resp = UrlFetchApp.fetch(url, {
-    headers: { "X-Auth-Token": cfg.token },
+function _apiGet(endpoint) {
+  var cfg = _getConfig();
+  var url = cfg.base + endpoint;
+  var resp = UrlFetchApp.fetch(url, {
+    headers: { "x-apisports-key": cfg.token },
     muteHttpExceptions: true
   });
-  const code = resp.getResponseCode();
+  var code = resp.getResponseCode();
   if (code !== 200) {
     throw new Error("API error " + code + " en " + url + ": " + resp.getContentText().slice(0, 200));
   }
@@ -89,7 +91,7 @@ function _apiGet(path) {
 // ---------------------------------------------------------------------------
 
 // Mapa de alias API (inglés) → nombre en el Sheet (español/local)
-const TEAM_ALIAS = {
+var TEAM_ALIAS = {
   // Formato: "nombre_en_api": "nombre_en_sheet"
   "Spain": "España",
   "Germany": "Alemania",
@@ -217,8 +219,8 @@ function _superClean(name) {
 function _teamMatches(apiName, sheetName) {
   if (!apiName || !sheetName) return false;
 
-  const cleanApi = _superClean(apiName);
-  const cleanSheet = _superClean(sheetName);
+  var cleanApi = _superClean(apiName);
+  var cleanSheet = _superClean(sheetName);
   if (cleanApi === cleanSheet) return true;
 
   // Casos especiales directos
@@ -227,14 +229,14 @@ function _teamMatches(apiName, sheetName) {
       (cleanSheet === "capeverde" || cleanSheet === "caboverde")) return true;
 
   // Caso 2: Coincide el alias en español/inglés de TEAM_ALIAS
-  const alias = TEAM_ALIAS[apiName];
+  var alias = TEAM_ALIAS[apiName];
   if (alias) {
     if (_superClean(alias) === cleanSheet) return true;
   }
 
   // Fallback antiguo
-  const a = _normalizeTeam(apiName);
-  const bNorm = sheetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  var a = _normalizeTeam(apiName);
+  var bNorm = sheetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   return a === bNorm || TEAM_ALIAS[apiName] === sheetName;
 }
 
@@ -245,50 +247,51 @@ function _teamMatches(apiName, sheetName) {
 // Escribe el api_id (int) en la columna "api_id" de la hoja "matches".
 
 function syncMatchIds() {
-  const sheet = _getSheet("matches");
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const idxId = headers.indexOf("id");
-  const idxHome = headers.indexOf("home_team");
-  const idxAway = headers.indexOf("away_team");
-  const idxKickoff = headers.indexOf("kickoff_utc");
-  const idxApiId = headers.indexOf("api_id");
+  var sheet = _getSheet("matches");
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var idxId = headers.indexOf("id");
+  var idxHome = headers.indexOf("home_team");
+  var idxAway = headers.indexOf("away_team");
+  var idxKickoff = headers.indexOf("kickoff_utc");
+  var idxApiId = headers.indexOf("api_id");
 
   if (idxApiId === -1) throw new Error("Columna 'api_id' no encontrada en hoja 'matches'. Añádela primero.");
 
-  const apiData = _apiGet("/competitions/{comp}/matches");
-  const apiMatches = apiData.matches || [];
+  var cfg = _getConfig();
+  var apiData = _apiGet("/fixtures?league=" + cfg.league + "&season=" + cfg.season);
+  var apiMatches = apiData.response || [];
 
-  let matched = 0, skipped = 0, unmatched = [];
+  var matched = 0, skipped = 0, unmatched = [];
 
-  for (let r = 1; r < data.length; r++) {
-    const row = data[r];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
     if (!row[idxId]) continue;
     if (row[idxApiId]) { skipped++; continue; } // ya tiene api_id
 
-    const sheetHome = row[idxHome];
-    const sheetAway = row[idxAway];
-    const sheetKickoff = new Date(row[idxKickoff]).getTime();
+    var sheetHome = row[idxHome];
+    var sheetAway = row[idxAway];
+    var sheetKickoff = new Date(row[idxKickoff]).getTime();
 
     // Buscar el partido en la API: mismos equipos (con alias) y fecha ± 1 día
-    const found = apiMatches.find(am => {
-      const apiHome = am.homeTeam && am.homeTeam.name;
-      const apiAway = am.awayTeam && am.awayTeam.name;
-      const apiDate = new Date(am.utcDate).getTime();
-      const dateOk = Math.abs(apiDate - sheetKickoff) <= 86400000; // ±1 día
+    var found = apiMatches.find(function(am) {
+      var apiHome = am.teams && am.teams.home ? am.teams.home.name : "";
+      var apiAway = am.teams && am.teams.away ? am.teams.away.name : "";
+      var apiDate = new Date(am.fixture.date).getTime();
+      var dateOk = Math.abs(apiDate - sheetKickoff) <= 86400000; // ±1 día
       return dateOk && _teamMatches(apiHome, sheetHome) && _teamMatches(apiAway, sheetAway);
     });
 
     if (found) {
-      sheet.getRange(r + 1, idxApiId + 1).setValue(found.id);
+      sheet.getRange(r + 1, idxApiId + 1).setValue(found.fixture.id);
       matched++;
-      Logger.log("✅ " + row[idxId] + " → api_id " + found.id + " (" + sheetHome + " vs " + sheetAway + ")");
+      Logger.log("✅ " + row[idxId] + " → api_id " + found.fixture.id + " (" + sheetHome + " vs " + sheetAway + ")");
     } else {
       unmatched.push(row[idxId] + ": " + sheetHome + " vs " + sheetAway + " (" + row[idxKickoff] + ")");
     }
   }
 
-  const summary = "syncMatchIds: " + matched + " emparejados, " + skipped + " ya tenían id, " + unmatched.length + " sin emparejar.";
+  var summary = "syncMatchIds: " + matched + " emparejados, " + skipped + " ya tenían id, " + unmatched.length + " sin emparejar.";
   Logger.log(summary);
   if (unmatched.length > 0) {
     Logger.log("⚠️ Sin emparejar (revisar manualmente):\n" + unmatched.join("\n"));
@@ -299,46 +302,47 @@ function syncMatchIds() {
 // ---------------------------------------------------------------------------
 // 2. updateResults() — actualizar marcadores y estado de partidos
 // ---------------------------------------------------------------------------
-// CRON: cada 30 min. Solo escribe si hay cambios reales.
+// CRON: cada 10 min (smart trigger). Solo escribe si hay cambios reales.
 
 function updateResults() {
-  const sheet = _getSheet("matches");
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
+  var sheet = _getSheet("matches");
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
 
-  const idxApiId   = headers.indexOf("api_id");
-  const idxHome    = headers.indexOf("home_score");
-  const idxAway    = headers.indexOf("away_score");
-  const idxStatus  = headers.indexOf("status");
+  var idxApiId   = headers.indexOf("api_id");
+  var idxHome    = headers.indexOf("home_score");
+  var idxAway    = headers.indexOf("away_score");
+  var idxStatus  = headers.indexOf("status");
 
   if (idxApiId === -1) throw new Error("Columna 'api_id' no encontrada.");
 
-  const apiData = _apiGet("/competitions/{comp}/matches");
-  const apiMap = {};
-  (apiData.matches || []).forEach(m => { apiMap[m.id] = m; });
+  var cfg = _getConfig();
+  var apiData = _apiGet("/fixtures?league=" + cfg.league + "&season=" + cfg.season);
+  var apiMap = {};
+  (apiData.response || []).forEach(function(m) { apiMap[m.fixture.id] = m; });
 
-  let updated = 0;
+  var updated = 0;
 
-  for (let r = 1; r < data.length; r++) {
-    const row = data[r];
-    const apiId = row[idxApiId];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var apiId = row[idxApiId];
     if (!apiId) continue;
 
-    const currStatus = row[idxStatus];
+    var currStatus = row[idxStatus];
     if (currStatus === "finished") continue;
 
-    const am = apiMap[apiId];
+    var am = apiMap[apiId];
     if (!am) continue;
 
     // Mapear estado API → estado local
-    let newStatus;
-    const st = (am.status || "").toUpperCase();
-    if (st === "FINISHED" || st === "AWARDED") newStatus = "finished";
-    else if (st === "IN_PLAY" || st === "PAUSED" || st === "SUSPENDED") newStatus = "live";
+    var newStatus;
+    var st = (am.fixture.status.short || "").toUpperCase();
+    if (st === "FT" || st === "AET" || st === "AWD") newStatus = "finished";
+    else if (st === "1H" || st === "HT" || st === "2H" || st === "ET" || st === "P" || st === "PEN") newStatus = "live";
     else newStatus = "scheduled";
 
-    const newHome = am.score && am.score.fullTime ? am.score.fullTime.home : null;
-    const newAway = am.score && am.score.fullTime ? am.score.fullTime.away : null;
+    var newHome = am.goals.home;
+    var newAway = am.goals.away;
 
     // Si el partido empezó o finalizó pero los goles de la API son nulos,
     // significa que la API tiene datos incompletos. Omitimos esta actualización.
@@ -346,10 +350,10 @@ function updateResults() {
       continue;
     }
 
-    const currHome = row[idxHome];
-    const currAway = row[idxAway];
+    var currHome = row[idxHome];
+    var currAway = row[idxAway];
 
-    const hasChange = newStatus !== currStatus ||
+    var hasChange = newStatus !== currStatus ||
       (newHome !== null && String(newHome) !== String(currHome)) ||
       (newAway !== null && String(newAway) !== String(currAway));
 
@@ -372,42 +376,42 @@ function updateResults() {
 // Usa snapshots de la jornada anterior para calcular goles incrementales.
 
 function updateScorers() {
-  const matchSheet   = _getSheet("matches");
-  const playerSheet  = _getSheet("players");
-  const snapSheet    = _getSheet("api_snapshots");
+  var matchSheet   = _getSheet("matches");
+  var playerSheet  = _getSheet("players");
+  var snapSheet    = _getSheet("api_snapshots");
 
-  const matchData   = matchSheet.getDataRange().getValues();
-  const playerData  = playerSheet.getDataRange().getValues();
-  const snapData    = snapSheet.getDataRange().getValues();
+  var matchData   = matchSheet.getDataRange().getValues();
+  var playerData  = playerSheet.getDataRange().getValues();
+  var snapData    = snapSheet.getDataRange().getValues();
 
-  const mHeaders = matchData[0];
-  const pHeaders = playerData[0];
-  const sHeaders = snapData[0];
+  var mHeaders = matchData[0];
+  var pHeaders = playerData[0];
+  var sHeaders = snapData[0];
 
-  const mIdxStatus  = mHeaders.indexOf("status");
-  const mIdxApiId   = mHeaders.indexOf("api_id");
-  const mIdxPhase   = mHeaders.indexOf("phase");
-  const mIdxMd      = mHeaders.indexOf("matchday");
+  var mIdxStatus  = mHeaders.indexOf("status");
+  var mIdxApiId   = mHeaders.indexOf("api_id");
+  var mIdxPhase   = mHeaders.indexOf("phase");
+  var mIdxMd      = mHeaders.indexOf("matchday");
 
-  const pIdxApiName = pHeaders.indexOf("api_name");
-  const pIdxName    = pHeaders.indexOf("name");
-  const pIdxTeam    = pHeaders.indexOf("team");
-  const pIdxPos     = pHeaders.indexOf("position");
+  var pIdxApiName = pHeaders.indexOf("api_name");
+  var pIdxName    = pHeaders.indexOf("name");
+  var pIdxTeam    = pHeaders.indexOf("team");
+  var pIdxPos     = pHeaders.indexOf("position");
 
   // Determinar round_key actual: la última ronda con al menos 1 partido finished
   // y cuya siguiente ronda aún no ha empezado (ningún partido finished)
-  const finishedRounds = new Set();
-  for (let r = 1; r < matchData.length; r++) {
-    const row = matchData[r];
+  var finishedRounds = new Set();
+  for (var r = 1; r < matchData.length; r++) {
+    var row = matchData[r];
     if ((row[mIdxStatus] || "").toLowerCase() === "finished") {
-      const key = _matchRoundKey(row[mIdxPhase], row[mIdxMd]);
+      var key = _matchRoundKey(row[mIdxPhase], row[mIdxMd]);
       if (key) finishedRounds.add(key);
     }
   }
 
-  const ROUND_ORDER = ["group_md1", "group_md2", "group_md3", "r32", "r16", "qf", "sf", "3rd", "final"];
-  let currentRound = null;
-  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
+  var ROUND_ORDER = ["group_md1", "group_md2", "group_md3", "r32", "r16", "qf", "sf", "3rd", "final"];
+  var currentRound = null;
+  for (var i = ROUND_ORDER.length - 1; i >= 0; i--) {
     if (finishedRounds.has(ROUND_ORDER[i])) {
       currentRound = ROUND_ORDER[i];
       break;
@@ -419,64 +423,65 @@ function updateScorers() {
   }
 
   // Obtener goles acumulados de la API
-  const scorersData = _apiGet("/competitions/{comp}/scorers?limit=200");
-  const apiScorers = scorersData.scorers || [];
+  var cfg = _getConfig();
+  var scorersData = _apiGet("/players/topscorers?league=" + cfg.league + "&season=" + cfg.season);
+  var apiScorers = scorersData.response || [];
 
   // Cargar snapshots previos: { player_api_name+round_key → goals_total }
-  const snapMap = {};
-  const sIdxRound  = sHeaders.indexOf("round_key");
-  const sIdxPlayer = sHeaders.indexOf("player_api_name");
-  const sIdxGoals  = sHeaders.indexOf("goals_total");
-  for (let r = 1; r < snapData.length; r++) {
-    const sRow = snapData[r];
+  var snapMap = {};
+  var sIdxRound  = sHeaders.indexOf("round_key");
+  var sIdxPlayer = sHeaders.indexOf("player_api_name");
+  var sIdxGoals  = sHeaders.indexOf("goals_total");
+  for (var r = 1; r < snapData.length; r++) {
+    var sRow = snapData[r];
     if (!sRow[sIdxRound] || !sRow[sIdxPlayer]) continue;
-    const key = sRow[sIdxRound] + "|" + sRow[sIdxPlayer];
-    snapMap[key] = Number(sRow[sIdxGoals]) || 0;
+    var snapKey = sRow[sIdxRound] + "|" + sRow[sIdxPlayer];
+    snapMap[snapKey] = Number(sRow[sIdxGoals]) || 0;
   }
 
   // Calcular índice de jornada anterior
-  const currentIdx = ROUND_ORDER.indexOf(currentRound);
-  const prevRound  = currentIdx > 0 ? ROUND_ORDER[currentIdx - 1] : null;
+  var currentIdx = ROUND_ORDER.indexOf(currentRound);
+  var prevRound  = currentIdx > 0 ? ROUND_ORDER[currentIdx - 1] : null;
 
   // Buscar columna goals_<round> en players
-  const goalsCol = "goals_" + currentRound;
-  let pIdxGoals  = pHeaders.indexOf(goalsCol);
+  var goalsCol = "goals_" + currentRound;
+  var pIdxGoals  = pHeaders.indexOf(goalsCol);
   if (pIdxGoals === -1) {
     Logger.log("⚠️ Columna '" + goalsCol + "' no existe en hoja players. Añádela y vuelve a ejecutar.");
     return 0;
   }
 
-  let updated = 0;
+  var updated = 0;
 
-  for (let r = 1; r < playerData.length; r++) {
-    const pRow = playerData[r];
-    const apiName = pRow[pIdxApiName] ? String(pRow[pIdxApiName]).trim() : "";
-    const localName = pRow[pIdxName] ? String(pRow[pIdxName]).trim() : "";
-    const team = pRow[pIdxTeam] ? String(pRow[pIdxTeam]).trim() : "";
-    const pos = pRow[pIdxPos] ? String(pRow[pIdxPos]).trim().toLowerCase() : "";
+  for (var r = 1; r < playerData.length; r++) {
+    var pRow = playerData[r];
+    var apiName = pRow[pIdxApiName] ? String(pRow[pIdxApiName]).trim() : "";
+    var localName = pRow[pIdxName] ? String(pRow[pIdxName]).trim() : "";
+    var team = pRow[pIdxTeam] ? String(pRow[pIdxTeam]).trim() : "";
+    var pos = pRow[pIdxPos] ? String(pRow[pIdxPos]).trim().toLowerCase() : "";
 
     if (pos === "goalkeeper") continue; // porteros se calculan por encajados, no goles
 
     // Buscar en API: prioridad api_name; si está vacío, normalizar contra name
-    const apiEntry = apiScorers.find(sc => {
-      const n = sc.player && sc.player.name ? sc.player.name : "";
+    var apiEntry = apiScorers.find(function(sc) {
+      var n = sc.player && sc.player.name ? sc.player.name : "";
       if (apiName) return n === apiName;
-      const normN = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const normL = localName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      var normN = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      var normL = localName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return normN === normL;
     });
 
     if (!apiEntry) continue; // jugador no en ranking de goleadores aún → 0 goles (no sobreescribir)
 
-    const totalGoals = Number(apiEntry.goals && typeof apiEntry.goals === 'object' ? apiEntry.goals.scored : apiEntry.goals) || 0;
-    const playerApiName = apiEntry.player.name;
+    var totalGoals = Number(apiEntry.statistics[0].goals.total) || 0;
+    var playerApiName = apiEntry.player.name;
 
     // Goles de esta jornada = acumulado − snapshot jornada anterior
-    const prevKey = prevRound ? prevRound + "|" + playerApiName : null;
-    const prevGoals = prevKey ? (snapMap[prevKey] || 0) : 0;
-    const jornada = Math.max(0, totalGoals - prevGoals);
+    var prevKey = prevRound ? prevRound + "|" + playerApiName : null;
+    var prevGoals = prevKey ? (snapMap[prevKey] || 0) : 0;
+    var jornada = Math.max(0, totalGoals - prevGoals);
 
-    const currVal = pRow[pIdxGoals];
+    var currVal = pRow[pIdxGoals];
     if (String(jornada) !== String(currVal)) {
       playerSheet.getRange(r + 1, pIdxGoals + 1).setValue(jornada);
       updated++;
@@ -495,30 +500,33 @@ function updateScorers() {
 function closeRound(roundKey) {
   if (!roundKey) throw new Error("roundKey requerido.");
 
-  const matchSheet   = _getSheet("matches");
-  const playerSheet  = _getSheet("players");
-  const snapSheet    = _getSheet("api_snapshots");
+  var matchSheet   = _getSheet("matches");
+  var playerSheet  = _getSheet("players");
+  var snapSheet    = _getSheet("api_snapshots");
 
-  const matchData  = matchSheet.getDataRange().getValues();
-  const playerData = playerSheet.getDataRange().getValues();
-  const pHeaders   = playerData[0];
-  const mHeaders   = matchData[0];
+  var matchData  = matchSheet.getDataRange().getValues();
+  var playerData = playerSheet.getDataRange().getValues();
+  var pHeaders   = playerData[0];
+  var mHeaders   = matchData[0];
 
   // --- 1) Snapshot de goleadores ---
-  const scorersData = _apiGet("/competitions/{comp}/scorers?limit=200");
-  const apiScorers = scorersData.scorers || [];
-  const takenAt = new Date().toISOString();
+  var cfg = _getConfig();
+  var scorersData = _apiGet("/players/topscorers?league=" + cfg.league + "&season=" + cfg.season);
+  var apiScorers = scorersData.response || [];
+  var takenAt = new Date().toISOString();
 
-  const snapRows = apiScorers.map(sc => [
-    roundKey,
-    sc.player ? sc.player.name : "",
-    Number(sc.goals && typeof sc.goals === 'object' ? sc.goals.scored : sc.goals) || 0,
-    takenAt
-  ]);
+  var snapRows = apiScorers.map(function(sc) {
+    return [
+      roundKey,
+      sc.player ? sc.player.name : "",
+      Number(sc.statistics[0].goals.total) || 0,
+      takenAt
+    ];
+  });
 
   if (snapRows.length > 0) {
     // Añadir filas al final de api_snapshots
-    const lastRow = snapSheet.getLastRow();
+    var lastRow = snapSheet.getLastRow();
     snapSheet.getRange(lastRow + 1, 1, snapRows.length, 4).setValues(snapRows);
     Logger.log("closeRound(" + roundKey + "): " + snapRows.length + " snapshots guardados.");
   }
@@ -526,20 +534,20 @@ function closeRound(roundKey) {
   // --- 2) Goles encajados por portero ---
   // Lógica: para cada portero activo, sumar goles en contra de su equipo
   // en los partidos finished de esta jornada.
-  const mIdxStatus  = mHeaders.indexOf("status");
-  const mIdxPhase   = mHeaders.indexOf("phase");
-  const mIdxMd      = mHeaders.indexOf("matchday");
-  const mIdxHome    = mHeaders.indexOf("home_team");
-  const mIdxAway    = mHeaders.indexOf("away_team");
-  const mIdxHScore  = mHeaders.indexOf("home_score");
-  const mIdxAScore  = mHeaders.indexOf("away_score");
+  var mIdxStatus  = mHeaders.indexOf("status");
+  var mIdxPhase   = mHeaders.indexOf("phase");
+  var mIdxMd      = mHeaders.indexOf("matchday");
+  var mIdxHome    = mHeaders.indexOf("home_team");
+  var mIdxAway    = mHeaders.indexOf("away_team");
+  var mIdxHScore  = mHeaders.indexOf("home_score");
+  var mIdxAScore  = mHeaders.indexOf("away_score");
 
   // Filtrar partidos de esta jornada terminados
-  const roundMatches = [];
-  for (let r = 1; r < matchData.length; r++) {
-    const row = matchData[r];
-    const key = _matchRoundKey(row[mIdxPhase], row[mIdxMd]);
-    if (key === roundKey && (row[mIdxStatus] || "").toLowerCase() === "finished") {
+  var roundMatches = [];
+  for (var r = 1; r < matchData.length; r++) {
+    var row = matchData[r];
+    var matchKey = _matchRoundKey(row[mIdxPhase], row[mIdxMd]);
+    if (matchKey === roundKey && (row[mIdxStatus] || "").toLowerCase() === "finished") {
       roundMatches.push({
         home: String(row[mIdxHome] || "").trim(),
         away: String(row[mIdxAway] || "").trim(),
@@ -555,34 +563,34 @@ function closeRound(roundKey) {
   }
 
   // Construir mapa equipo → goles encajados en la jornada
-  const concededByTeam = {};
-  roundMatches.forEach(m => {
+  var concededByTeam = {};
+  roundMatches.forEach(function(m) {
     concededByTeam[m.home] = (concededByTeam[m.home] || 0) + m.awayScore;
     concededByTeam[m.away] = (concededByTeam[m.away] || 0) + m.homeScore;
   });
 
   // Columna conceded_<roundKey> en players
-  const concededCol = "conceded_" + roundKey;
-  const pIdxConceded = pHeaders.indexOf(concededCol);
+  var concededCol = "conceded_" + roundKey;
+  var pIdxConceded = pHeaders.indexOf(concededCol);
   if (pIdxConceded === -1) {
     Logger.log("⚠️ Columna '" + concededCol + "' no existe en hoja players.");
     return;
   }
 
-  const pIdxPos  = pHeaders.indexOf("position");
-  const pIdxTeam = pHeaders.indexOf("team");
-  const pIdxActive = pHeaders.indexOf("active");
+  var pIdxPos  = pHeaders.indexOf("position");
+  var pIdxTeam = pHeaders.indexOf("team");
+  var pIdxActive = pHeaders.indexOf("active");
 
-  let gkUpdated = 0;
-  for (let r = 1; r < playerData.length; r++) {
-    const pRow = playerData[r];
-    const pos    = String(pRow[pIdxPos] || "").trim().toLowerCase();
-    const active = String(pRow[pIdxActive] || "").trim().toLowerCase();
+  var gkUpdated = 0;
+  for (var r = 1; r < playerData.length; r++) {
+    var pRow = playerData[r];
+    var pos    = String(pRow[pIdxPos] || "").trim().toLowerCase();
+    var active = String(pRow[pIdxActive] || "").trim().toLowerCase();
     if (pos !== "goalkeeper") continue;
     if (active !== "true" && active !== "1") continue;
 
-    const team = String(pRow[pIdxTeam] || "").trim();
-    const conceded = concededByTeam[team] !== undefined ? concededByTeam[team] : null;
+    var team = String(pRow[pIdxTeam] || "").trim();
+    var conceded = concededByTeam[team] !== undefined ? concededByTeam[team] : null;
     if (conceded === null) continue; // equipo no jugó en esta jornada
 
     playerSheet.getRange(r + 1, pIdxConceded + 1).setValue(conceded);
@@ -597,41 +605,41 @@ function closeRound(roundKey) {
 // ---------------------------------------------------------------------------
 
 function detectAndCloseRounds() {
-  const matchSheet = _getSheet("matches");
-  const snapSheet  = _getSheet("api_snapshots");
+  var matchSheet = _getSheet("matches");
+  var snapSheet  = _getSheet("api_snapshots");
 
-  const matchData = matchSheet.getDataRange().getValues();
-  const snapData  = snapSheet.getDataRange().getValues();
-  const mHeaders  = matchData[0];
-  const sHeaders  = snapData[0];
+  var matchData = matchSheet.getDataRange().getValues();
+  var snapData  = snapSheet.getDataRange().getValues();
+  var mHeaders  = matchData[0];
+  var sHeaders  = snapData[0];
 
-  const mIdxStatus = mHeaders.indexOf("status");
-  const mIdxPhase  = mHeaders.indexOf("phase");
-  const mIdxMd     = mHeaders.indexOf("matchday");
-  const sIdxRound  = sHeaders.indexOf("round_key");
+  var mIdxStatus = mHeaders.indexOf("status");
+  var mIdxPhase  = mHeaders.indexOf("phase");
+  var mIdxMd     = mHeaders.indexOf("matchday");
+  var sIdxRound  = sHeaders.indexOf("round_key");
 
   // Jornadas que ya tienen snapshot
-  const snapshotted = new Set();
-  for (let r = 1; r < snapData.length; r++) {
+  var snapshotted = new Set();
+  for (var r = 1; r < snapData.length; r++) {
     if (snapData[r][sIdxRound]) snapshotted.add(String(snapData[r][sIdxRound]).trim());
   }
 
   // Agrupar partidos por round_key
-  const byRound = {};
-  for (let r = 1; r < matchData.length; r++) {
-    const row = matchData[r];
-    const key = _matchRoundKey(row[mIdxPhase], row[mIdxMd]);
+  var byRound = {};
+  for (var r = 1; r < matchData.length; r++) {
+    var row = matchData[r];
+    var key = _matchRoundKey(row[mIdxPhase], row[mIdxMd]);
     if (!key) continue;
     if (!byRound[key]) byRound[key] = { total: 0, finished: 0 };
     byRound[key].total++;
     if ((row[mIdxStatus] || "").toLowerCase() === "finished") byRound[key].finished++;
   }
 
-  const ROUND_ORDER = ["group_md1", "group_md2", "group_md3", "r32", "r16", "qf", "sf", "3rd", "final"];
-  const closed = [];
+  var ROUND_ORDER = ["group_md1", "group_md2", "group_md3", "r32", "r16", "qf", "sf", "3rd", "final"];
+  var closed = [];
 
-  ROUND_ORDER.forEach(rKey => {
-    const info = byRound[rKey];
+  ROUND_ORDER.forEach(function(rKey) {
+    var info = byRound[rKey];
     if (!info || info.total === 0) return;
     if (snapshotted.has(rKey)) return; // ya cerrada
     if (info.finished < info.total) return; // no todos terminados
@@ -642,9 +650,9 @@ function detectAndCloseRounds() {
 
     // Generar la crónica con la IA de Gemini automáticamente
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const leaderboardGlobal = calcularLeaderboardEnBackend(ss);
-      const leaderboardJornada = calcularLeaderboardEnBackend(ss, rKey);
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var leaderboardGlobal = calcularLeaderboardEnBackend(ss);
+      var leaderboardJornada = calcularLeaderboardEnBackend(ss, rKey);
       Logger.log("Auto-generando crónica de Gemini para " + rKey);
       generarCronicaConGemini(rKey, leaderboardGlobal, leaderboardJornada);
       Logger.log("✅ Crónica auto-generada con éxito.");
@@ -658,15 +666,51 @@ function detectAndCloseRounds() {
 }
 
 // ---------------------------------------------------------------------------
-// 6. syncAndUpdate() — función CRON principal (ejecutar cada 30 min)
+// 6. syncAndUpdate() — función CRON principal (ejecutar cada 10 min)
 // ---------------------------------------------------------------------------
+// Smart trigger: solo consume API si hay partidos en ventana de juego.
 
 function syncAndUpdate() {
   try {
-    const updatedMatches  = updateResults();
-    const updatedScorers  = updateScorers();
-    const closedRounds    = detectAndCloseRounds();
-    const summary = {
+    // --- Smart trigger guard: verificar si hay partidos en ventana live ---
+    var matchSheet = _getSheet("matches");
+    var matchData = matchSheet.getDataRange().getValues();
+    var mHeaders = matchData[0];
+    var mIdxKickoff = mHeaders.indexOf("kickoff_utc");
+    var mIdxStatus  = mHeaders.indexOf("status");
+
+    var now = new Date().getTime();
+    var hasLiveWindow = false;
+    var hasRecentFinish = false;
+
+    for (var r = 1; r < matchData.length; r++) {
+      var row = matchData[r];
+      var status = (row[mIdxStatus] || "").toLowerCase();
+      var kickoff = row[mIdxKickoff] ? new Date(row[mIdxKickoff]).getTime() : 0;
+
+      // Partido en ventana live: now >= kickoff AND now <= kickoff + 180 min
+      if (kickoff && now >= kickoff && now <= kickoff + 180 * 60 * 1000) {
+        if (status !== "finished") {
+          hasLiveWindow = true;
+          break;
+        }
+      }
+
+      // Partido recién terminado: status=finished y ahora <= kickoff + 210 min (30 min extra)
+      if (status === "finished" && kickoff && now <= kickoff + 210 * 60 * 1000 && now >= kickoff) {
+        hasRecentFinish = true;
+      }
+    }
+
+    if (!hasLiveWindow && !hasRecentFinish) {
+      Logger.log("⏸️ Sin partidos en juego. Saltando actualización para ahorrar cuota API.");
+      return { skipped: true, reason: "no_live_matches", timestamp: new Date().toISOString() };
+    }
+
+    var updatedMatches  = updateResults();
+    var updatedScorers  = updateScorers();
+    var closedRounds    = detectAndCloseRounds();
+    var summary = {
       matches_updated: updatedMatches,
       scorers_updated: updatedScorers,
       rounds_closed: closedRounds,
@@ -693,14 +737,14 @@ function syncAndUpdate() {
 //   ?action=ensureSchema  → crea columnas/hojas necesarias para resultados si faltan
 
 function doGetResults(e) {
-  const action = (e && e.parameter && e.parameter.action) || "";
-  let result;
+  var action = (e && e.parameter && e.parameter.action) || "";
+  var result;
 
   try {
     if (action === "refresh") {
       result = syncAndUpdate();
     } else if (action === "closeRound") {
-      const round = e.parameter.round;
+      var round = e.parameter.round;
       if (!round) throw new Error("Parámetro 'round' requerido.");
       closeRound(round);
       result = { closed: round, timestamp: new Date().toISOString() };
@@ -725,11 +769,12 @@ function doGetResults(e) {
 // INSTALACIÓN DEL TRIGGER — ejecutar ONCE a mano
 // ---------------------------------------------------------------------------
 // Ejecuta installTrigger() desde Apps Script > Ejecutar una vez para
-// instalar el CRON de 30 minutos.
+// instalar el smart trigger de 10 minutos. Solo consume API cuando hay
+// partidos en ventana de juego.
 
 function installTrigger() {
   // Eliminar triggers previos de syncAndUpdate para evitar duplicados
-  ScriptApp.getProjectTriggers().forEach(t => {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === "syncAndUpdate") ScriptApp.deleteTrigger(t);
   });
 
@@ -738,7 +783,7 @@ function installTrigger() {
     .everyMinutes(10)
     .create();
 
-  Logger.log("✅ Trigger instalado: syncAndUpdate cada 10 min.");
+  Logger.log("✅ Trigger instalado: syncAndUpdate cada 10 min (smart trigger — solo consume API con partidos en juego).");
 }
 
 // ---------------------------------------------------------------------------
@@ -747,22 +792,13 @@ function installTrigger() {
 
 function _matchRoundKey(phase, matchday) {
   if (!phase) return null;
-  const p = String(phase).trim().toLowerCase();
+  var p = String(phase).trim().toLowerCase();
   if (p === "group") {
-    const md = Number(matchday);
+    var md = Number(matchday);
     if (!md || md < 1 || md > 3) return null;
     return "group_md" + md;
   }
   // Para knockout, phase ya es el round_key
-  const validKeys = ["r32", "r16", "qf", "sf", "3rd", "final"];
+  var validKeys = ["r32", "r16", "qf", "sf", "3rd", "final"];
   return validKeys.includes(p) ? p : null;
-}
-
-function testApiMatch001() {
-  try {
-    const match = _apiGet("/matches/537327");
-    Logger.log("Match 537327 details: " + JSON.stringify(match, null, 2));
-  } catch (err) {
-    Logger.log("Error fetching match 537327: " + err.toString());
-  }
 }
