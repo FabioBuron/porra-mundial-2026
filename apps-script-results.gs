@@ -191,9 +191,23 @@ function _normalizeTeam(name) {
 }
 
 function _teamMatches(apiName, sheetName) {
+  if (!apiName || !sheetName) return false;
+  const aNorm = apiName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const bNorm = sheetName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  // Caso 1: Coinciden directamente en inglés (nombre de API y de Sheet son inglés)
+  if (aNorm === bNorm) return true;
+
+  // Caso 2: Coincide el alias en español
+  const alias = TEAM_ALIAS[apiName];
+  if (alias) {
+    const aliasNorm = alias.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (aliasNorm === bNorm) return true;
+  }
+
+  // Fallback antiguo
   const a = _normalizeTeam(apiName);
-  const b = (sheetName || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  return a === b || TEAM_ALIAS[apiName] === sheetName;
+  return a === bNorm || TEAM_ALIAS[apiName] === sheetName;
 }
 
 // ---------------------------------------------------------------------------
