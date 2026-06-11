@@ -765,7 +765,7 @@ const PorraExtras = (() => {
       return { match, predA, predB, best, worst };
     });
 
-    const relevantSimulated = allSimulated.filter(item => !(item.best.diff === 0 && item.worst.diff === 0));
+    const relevantSimulated = allSimulated.filter(item => item.best.diff > 0);
 
     const matches = relevantSimulated
       .sort((a, b) => new Date(a.match.kickoff_utc || 0) - new Date(b.match.kickoff_utc || 0))
