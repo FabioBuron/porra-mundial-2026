@@ -181,10 +181,25 @@ const mockProperties = {
   }
 };
 
+let currentSimulatedTime = new Date("2026-06-11T12:00:00Z");
+
+class MockDate extends Date {
+  constructor(...args) {
+    if (args.length === 0) {
+      super(currentSimulatedTime.getTime());
+    } else {
+      super(...args);
+    }
+  }
+  static now() {
+    return currentSimulatedTime.getTime();
+  }
+}
+
 const context = {
   console,
   Math,
-  Date,
+  Date: MockDate,
   parseInt,
   parseFloat,
   isNaN,
