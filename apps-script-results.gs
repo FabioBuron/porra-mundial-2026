@@ -751,3 +751,12 @@ function _matchRoundKey(phase, matchday) {
   const validKeys = ["r32", "r16", "qf", "sf", "3rd", "final"];
   return validKeys.includes(p) ? p : null;
 }
+
+function testApiMatch001() {
+  try {
+    const match = _apiGet("/matches/537327");
+    Logger.log("Match 537327 details: " + JSON.stringify(match, null, 2));
+  } catch (err) {
+    Logger.log("Error fetching match 537327: " + err.toString());
+  }
+}
