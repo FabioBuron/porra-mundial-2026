@@ -1996,8 +1996,10 @@ const App = (() => {
           const ptsClass = pts >= 3 ? "text-green" : pts >= 1 ? "text-gold" : "text-muted";
           return `
             <div class="prediction-row">
-              <span class="prediction-name">${escapeHtml(participant ? participant.name : pred.participant_id)}</span>
-              <span class="prediction-score">${pred.predicted_home ?? "?"} - ${pred.predicted_away ?? "?"}</span>
+              <div class="prediction-info">
+                <span class="prediction-name">${escapeHtml(participant ? participant.name : pred.participant_id)}</span>
+                <span class="prediction-score">${pred.predicted_home ?? "?"} - ${pred.predicted_away ?? "?"}</span>
+              </div>
               ${isFinished ? `<span class="score-pill ${ptsClass}">${pts ?? 0} pts</span>` : ""}
             </div>
           `;
