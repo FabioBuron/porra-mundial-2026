@@ -1131,6 +1131,7 @@ input, select, textarea, button {
 .prediction-name {
   display: inline-block;
   width: 8rem;
+  flex-shrink: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1272,11 +1273,13 @@ input, select, textarea, button {
 .event-pick-info {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
 }
 
 .event-pick-name {
   display: inline-block;
   width: 8rem;
+  flex-shrink: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3477,3 +3480,5 @@ body {
     transform: rotate(360deg);
   }
 }
+
+
