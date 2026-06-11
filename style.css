@@ -1129,6 +1129,11 @@ input, select, textarea, button {
 }
 
 .prediction-name {
+  display: inline-block;
+  width: 8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--color-text-secondary);
 }
 
@@ -1249,6 +1254,38 @@ input, select, textarea, button {
 
 .event-card__pick-item:last-child {
   border-bottom: none;
+}
+
+.event-pick-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-sm);
+}
+
+.event-pick-row:last-child {
+  border-bottom: none;
+}
+
+.event-pick-info {
+  display: flex;
+  align-items: center;
+}
+
+.event-pick-name {
+  display: inline-block;
+  width: 8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
+}
+
+.event-pick-value {
+  color: var(--color-text);
+  font-weight: 500;
 }
 
 

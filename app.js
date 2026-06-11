@@ -2375,8 +2375,10 @@ const App = (() => {
 
           return `
               <div class="event-pick-row">
-                <span>${escapeHtml(participant ? participant.name : pick.participant_id)}</span>
-                <span class="text-muted">${escapeHtml(displayPick)}</span>
+                <div class="event-pick-info">
+                  <span class="event-pick-name">${escapeHtml(participant ? participant.name : pick.participant_id)}</span>
+                  <span class="event-pick-value">${escapeHtml(displayPick)}</span>
+                </div>
                 ${isResolved ? `<span class="score-pill ${ptsClass}">${pts ?? 0} pts</span>` : ""}
               </div>
             `;
