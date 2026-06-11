@@ -181,11 +181,9 @@ const TEAM_ALIAS = {
   "Nicaragua": "Nicaragua",
   "Bermuda": "Bermudas",
   
-  // Soporte para Sheets en inglés / variaciones de nombres de la API
+  // Soporte para variaciones de nombres de la API y localizaciones
   "United States": "USA",
   "Czechia": "Czech Republic",
-  "Bosnia and Herzegovina": "Bosnia & Herzegovina",
-  "Congo DR": "DR Congo",
   "Democratic Republic of the Congo": "DR Congo",
   "Cabo Verde": "Cape Verde",
   "Côte d'Ivoire": "Ivory Coast"
@@ -206,6 +204,19 @@ function _teamMatches(apiName, sheetName) {
 
   // Caso 1: Coinciden directamente en inglés (nombre de API y de Sheet son inglés)
   if (aNorm === bNorm) return true;
+
+  // Casos especiales de doble alias (Español / Inglés / Variaciones API)
+  if (apiName === "Bosnia and Herzegovina" && (bNorm === "bosnia" || bNorm === "bosnia & herzegovina")) return true;
+  if (apiName === "Congo DR" && (bNorm === "rd congo" || bNorm === "dr congo" || bNorm === "congo dr")) return true;
+  if (apiName === "Democratic Republic of the Congo" && (bNorm === "rd congo" || bNorm === "dr congo" || bNorm === "congo dr")) return true;
+  if (apiName === "United States" && (bNorm === "usa" || bNorm === "estados unidos")) return true;
+  if (apiName === "USA" && (bNorm === "usa" || bNorm === "estados unidos")) return true;
+  if (apiName === "Cabo Verde" && (bNorm === "cape verde" || bNorm === "cabo verde")) return true;
+  if (apiName === "Cape Verde" && (bNorm === "cape verde" || bNorm === "cabo verde")) return true;
+  if (apiName === "Côte d'Ivoire" && (bNorm === "costa de marfil" || bNorm === "ivory coast")) return true;
+  if (apiName === "Ivory Coast" && (bNorm === "costa de marfil" || bNorm === "ivory coast")) return true;
+  if (apiName === "Czechia" && (bNorm === "republica checa" || bNorm === "czech republic")) return true;
+  if (apiName === "Czech Republic" && (bNorm === "republica checa" || bNorm === "czech republic")) return true;
 
   // Caso 2: Coincide el alias en español
   const alias = TEAM_ALIAS[apiName];
