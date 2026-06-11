@@ -180,7 +180,7 @@ vm.runInContext(scriptContent, context);
 
 // 1. Normalización de nombres de equipos
 assert.equal(context._normalizeTeam("Spain"), "españa");
-assert.equal(context._normalizeTeam("Côte d'Ivoire"), "cote d'ivoire");
+assert.equal(context._normalizeTeam("Valparaíso"), "valparaiso");
 
 // 2. Matching de nombres
 assert.equal(context._teamMatches("Spain", "España"), true);

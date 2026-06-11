@@ -179,7 +179,16 @@ const TEAM_ALIAS = {
   "Guatemala": "Guatemala",
   "El Salvador": "El Salvador",
   "Nicaragua": "Nicaragua",
-  "Bermuda": "Bermudas"
+  "Bermuda": "Bermudas",
+  
+  // Soporte para Sheets en inglés / variaciones de nombres de la API
+  "United States": "USA",
+  "Czechia": "Czech Republic",
+  "Bosnia and Herzegovina": "Bosnia & Herzegovina",
+  "Congo DR": "DR Congo",
+  "Democratic Republic of the Congo": "DR Congo",
+  "Cabo Verde": "Cape Verde",
+  "Côte d'Ivoire": "Ivory Coast"
 };
 
 function _normalizeTeam(name) {
