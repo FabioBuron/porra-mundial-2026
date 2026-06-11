@@ -3481,4 +3481,48 @@ body {
   }
 }
 
+/* ==========================================================================
+   21. LIVESCORE WIDGET
+   ========================================================================== */
+.livescore-widget-section {
+  margin-bottom: var(--space-6);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 var(--space-4);
+  animation: fadeIn 0.5s ease both;
+}
+
+.livescore-widget-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.livescore-widget-title {
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Ensure the widget contents are responsive and follow dark theme */
+#wg-api-football-games {
+  min-height: 80px;
+  background: transparent !important;
+  color: var(--color-text) !important;
+  font-family: inherit !important;
+}
+
+
 
