@@ -316,6 +316,9 @@ function updateResults() {
     const apiId = row[idxApiId];
     if (!apiId) continue;
 
+    const currStatus = row[idxStatus];
+    if (currStatus === "finished") continue;
+
     const am = apiMap[apiId];
     if (!am) continue;
 
@@ -329,7 +332,6 @@ function updateResults() {
     const newHome = am.score && am.score.fullTime ? am.score.fullTime.home : null;
     const newAway = am.score && am.score.fullTime ? am.score.fullTime.away : null;
 
-    const currStatus = row[idxStatus];
     const currHome = row[idxHome];
     const currAway = row[idxAway];
 
