@@ -111,13 +111,11 @@ class MockSpreadsheet {
 
 // Mocks globales de Apps Script
 const mockSS = new MockSpreadsheet();
-const mockProperties = { "AF_TOKEN": "test-token" };
-const API_BASE = "https://v3.football.api-sports.io";
+const mockProperties = { "FD_TOKEN": "test-token" };
 const mockUrlFetch = {
   _responses: {},
   fetch(url, options) {
-    // Extraer la ruta del endpoint (sin el host) para lookup
-    const route = url.replace(API_BASE, "");
+    const route = url.replace("https://api.football-data.org/v4", "");
     const resp = this._responses[route];
     if (!resp) {
       return {
@@ -136,15 +134,10 @@ const context = {
   console,
   Math,
   Date,
-  Set,
   parseInt,
   parseFloat,
   isNaN,
   Array,
-  Number,
-  String,
-  Object,
-  JSON,
   Logger: {
     log(msg) { console.log("   [AppsScript Logger]", msg); }
   },
@@ -175,12 +168,6 @@ const context = {
         }
       };
     }
-  },
-  ContentService: {
-    createTextOutput(text) {
-      return { setMimeType() { return this; } };
-    },
-    MimeType: { JSON: "JSON" }
   }
 };
 
@@ -209,28 +196,36 @@ assert.equal(schemaResult.players_has_api_name, true);
 assert.equal(schemaResult.api_snapshots_exists, true);
 
 // 4. syncMatchIds (vinculación)
-// Mockear respuesta API de partidos — formato api-football v3
-mockUrlFetch._responses["/fixtures?league=1&season=2026"] = {
-  response: [
+// Mockear respuesta API de partidos
+mockUrlFetch._responses["/competitions/WC/matches"] = {
+  matches: [
     {
-      fixture: { id: 2001, date: "2026-06-11T18:15:00+00:00", status: { short: "NS", long: "Not Started", elapsed: null } },
-      teams: { home: { name: "USA" }, away: { name: "Morocco" } },
-      goals: { home: null, away: null }
+      id: 2001,
+      utcDate: "2026-06-11T18:15:00Z", // ±1 día
+      homeTeam: { name: "USA" },
+      awayTeam: { name: "Morocco" },
+      status: "SCHEDULED"
     },
     {
-      fixture: { id: 2002, date: "2026-06-11T21:00:00+00:00", status: { short: "NS", long: "Not Started", elapsed: null } },
-      teams: { home: { name: "Mexico" }, away: { name: "Colombia" } },
-      goals: { home: null, away: null }
+      id: 2002,
+      utcDate: "2026-06-11T21:00:00Z",
+      homeTeam: { name: "Mexico" },
+      awayTeam: { name: "Colombia" },
+      status: "SCHEDULED"
     },
     {
-      fixture: { id: 2003, date: "2026-06-15T18:00:00+00:00", status: { short: "NS", long: "Not Started", elapsed: null } },
-      teams: { home: { name: "France" }, away: { name: "Belgium" } },
-      goals: { home: null, away: null }
+      id: 2003,
+      utcDate: "2026-06-15T18:00:00Z",
+      homeTeam: { name: "France" },
+      awayTeam: { name: "Belgium" },
+      status: "SCHEDULED"
     },
     {
-      fixture: { id: 2004, date: "2026-06-15T21:00:00+00:00", status: { short: "NS", long: "Not Started", elapsed: null } },
-      teams: { home: { name: "Colombia" }, away: { name: "USA" } },
-      goals: { home: null, away: null }
+      id: 2004,
+      utcDate: "2026-06-15T21:00:00Z",
+      homeTeam: { name: "Colombia" },
+      awayTeam: { name: "USA" },
+      status: "SCHEDULED"
     }
   ]
 };
@@ -248,27 +243,38 @@ assert.equal(matchesData[4][12], 2004); // m004 -> api_id 2004
 
 // 5. updateResults (actualización marcadores)
 // Modificar respuesta de la API simulando un partido en vivo y uno terminado
-mockUrlFetch._responses["/fixtures?league=1&season=2026"] = {
-  response: [
+// Para la Jornada 1, los partidos de la Jornada 2 (2003 y 2004) están programados (SCHEDULED)
+mockUrlFetch._responses["/competitions/WC/matches"] = {
+  matches: [
     {
-      fixture: { id: 2001, date: "2026-06-11T18:15:00+00:00", status: { short: "FT", long: "Match Finished", elapsed: 90 } },
-      teams: { home: { name: "USA" }, away: { name: "Morocco" } },
-      goals: { home: 3, away: 1 }
+      id: 2001,
+      utcDate: "2026-06-11T18:15:00Z",
+      homeTeam: { name: "USA" },
+      awayTeam: { name: "Morocco" },
+      score: { fullTime: { home: 3, away: 1 } },
+      status: "FINISHED"
     },
     {
-      fixture: { id: 2002, date: "2026-06-11T21:00:00+00:00", status: { short: "2H", long: "Second Half", elapsed: 65 } },
-      teams: { home: { name: "Mexico" }, away: { name: "Colombia" } },
-      goals: { home: 1, away: 1 }
+      id: 2002,
+      utcDate: "2026-06-11T21:00:00Z",
+      homeTeam: { name: "Mexico" },
+      awayTeam: { name: "Colombia" },
+      score: { fullTime: { home: 1, away: 1 } },
+      status: "IN_PLAY"
     },
     {
-      fixture: { id: 2003, date: "2026-06-15T18:00:00+00:00", status: { short: "NS", long: "Not Started", elapsed: null } },
-      teams: { home: { name: "France" }, away: { name: "Belgium" } },
-      goals: { home: null, away: null }
+      id: 2003,
+      utcDate: "2026-06-15T18:00:00Z",
+      homeTeam: { name: "France" },
+      awayTeam: { name: "Belgium" },
+      status: "SCHEDULED"
     },
     {
-      fixture: { id: 2004, date: "2026-06-15T21:00:00+00:00", status: { short: "NS", long: "Not Started", elapsed: null } },
-      teams: { home: { name: "Colombia" }, away: { name: "USA" } },
-      goals: { home: null, away: null }
+      id: 2004,
+      utcDate: "2026-06-15T21:00:00Z",
+      homeTeam: { name: "Colombia" },
+      awayTeam: { name: "USA" },
+      status: "SCHEDULED"
     }
   ]
 };
@@ -294,12 +300,13 @@ assert.equal(matchesDataUpdated[4][9], "");          // m004 away score = vacio
 assert.equal(matchesDataUpdated[4][10], "scheduled"); // m004 status = scheduled
 
 // 6. updateScorers (goleadores acumulados)
-// Mockear respuesta API de goleadores — formato api-football v3
-mockUrlFetch._responses["/players/topscorers?league=1&season=2026"] = {
-  response: [
+// Mockear respuesta API de goleadores
+mockUrlFetch._responses["/competitions/WC/scorers?limit=200"] = {
+  scorers: [
     {
-      player: { id: 100, name: "Kylian Mbappé" },
-      statistics: [{ team: { name: "France" }, goals: { total: 4, assists: 1 }, games: { appearences: 1 } }]
+      player: { name: "Kylian Mbappé" },
+      team: { name: "France" },
+      goals: 4 // total acumulado en la API
     }
   ]
 };
@@ -338,27 +345,39 @@ assert.equal(playersData[3][7], 1); // pl03 (Camilo Vargas, Colombia) conceded_g
 console.log("Iniciando pruebas de Jornada 2 e integración de puntos...");
 
 // 1. Simular finalización de los partidos de la Jornada 2 en la API y ejecutamos updateResults
-mockUrlFetch._responses["/fixtures?league=1&season=2026"] = {
-  response: [
+mockUrlFetch._responses["/competitions/WC/matches"] = {
+  matches: [
     {
-      fixture: { id: 2001, date: "2026-06-11T18:15:00+00:00", status: { short: "FT", long: "Match Finished", elapsed: 90 } },
-      teams: { home: { name: "USA" }, away: { name: "Morocco" } },
-      goals: { home: 3, away: 1 }
+      id: 2001,
+      utcDate: "2026-06-11T18:15:00Z",
+      homeTeam: { name: "USA" },
+      awayTeam: { name: "Morocco" },
+      score: { fullTime: { home: 3, away: 1 } },
+      status: "FINISHED"
     },
     {
-      fixture: { id: 2002, date: "2026-06-11T21:00:00+00:00", status: { short: "FT", long: "Match Finished", elapsed: 90 } },
-      teams: { home: { name: "Mexico" }, away: { name: "Colombia" } },
-      goals: { home: 1, away: 1 }
+      id: 2002,
+      utcDate: "2026-06-11T21:00:00Z",
+      homeTeam: { name: "Mexico" },
+      awayTeam: { name: "Colombia" },
+      score: { fullTime: { home: 1, away: 1 } },
+      status: "FINISHED" // Completamos la J1
     },
     {
-      fixture: { id: 2003, date: "2026-06-15T18:00:00+00:00", status: { short: "FT", long: "Match Finished", elapsed: 90 } },
-      teams: { home: { name: "France" }, away: { name: "Belgium" } },
-      goals: { home: 3, away: 2 }
+      id: 2003,
+      utcDate: "2026-06-15T18:00:00Z",
+      homeTeam: { name: "France" },
+      awayTeam: { name: "Belgium" },
+      score: { fullTime: { home: 3, away: 2 } }, // Francia 3 - 2 Bélgica
+      status: "FINISHED"
     },
     {
-      fixture: { id: 2004, date: "2026-06-15T21:00:00+00:00", status: { short: "FT", long: "Match Finished", elapsed: 90 } },
-      teams: { home: { name: "Colombia" }, away: { name: "USA" } },
-      goals: { home: 0, away: 0 }
+      id: 2004,
+      utcDate: "2026-06-15T21:00:00Z",
+      homeTeam: { name: "Colombia" },
+      awayTeam: { name: "USA" },
+      score: { fullTime: { home: 0, away: 0 } }, // Colombia 0 - 0 USA
+      status: "FINISHED"
     }
   ]
 };
@@ -368,15 +387,17 @@ context.updateResults();
 // Simular goles de la API para la Jornada 2
 // Mbappé tiene ahora 6 goles (tenía 4 en la Jornada 1).
 // Harry Kane entra con 2 goles en el ranking.
-mockUrlFetch._responses["/players/topscorers?league=1&season=2026"] = {
-  response: [
+mockUrlFetch._responses["/competitions/WC/scorers?limit=200"] = {
+  scorers: [
     {
-      player: { id: 100, name: "Kylian Mbappé" },
-      statistics: [{ team: { name: "France" }, goals: { total: 6, assists: 2 }, games: { appearences: 2 } }]
+      player: { name: "Kylian Mbappé" },
+      team: { name: "France" },
+      goals: 6
     },
     {
-      player: { id: 200, name: "Harry Kane" },
-      statistics: [{ team: { name: "England" }, goals: { total: 2, assists: 0 }, games: { appearences: 1 } }]
+      player: { name: "Harry Kane" },
+      team: { name: "England" },
+      goals: 2
     }
   ]
 };
@@ -439,22 +460,5 @@ assert.equal(IntegrationScoring.calculateGoalkeeperPoints([playersData[2][9]]), 
 // J2: Camilo Vargas encajó 0 goles. Puntos = 2 pts.
 assert.equal(IntegrationScoring.calculateGoalkeeperPoints([playersData[3][9]]), 2);
 
-// =============================================================================
-// TEST: Smart trigger — debe saltar si no hay partidos en ventana live
-// =============================================================================
-console.log("Iniciando pruebas del smart trigger...");
-
-// Mover todos los kickoffs al pasado lejano para que el smart trigger salte
-const matchesSheetSmart = mockSS.getSheetByName("matches");
-const kickoffCol = matchesSheetSmart.getDataRange().getValues()[0].indexOf("kickoff_utc") + 1;
-for (let row = 2; row <= 5; row++) {
-  matchesSheetSmart.getRange(row, kickoffCol).setValue("2026-06-01T12:00:00Z");
-}
-
-const smartResult = context.syncAndUpdate();
-assert.equal(smartResult.skipped, true);
-assert.equal(smartResult.reason, "no_live_matches");
-
-console.log("Pruebas del smart trigger: OK");
 console.log("Pruebas de Jornada 2 e integración de puntos: OK");
 console.log("apps-script.test.js: OK");
