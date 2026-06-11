@@ -340,6 +340,12 @@ function updateResults() {
     const newHome = am.score && am.score.fullTime ? am.score.fullTime.home : null;
     const newAway = am.score && am.score.fullTime ? am.score.fullTime.away : null;
 
+    // Si el partido empezó o finalizó pero los goles de la API son nulos,
+    // significa que la API tiene datos incompletos. Omitimos esta actualización.
+    if ((newStatus === "finished" || newStatus === "live") && (newHome === null || newAway === null)) {
+      continue;
+    }
+
     const currHome = row[idxHome];
     const currAway = row[idxAway];
 
