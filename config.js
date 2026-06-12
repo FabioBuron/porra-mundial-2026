@@ -15,6 +15,21 @@ const CONFIG = {
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbx1X1swWN1Gz4Whtv9apiJiElNzEsyunVc2HHCycL3oPUhHN-m5U6KS_U2oQmPfoD0Q/exec",
   top8Teams: ["Argentina", "France", "Belgium", "Brazil", "England", "Portugal", "Netherlands", "Spain"],
 
+  // ---------------------------------------------------------------------------
+  // API de resultados en directo — worldcup26.ir
+  // (https://github.com/rezarahiminia/worldcup2026 · https://worldcup26.ir/api-docs/)
+  // Usada por el widget "En Vivo" de partidos.html (livescore.js).
+  // ---------------------------------------------------------------------------
+  worldCup26: {
+    apiBase: "https://worldcup26.ir",
+    // La API usa JWT (Authorization: Bearer ...). El endpoint público suele
+    // permitir lectura anónima; si en tu caso exige token, pega aquí uno válido
+    // obtenido en /auth/authenticate (caduca a los 84 días). Déjalo vacío para
+    // intentar la lectura sin autenticación.
+    token: "",
+    refreshMs: 60000 // cada cuánto refresca el marcador en vivo (ms)
+  },
+
   googleSheets: {
     participants:   "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=participants",
     matches:        "https://docs.google.com/spreadsheets/d/1Qp1kD61ofzpqIlbUErOX3Bi1NISGJknix6im8mn0wOo/gviz/tq?tqx=out:csv&sheet=matches",
