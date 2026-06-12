@@ -389,6 +389,7 @@ const App = (() => {
       // propósito) no desaparecen de la vista hasta la siguiente recarga.
       const nameLower = name.trim().toLowerCase();
       _submissionsMap[nameLower] = _mergeSubmission(_submissionsMap[nameLower], draft);
+      saveUserDraft(name, _submissionsMap[nameLower]);
       
       updateFloatingSaveBar();
       handleRoute();
