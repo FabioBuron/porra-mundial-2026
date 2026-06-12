@@ -387,6 +387,10 @@ const App = (() => {
       // propósito) no desaparecen de la vista hasta la siguiente recarga.
       const nameLower = name.trim().toLowerCase();
       _submissionsMap[nameLower] = _mergeSubmission(_submissionsMap[nameLower], draft);
+      localStorage.setItem(
+        `porra_draft_${nameLower}`,
+        JSON.stringify(draft)
+      );
       
       updateFloatingSaveBar();
       handleRoute();
