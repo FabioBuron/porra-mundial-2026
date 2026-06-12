@@ -2149,7 +2149,7 @@ const App = (() => {
           <tr style="background:${isQualified ? 'rgba(27,139,67,0.02)' : 'transparent'}; border-left:3px solid ${isQualified ? 'var(--color-green)' : 'transparent'};">
             <td style="text-align:center;font-weight:700;padding:8px 6px;">${idx + 1}</td>
             <td style="font-weight:600;padding:8px 6px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              ${getFlagEmoji(t.name)} ${escapeHtml(shortenTeamName(t.name))}
+              ${getFlagImgHtml(t.name)} ${escapeHtml(shortenTeamName(t.name))}
             </td>
             <td style="text-align:center;padding:8px 6px;color:var(--color-text-secondary);">${t.pj}</td>
             <td style="text-align:center;padding:8px 6px;color:var(--color-text-secondary);">${t.pg}-${t.pe}-${t.pp}</td>
@@ -2224,7 +2224,7 @@ const App = (() => {
         return `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--color-border-subtle);background:rgba(255,255,255,0.01);">
             <div style="flex:1;text-align:right;font-weight:600;font-size:var(--font-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              ${getFlagEmoji(m.home_team)} ${escapeHtml(shortenTeamName(m.home_team))}
+              ${getFlagImgHtml(m.home_team)} ${escapeHtml(shortenTeamName(m.home_team))}
             </div>
             
             <div style="margin:0 24px;text-align:center;min-width:70px;display:flex;flex-direction:column;align-items:center;gap:4px;">
@@ -2233,7 +2233,7 @@ const App = (() => {
             </div>
 
             <div style="flex:1;text-align:left;font-weight:600;font-size:var(--font-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              ${escapeHtml(shortenTeamName(m.away_team))} ${getFlagEmoji(m.away_team)}
+              ${escapeHtml(shortenTeamName(m.away_team))} ${getFlagImgHtml(m.away_team)}
             </div>
             
             <div style="margin-left:16px;width:50px;text-align:right;">
@@ -2293,7 +2293,7 @@ const App = (() => {
         <tr>
           <td style="text-align:center;font-weight:700;">${idx + 1}</td>
           <td style="font-weight:600;">${escapeHtml(p.name)}</td>
-          <td>${getFlagEmoji(p.team)} ${escapeHtml(shortenTeamName(p.team))}</td>
+          <td>${getFlagImgHtml(p.team)} ${escapeHtml(shortenTeamName(p.team))}</td>
           <td style="text-align:center;font-weight:bold;color:var(--color-gold);">${p.goals}</td>
         </tr>
       `).join("");
