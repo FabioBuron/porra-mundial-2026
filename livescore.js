@@ -1,27 +1,15 @@
 // =============================================================================
-// La Porra del Mundial — Widget de Marcador en Vivo
+// La Porra del Mundial — Widget de Marcador en Vivo Flotante
 // =============================================================================
 // Fuente de datos: API abierta worldcup26.ir
-//   Repo:  https://github.com/rezarahiminia/worldcup2026
-//   Docs:  https://worldcup26.ir/api-docs/
 //
-// Sustituye al antiguo widget de api-sports.io. Es autónomo: se monta solo en
-// la página de partidos sobre el contenedor #livescore-widget y refresca cada
-// CONFIG.worldCup26.refreshMs milisegundos.
-//
-// Endpoints usados (GET):
-//   /get/teams  → [{ id, name_en, name_fa, fifa_code, groups, flag }]
-//   /get/games  → [{ id, home_team_id, away_team_id, home_score, away_score,
-//                    group, matchday, local_date, stadium_id, finished, type }]
+// Es autónomo: se inyecta dinámicamente como widget flotante global en la
+// esquina inferior derecha de cualquier página, encima del widget de música
+// y a la izquierda del widget del Oráculo.
 // =============================================================================
 
 (function initLiveScoreWidget() {
   "use strict";
-
-  // Solo en la página de partidos (donde existe el contenedor).
-  function getMount() {
-    return document.getElementById("livescore-widget");
-  }
 
   function cfg() {
     const c = (typeof CONFIG !== "undefined" && CONFIG.worldCup26) || {};
@@ -32,7 +20,7 @@
     };
   }
 
-  // Normaliza distintas formas de respuesta (array directo, {data}, {result}, …)
+  // Normaliza respuestas (array directo, {data}, {result}, etc.)
   function asArray(json) {
     if (Array.isArray(json)) return json;
     if (!json || typeof json !== "object") return [];
@@ -64,9 +52,6 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  // Detección tolerante con el esquema REAL de worldcup26.ir:
-  //   finished: "TRUE"/"FALSE" (string en mayúsculas)
-  //   time_elapsed: "notstarted" hasta que arranca; minuto/valor cuando está en juego
   function isFinished(game) {
     var f = String(game.finished).trim().toLowerCase();
     if (f === "true" || f === "1" || f === "yes") return true;
@@ -91,40 +76,59 @@
     const dir = align === "right" ? "row-reverse" : "row";
     return `<span style="display:flex;align-items:center;gap:8px;flex-direction:${dir};flex:1;min-width:0;">
       ${flag}
-      <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(name)}</span>
+      <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.9rem;">${escapeHtml(name)}</span>
     </span>`;
   }
 
   function scoreCell(game, live, finished) {
-    const hasScore = game.home_score !== null && game.home_score !== undefined && game.home_score !== "" &&
-                     game.away_score !== null && game.away_score !== undefined && game.away_score !== "";
+    const homeScore = game.home_score !== undefined && game.home_score !== null ? game.home_score : game.home_score_current;
+    const awayScore = game.away_score !== undefined && game.away_score !== null ? game.away_score : game.away_score_current;
+    const hasScore = homeScore !== null && homeScore !== undefined && homeScore !== "" &&
+                     awayScore !== null && awayScore !== undefined && awayScore !== "";
+
     if (live || finished) {
-      const h = hasScore ? game.home_score : 0;
-      const a = hasScore ? game.away_score : 0;
-      return `<span style="font-weight:800;font-size:1.05rem;min-width:54px;text-align:center;color:${live ? "var(--color-gold)" : "var(--color-text)"};">${escapeHtml(h)} - ${escapeHtml(a)}</span>`;
+      const h = hasScore ? homeScore : 0;
+      const a = hasScore ? awayScore : 0;
+      let timeLabel = "";
+      if (live) {
+        let te = String(game.time_elapsed || "").trim().toLowerCase();
+        if (te && te !== "null" && te !== "notstarted") {
+          if (!isNaN(Number(te))) te = te + "'";
+          timeLabel = `<div style="font-size:0.65rem;color:#dc2626;font-weight:700;">${escapeHtml(te)}</div>`;
+        }
+      }
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:60px;">
+          <span style="font-weight:800;font-size:1rem;color:${live ? "#dc2626" : "var(--color-text)"};">${escapeHtml(h)} - ${escapeHtml(a)}</span>
+          ${timeLabel}
+        </div>`;
     }
+
     const d = parseLocalDate(game.local_date);
     const label = d
       ? d.toLocaleDateString("es-ES", { day: "numeric", month: "short" })
       : (game.local_date || "VS");
-    return `<span style="min-width:54px;text-align:center;color:var(--color-text-secondary);font-size:var(--font-sm,0.85rem);">${escapeHtml(label)}</span>`;
+    return `<span style="min-width:60px;text-align:center;color:var(--color-text-secondary);font-size:0.8rem;">${escapeHtml(label)}</span>`;
   }
 
-  function badge(live, finished) {
-    if (live) return `<span style="font-size:0.7rem;font-weight:700;color:#fff;background:#dc2626;border-radius:999px;padding:1px 8px;animation:lsBlink 1.2s ease-in-out infinite;">🔴 EN VIVO</span>`;
-    if (finished) return `<span style="font-size:0.7rem;font-weight:700;color:var(--color-text-secondary);border:1px solid var(--color-border);border-radius:999px;padding:1px 8px;">Final</span>`;
-    return `<span style="font-size:0.7rem;font-weight:700;color:var(--color-green);border:1px solid var(--color-border);border-radius:999px;padding:1px 8px;">Próximo</span>`;
+  function badge(live, finished, isLastFinished) {
+    if (live) return `<span style="font-size:0.65rem;font-weight:700;color:#fff;background:#dc2626;border-radius:4px;padding:2px 6px;animation:lsBlink 1.2s ease-in-out infinite;">LIVE</span>`;
+    if (isLastFinished) return `<span style="font-size:0.65rem;font-weight:700;color:#1b8b43;background:rgba(27,139,67,0.15);border:1px solid rgba(27,139,67,0.3);border-radius:4px;padding:1px 5px;">Último</span>`;
+    if (finished) return `<span style="font-size:0.65rem;font-weight:700;color:var(--color-text-secondary);border:1px solid var(--color-border);border-radius:4px;padding:1px 5px;opacity:0.75;">Final</span>`;
+    return `<span style="font-size:0.65rem;font-weight:700;color:var(--color-primary,#1b8b43);border:1px solid rgba(27,139,67,0.3);border-radius:4px;padding:1px 5px;">Próx</span>`;
   }
 
-  function gameRow(game, teamsById) {
+  function gameRow(game, teamsById, lastFinishedId) {
     const home = teamsById[String(game.home_team_id)];
     const away = teamsById[String(game.away_team_id)];
     const live = isLive(game);
     const finished = isFinished(game);
+    const isLastFinished = finished && String(game.id) === String(lastFinishedId);
+
     return `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--color-border-subtle,#131a29);">
-        <div style="flex:0 0 auto;">${badge(live, finished)}</div>
-        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border-subtle,#131a29);background:${isLastFinished ? "rgba(27,139,67,0.03)" : "transparent"}">
+        <div style="flex:0 0 auto;width:42px;display:flex;justify-content:flex-start;">${badge(live, finished, isLastFinished)}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
           ${teamCell(home, "left")}
           ${scoreCell(game, live, finished)}
           ${teamCell(away, "right")}
@@ -132,12 +136,12 @@
       </div>`;
   }
 
-  function render(mount, html) {
+  function renderContent(mount, html) {
     mount.innerHTML = `
       <style>@keyframes lsBlink{0%,100%{opacity:1}50%{opacity:.35}}</style>
       ${html}
-      <div style="text-align:right;padding:6px 12px 0;">
-        <span style="font-size:0.7rem;color:var(--color-text-secondary);opacity:.7;">Datos: worldcup26.ir</span>
+      <div style="text-align:right;padding:8px 12px;background:var(--color-surface-2,#1e2535);border-top:1px solid var(--color-border-subtle);">
+        <span style="font-size:0.65rem;color:var(--color-text-secondary);opacity:.7;">API: worldcup26.ir</span>
       </div>`;
   }
 
@@ -148,28 +152,110 @@
     });
 
     const live = sorted.filter(isLive);
-    if (live.length > 0) return { titleSuffix: "", games: live.slice(0, 8) };
+    if (live.length > 0) {
+      return { titleSuffix: "", games: live.slice(0, 8), lastFinishedId: null };
+    }
 
-    // Sin partidos en vivo: mostramos los próximos no terminados…
+    // Buscar el último partido finalizado para no borrarlo
+    const finished = sorted.filter(isFinished);
+    const lastFinished = finished.length > 0 ? finished[finished.length - 1] : null;
+
+    // Buscar próximos partidos
     const now = Date.now();
     const upcoming = sorted.filter(g => {
       if (isFinished(g)) return false;
       const d = parseLocalDate(g.local_date);
-      return !d || d.getTime() >= now - 24 * 3600000; // hoy en adelante
-    }).slice(0, 5);
-    if (upcoming.length > 0) return { titleSuffix: " — próximos partidos", games: upcoming };
+      return !d || d.getTime() >= now - 24 * 3600000;
+    }).slice(0, 4);
 
-    // …o, en su defecto, los últimos resultados.
-    const finished = sorted.filter(isFinished).slice(-5).reverse();
-    return { titleSuffix: " — últimos resultados", games: finished };
+    const toShow = [];
+    if (lastFinished) {
+      toShow.push(lastFinished);
+    }
+    upcoming.forEach(g => {
+      if (!lastFinished || String(g.id) !== String(lastFinished.id)) {
+        toShow.push(g);
+      }
+    });
+
+    if (toShow.length > 0) {
+      return {
+        titleSuffix: lastFinished ? "Último resultado y próximos partidos" : "Próximos partidos",
+        games: toShow.slice(0, 5),
+        lastFinishedId: lastFinished ? lastFinished.id : null
+      };
+    }
+
+    // En su defecto, los últimos 5 finalizados
+    const last5Finished = finished.slice(-5).reverse();
+    return {
+      titleSuffix: "Últimos resultados",
+      games: last5Finished,
+      lastFinishedId: last5Finished[0] ? last5Finished[0].id : null
+    };
   }
 
   let _timer = null;
   let _teamsCache = null;
 
+  function ensureWidgetContainer() {
+    let container = document.getElementById("live-widget-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "live-widget-container";
+      container.className = "live-widget";
+      container.innerHTML = `
+        <div class="live-panel" id="live-panel" style="display:none; flex-direction:column;">
+          <div class="live-panel__header">
+            <span class="live-panel__header-emoji">⚽</span>
+            <div class="live-panel__header-title" id="live-panel-title">Marcadores en Vivo</div>
+            <button class="live-panel__close" id="live-panel-close" aria-label="Cerrar panel">×</button>
+          </div>
+          <div class="live-panel__content" id="live-panel-content">
+            <p style="text-align:center;color:var(--color-text-secondary);padding:16px;">Cargando marcadores…</p>
+          </div>
+        </div>
+        <button class="live-fab" id="live-fab" aria-label="Marcadores en vivo">
+          <span class="live-fab__icon">⚽</span>
+          <span class="live-fab__text" id="live-fab-text" style="display:none;"></span>
+        </button>
+      `;
+      document.body.appendChild(container);
+
+      const fab = container.querySelector("#live-fab");
+      const panel = container.querySelector("#live-panel");
+      const closeBtn = container.querySelector("#live-panel-close");
+
+      fab.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isVisible = panel.style.display !== "none";
+        panel.style.display = isVisible ? "none" : "flex";
+        if (!isVisible) {
+          refresh();
+        }
+      });
+
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        panel.style.display = "none";
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!container.contains(e.target) && panel.style.display !== "none") {
+          panel.style.display = "none";
+        }
+      });
+    }
+    return container;
+  }
+
   async function refresh() {
-    const mount = getMount();
-    if (!mount) return;
+    ensureWidgetContainer();
+    const panelContent = document.getElementById("live-panel-content");
+    const panelTitle = document.getElementById("live-panel-title");
+    const fab = document.getElementById("live-fab");
+    const fabText = document.getElementById("live-fab-text");
+    if (!panelContent) return;
 
     try {
       if (!_teamsCache) {
@@ -181,35 +267,75 @@
       const games = asArray(gamesJson);
 
       if (games.length === 0) {
-        render(mount, `<p style="text-align:center;color:var(--color-text-secondary);padding:16px;">Aún no hay partidos disponibles.</p>`);
+        renderContent(panelContent, `<p style="text-align:center;color:var(--color-text-secondary);padding:16px;">Aún no hay partidos disponibles.</p>`);
+        fabText.style.display = "none";
+        fabText.textContent = "";
+        fab.classList.remove("live-fab--live");
         return;
       }
 
-      const { titleSuffix, games: toShow } = pickGamesToShow(games);
-      const rows = toShow.map(g => gameRow(g, _teamsCache)).join("");
-      render(mount, `
-        ${titleSuffix ? `<div style="padding:4px 12px 8px;font-size:var(--font-sm,0.85rem);color:var(--color-text-secondary);">${escapeHtml(titleSuffix.replace(/^ — /, ""))}</div>` : ""}
-        <div>${rows}</div>`);
+      // 1. Control del botón flotante (FAB)
+      const liveGames = games.filter(isLive);
+      if (liveGames.length > 0) {
+        const active = liveGames[0];
+        const homeScore = active.home_score !== undefined && active.home_score !== null ? active.home_score : active.home_score_current;
+        const awayScore = active.away_score !== undefined && active.away_score !== null ? active.away_score : active.away_score_current;
+        const h = homeScore !== null ? homeScore : 0;
+        const a = awayScore !== null ? awayScore : 0;
+        let elapsed = String(active.time_elapsed || "").trim().toLowerCase();
+        if (elapsed === "null" || elapsed === "" || elapsed === "notstarted") elapsed = "Live";
+        else if (elapsed.indexOf("half") !== -1 || elapsed.indexOf("descanso") !== -1) elapsed = "Int";
+        else if (!isNaN(Number(elapsed))) elapsed = elapsed + "'";
+
+        fabText.textContent = `${h}-${a} (${elapsed})`;
+        fabText.style.display = "inline";
+        fab.classList.add("live-fab--live");
+      } else {
+        // No hay partidos en vivo: buscar el último partido terminado
+        const sortedGames = games.slice().sort((a, b) => {
+          const da = parseLocalDate(a.local_date), db = parseLocalDate(b.local_date);
+          return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
+        });
+        const finishedGames = sortedGames.filter(isFinished);
+        const lastFinished = finishedGames.length > 0 ? finishedGames[finishedGames.length - 1] : null;
+
+        if (lastFinished) {
+          const homeScore = lastFinished.home_score !== undefined && lastFinished.home_score !== null ? lastFinished.home_score : lastFinished.home_score_current;
+          const awayScore = lastFinished.away_score !== undefined && lastFinished.away_score !== null ? lastFinished.away_score : lastFinished.away_score_current;
+          const h = homeScore !== null ? homeScore : 0;
+          const a = awayScore !== null ? awayScore : 0;
+          
+          fabText.textContent = `${h}-${a} (Fin)`;
+          fabText.style.display = "inline";
+        } else {
+          fabText.style.display = "none";
+          fabText.textContent = "";
+        }
+        fab.classList.remove("live-fab--live");
+      }
+
+      // 2. Control de la lista del panel
+      const { titleSuffix, games: toShow, lastFinishedId } = pickGamesToShow(games);
+      if (panelTitle && titleSuffix) {
+        panelTitle.textContent = titleSuffix;
+      }
+      const rows = toShow.map(g => gameRow(g, _teamsCache, lastFinishedId)).join("");
+      renderContent(panelContent, `<div style="display:flex;flex-direction:column;">${rows}</div>`);
+
     } catch (err) {
       console.warn("LiveScore widget: no se pudieron cargar datos de worldcup26.ir.", err);
-      const mount2 = getMount();
-      if (mount2) {
-        render(mount2, `<p style="text-align:center;color:var(--color-text-secondary);padding:16px;">
-          No se pudo conectar con la API de resultados en vivo en este momento.
-        </p>`);
-      }
+      renderContent(panelContent, `<p style="text-align:center;color:var(--color-text-secondary);padding:16px;font-size:0.85rem;">
+        No se pudo conectar con la API de resultados en este momento.
+      </p>`);
     }
   }
 
   function start() {
-    const mount = getMount();
-    if (!mount) return; // No estamos en la página de partidos.
-    render(mount, `<p style="text-align:center;color:var(--color-text-secondary);padding:16px;">Cargando marcadores…</p>`);
+    ensureWidgetContainer();
     refresh();
     if (_timer) clearInterval(_timer);
     _timer = setInterval(refresh, cfg().refreshMs);
 
-    // Pausar el refresco cuando la pestaña no está visible (ahorra peticiones).
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         if (_timer) { clearInterval(_timer); _timer = null; }

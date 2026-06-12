@@ -3482,45 +3482,146 @@ body {
 }
 
 /* ==========================================================================
-   21. LIVESCORE WIDGET
+   21. FLOATING LIVESCORE WIDGET
    ========================================================================== */
-.livescore-widget-section {
-  margin-bottom: var(--space-4);
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  animation: fadeIn 0.5s ease both;
+.live-widget {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 9.5rem;
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
 }
 
-.livescore-widget-container {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
-}
-
-.livescore-widget-title {
-  font-size: var(--font-md);
-  font-weight: 700;
-  color: var(--color-text);
-  margin-top: 0;
-  margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border-subtle);
-  padding-bottom: var(--space-1);
+.live-fab {
+  height: 56px;
+  min-width: 56px;
+  border-radius: 28px;
+  border: none;
+  background: var(--color-surface-2, #1e2535);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
 }
 
-/* Ensure the widget contents are responsive and follow dark theme */
-#wg-api-football-games {
-  min-height: 80px;
-  background: transparent !important;
-  color: var(--color-text) !important;
-  font-family: inherit !important;
+.live-fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+  background: var(--color-primary-dark, #156d33);
+}
+
+.live-fab--live {
+  background: #dc2626;
+  animation: livePulse 2s infinite;
+}
+
+.live-fab--live:hover {
+  background: #b91c1c;
+}
+
+.live-fab__text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.live-panel {
+  width: 380px;
+  max-width: calc(100vw - 2rem);
+  background: var(--color-surface, #131929);
+  border: 1px solid var(--color-border, #1e2d45);
+  border-radius: var(--radius-lg, 1rem);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: panelAppear 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.live-panel__header {
+  padding: 1rem;
+  background: var(--color-surface-2, #1e2535);
+  border-bottom: 1px solid var(--color-border-subtle, #152238);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.live-panel__header-emoji {
+  font-size: 1.25rem;
+}
+
+.live-panel__header-title {
+  font-weight: 700;
+  color: var(--color-text, #fff);
+  flex: 1;
+}
+
+.live-panel__close {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary, #a0aec0);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.live-panel__close:hover {
+  color: var(--color-text, #fff);
+}
+
+.live-panel__content {
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--color-surface);
+}
+
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7), 0 4px 20px rgba(0,0,0,0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0), 0 4px 20px rgba(0,0,0,0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0), 0 4px 20px rgba(0,0,0,0.4);
+  }
+}
+
+@keyframes panelAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Responsivo para móviles */
+@media (max-width: 576px) {
+  .live-widget {
+    bottom: 1rem;
+    right: auto;
+    left: 1rem;
+  }
+  .live-panel {
+    width: calc(100vw - 2rem);
+    transform-origin: bottom left;
+  }
 }
 
 
