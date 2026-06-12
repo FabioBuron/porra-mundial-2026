@@ -2038,18 +2038,8 @@ const App = (() => {
     if (!container) return;
 
     let html = `
-      <div class="hero">
-        <div class="hero__eyebrow">Mundial 2026 en Directo</div>
-        <h1>El Estado del Mundial</h1>
-        <div class="hero__meta">
-          <span class="hero__chip">Grupos</span>
-          <span class="hero__chip">Resultados</span>
-          <span class="hero__chip">Goleadores</span>
-        </div>
-      </div>
-
       <!-- Pestañas del Mundial -->
-      <div class="sub-nav" style="display:flex; gap:12px; margin-bottom:24px; overflow-x:auto; padding-bottom:8px; border-bottom:1px solid var(--color-border-subtle);">
+      <div class="sub-nav" style="display:flex; gap:12px; margin-bottom:24px; overflow-x:auto; padding-bottom:8px; border-bottom:1px solid var(--color-border-subtle); margin-top: 12px;">
         <button class="btn ${_mundialTab === 'grupos' ? 'btn--primary' : 'btn--secondary'}" id="btn-tab-grupos" style="white-space:nowrap;">Fase de Grupos</button>
         <button class="btn ${_mundialTab === 'partidos' ? 'btn--primary' : 'btn--secondary'}" id="btn-tab-partidos" style="white-space:nowrap;">Resultados y Calendario</button>
         <button class="btn ${_mundialTab === 'goleadores' ? 'btn--primary' : 'btn--secondary'}" id="btn-tab-goleadores" style="white-space:nowrap;">Máximos Goleadores</button>
