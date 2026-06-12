@@ -11,15 +11,19 @@
 //     Se usa football-data.org para los goleadores porque worldcup26.ir no los expone.
 //
 // CONFIGURACIÓN INICIAL (Extensiones > Apps Script > ⚙️ Configuración > Propiedades del script):
-//   worldcup26.ir (resultados): autenticación JWT opcional →
-//       a) WC_TOKEN = <token JWT>, o  b) WC_EMAIL + WC_PASSWORD (se autentica solo),
-//       o déjalas vacías si el endpoint público permite lectura anónima.
+//   worldcup26.ir (resultados): las rutas /get/* son PÚBLICAS (sin JWT), así que
+//       normalmente NO necesitas configurar nada. Solo si en el futuro exigieran
+//       token: WC_TOKEN, o bien WC_EMAIL + WC_PASSWORD (se autentica solo).
 //       (Opcional WC_API_BASE para cambiar la base, por defecto https://worldcup26.ir)
 //   football-data.org (goleadores): FD_TOKEN = <tu token de football-data.org>
 //       (gratis en https://www.football-data.org/client/register; plan TIER ONE
 //       incluye el Mundial). Opcional FD_COMPETITION (def. WC).
 //
 //   Después: ejecuta syncMatchIds() UNA vez y luego installTrigger() (cron 10 min).
+//   La columna api_name de "players" se RELLENA SOLA cuando un jugador marca
+//   (updateScorers aprende el nombre exacto). Si quieres adelantarlo a mano,
+//   ejecuta syncPlayerNames() cuando ya haya goles (empareja por nombre los que
+//   han marcado).
 // =============================================================================
 
 // ---------------------------------------------------------------------------
@@ -114,14 +118,16 @@ function _wcTeamNameMap() {
 }
 
 // Estado local ("finished" | "live" | "scheduled") a partir de un partido de la API.
+// Esquema real de worldcup26.ir: finished="TRUE"/"FALSE" (string), time_elapsed="notstarted".
 function _wcStatus(game) {
-  if (game.finished === true || game.finished === "true") return "finished";
+  var fin = String(game.finished).trim().toLowerCase();
+  if (fin === "true" || fin === "1" || fin === "yes") return "finished";
   var status = String(game.status || game.state || "").toLowerCase();
   if (status.indexOf("finish") !== -1) return "finished";
+  var te = String(game.time_elapsed || "").trim().toLowerCase();
+  if (te && te !== "notstarted" && te !== "not started" && te !== "null") return "live";
   if (status.indexOf("live") !== -1 || status.indexOf("play") !== -1 || status.indexOf("progress") !== -1) return "live";
   if (game.live === true || game.is_live === true) return "live";
-  var elapsed = Number(game.elapsed || game.minute || game.time);
-  if (!isNaN(elapsed) && elapsed > 0) return "live";
   return "scheduled";
 }
 
@@ -425,6 +431,102 @@ function syncMatchIds() {
 }
 
 // ---------------------------------------------------------------------------
+// 1bis. syncPlayerNames() — rellenar api_name en la hoja "players"
+// ---------------------------------------------------------------------------
+// Análogo a syncMatchIds, pero para JUGADORES: empareja cada fila de "players"
+// con el nombre EXACTO que usa football-data.org y lo escribe en la columna
+// api_name (para que el cálculo de goleadores acierte sin tocarlo a mano).
+//
+// Fuente: /competitions/WC/scorers (la única lista de jugadores con nombre exacto
+// disponible en football-data). Por eso SOLO empareja jugadores que YA han marcado;
+// el resto se irá rellenando a medida que marquen (no pasa nada: el módulo goleador
+// solo actúa cuando un jugador anota, y updateScorers ya hace match por nombre
+// normalizado como respaldo). Puedes reejecutarla cuando quieras; respeta los
+// api_name ya rellenados.
+
+function _playerNameNorm(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quitar acentos
+    .replace(/[^a-z0-9\s]/g, " ")                     // quitar puntuación
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// True si dos nombres de jugador coinciden (igual normalizado, o mismas palabras
+// en distinto orden — p.ej. nombres coreanos "In-beom Hwang" vs "Hwang In-beom").
+function _playerNameMatches(a, b) {
+  var na = _playerNameNorm(a), nb = _playerNameNorm(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  var ta = na.split(" ").sort().join(" ");
+  var tb = nb.split(" ").sort().join(" ");
+  return ta === tb;
+}
+
+function syncPlayerNames() {
+  const sheet = _getSheet("players");
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idxName    = headers.indexOf("name");
+  const idxTeam    = headers.indexOf("team");
+  const idxApiName = headers.indexOf("api_name");
+
+  if (idxName === -1) throw new Error("Columna 'name' no encontrada en hoja 'players'.");
+  if (idxApiName === -1) throw new Error("Columna 'api_name' no encontrada en hoja 'players'. Añádela primero (o ejecuta ensureResultsSchema()).");
+
+  // Lista de jugadores con nombre exacto + equipo desde football-data.org.
+  var json = _fdGet("/competitions/{comp}/scorers?limit=200");
+  var apiPlayers = ((json && json.scorers) || []).map(function (sc) {
+    return {
+      name: (sc.player && sc.player.name) ? sc.player.name : "",
+      team: (sc.team && sc.team.name) ? sc.team.name : ""
+    };
+  }).filter(function (p) { return p.name; });
+
+  if (apiPlayers.length === 0) {
+    Logger.log("syncPlayerNames: la API aún no devuelve goleadores (nadie ha marcado todavía). Vuelve a ejecutar cuando haya goles.");
+    return "syncPlayerNames: 0 goleadores en la API por ahora.";
+  }
+
+  var matched = 0, already = 0, unmatched = [];
+
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var localName = row[idxName] ? String(row[idxName]).trim() : "";
+    if (!localName) continue;
+    if (String(row[idxApiName]).trim() !== "") { already++; continue; } // ya tiene api_name
+
+    var localTeam = idxTeam !== -1 ? String(row[idxTeam]).trim() : "";
+
+    // 1) nombre coincide Y (mismo equipo o equipo desconocido)
+    var found = apiPlayers.find(function (ap) {
+      return _playerNameMatches(ap.name, localName) &&
+             (!localTeam || !ap.team || _teamMatches(ap.team, localTeam));
+    });
+    // 2) si no, solo por nombre
+    if (!found) {
+      found = apiPlayers.find(function (ap) { return _playerNameMatches(ap.name, localName); });
+    }
+
+    if (found) {
+      sheet.getRange(r + 1, idxApiName + 1).setValue(found.name);
+      matched++;
+      Logger.log("✅ " + localName + " → api_name '" + found.name + "'" + (found.team ? " (" + found.team + ")" : ""));
+    } else {
+      unmatched.push(localName + (localTeam ? " (" + localTeam + ")" : ""));
+    }
+  }
+
+  var summary = "syncPlayerNames: " + matched + " emparejados, " + already + " ya tenían api_name, " + unmatched.length + " sin emparejar.";
+  Logger.log(summary);
+  if (unmatched.length > 0) {
+    Logger.log("ℹ️ Sin emparejar (aún no han marcado o el nombre difiere; se completarán al marcar o ponlos a mano):\n" + unmatched.join("\n"));
+  }
+  return summary;
+}
+
+// ---------------------------------------------------------------------------
 // 2. updateResults() — actualizar marcadores y estado de partidos
 // ---------------------------------------------------------------------------
 // CRON: cada 30 min. Solo escribe si hay cambios reales.
@@ -460,6 +562,11 @@ function updateResults() {
 
     // Estado local a partir del partido de worldcup26.ir.
     const newStatus = _wcStatus(am);
+
+    // OJO: en worldcup26.ir los marcadores son strings con valor por defecto "0",
+    // así que un partido no jugado llega como 0-0. No debemos escribir ese 0-0
+    // en la hoja: solo actualizamos partidos en juego o finalizados.
+    if (newStatus === "scheduled") continue;
 
     const rawHome = am.home_score;
     const rawAway = am.away_score;
@@ -591,6 +698,13 @@ function updateScorers() {
 
     const totalGoals = Number(apiEntry.goals) || 0;
     const playerApiName = apiEntry.name;
+
+    // Auto-aprendizaje: si el jugador se emparejó por nombre normalizado y la
+    // celda api_name estaba vacía, la rellenamos con el nombre exacto de la API.
+    // Así api_name se completa solo, sin tener que ejecutar syncPlayerNames().
+    if (pIdxApiName !== -1 && !apiName && playerApiName) {
+      playerSheet.getRange(r + 1, pIdxApiName + 1).setValue(playerApiName);
+    }
 
     // Goles de ESTA jornada = acumulado − snapshot de la jornada anterior.
     const prevKey = prevRound ? prevRound + "|" + playerApiName : null;
@@ -814,10 +928,11 @@ function syncAndUpdate() {
 //    en un único doGet. No puede haber dos funciones doGet en el mismo proyecto.
 //
 // Acciones nuevas:
-//   ?action=refresh       → updateResults() + updateScorers() + detectAndCloseRounds()
+//   ?action=refresh        → updateResults() + updateScorers() + detectAndCloseRounds()
 //   ?action=closeRound&round=group_md1  → closeRound manual
-//   ?action=syncMatchIds  → (solo uso manual/debug, proteger en producción)
-//   ?action=ensureSchema  → crea columnas/hojas necesarias para resultados si faltan
+//   ?action=syncMatchIds   → (solo uso manual/debug, proteger en producción)
+//   ?action=syncPlayerNames → rellena api_name en la hoja players (manual/debug)
+//   ?action=ensureSchema   → crea columnas/hojas necesarias para resultados si faltan
 
 function doGetResults(e) {
   const action = (e && e.parameter && e.parameter.action) || "";
@@ -834,10 +949,12 @@ function doGetResults(e) {
     } else if (action === "syncMatchIds") {
       // Proteger: solo ejecutar si se pasa un token admin extra (opcional)
       result = { message: syncMatchIds(), timestamp: new Date().toISOString() };
+    } else if (action === "syncPlayerNames") {
+      result = { message: syncPlayerNames(), timestamp: new Date().toISOString() };
     } else if (action === "ensureSchema") {
       result = { schema: ensureResultsSchema(), timestamp: new Date().toISOString() };
     } else {
-      throw new Error("Acción desconocida: " + action + ". Usar: refresh, closeRound, syncMatchIds, ensureSchema.");
+      throw new Error("Acción desconocida: " + action + ". Usar: refresh, closeRound, syncMatchIds, syncPlayerNames, ensureSchema.");
     }
   } catch (err) {
     result = { error: err.message };
