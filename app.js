@@ -2774,6 +2774,7 @@ const App = (() => {
         playerSel.innerHTML = list.map(pl =>
           `<option value="${escapeHtml(pl.id)}">${escapeHtml(pl.name)}${pl.team ? " (" + escapeHtml(pl.team) + ")" : ""}</option>`
         ).join("");
+        playerSel.dispatchEvent(new Event("change"));
       }
 
       function toggleFields() {
@@ -2786,6 +2787,13 @@ const App = (() => {
       }
       typeSel.addEventListener("change", toggleFields);
       toggleFields();
+
+      // Convertir a selectores buscables de la app normal
+      convertSelectToSearchable($("#ov-name"));
+      convertSelectToSearchable($("#ov-match"));
+      convertSelectToSearchable($("#ov-player"));
+      convertSelectToSearchable($("#ov-event"));
+      convertSelectToSearchable($("#ov-round"));
 
       $("#ov-apply-btn")?.addEventListener("click", async () => {
         const btn = $("#ov-apply-btn");
