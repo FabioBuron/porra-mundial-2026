@@ -240,20 +240,21 @@ const App = (() => {
     const ignoredEvents = [];
     const now = Date.now();
 
-    // Filtrar matchPredictions: solo matches cuyo kickoff aún no ha pasado
+    // Filtrar matchPredictions: solo jornadas aún abiertas (la jornada se cierra
+    // cuando empieza su primer partido — misma regla que el bloqueo de la web #5
+    // y que la validación del servidor en savePredictions()).
     if (draft.matchPredictions) {
       const filteredMatchPredictions = {};
       Object.entries(draft.matchPredictions).forEach(([matchId, pred]) => {
         const matches = _data.matches || [];
         const match = matches.find(m => m.id === matchId);
-        if (match && new Date(match.kickoff_utc).getTime() > now) {
+        if (!match) return;
+        const rKey = match.phase === "group" ? "group_md" + match.matchday : match.phase;
+        if (isRoundOpen(rKey)) {
           filteredMatchPredictions[matchId] = pred;
-        } else if (match) {
-          // Inferir la jornada para el toast
-          const rKey = match.phase === "group" ? "group_md" + match.matchday : match.phase;
-          if (rKey && !ignoredRounds.includes(CONFIG.roundLabels[rKey] || rKey)) {
-            ignoredRounds.push(CONFIG.roundLabels[rKey] || rKey);
-          }
+        } else if (rKey && !ignoredRounds.includes(CONFIG.roundLabels[rKey] || rKey)) {
+          // Jornada ya cerrada: se ignora (y se avisa con un toast).
+          ignoredRounds.push(CONFIG.roundLabels[rKey] || rKey);
         }
       });
       draft.matchPredictions = filteredMatchPredictions;
