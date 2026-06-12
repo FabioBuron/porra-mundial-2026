@@ -158,6 +158,18 @@ const App = (() => {
     updateFloatingSaveBar();
   }
 
+  // Serializa un objeto de pronósticos a una cadena canónica estable
+  // (claves ordenadas) para poder compararlo sin falsos positivos por orden,
+  // tipos (número vs cadena) o valores vacíos/"undefined".
+  function _canonicalMatch(obj) {
+    const norm = _normMatchPredictions(obj);
+    return Object.keys(norm).sort().map(k => `${k}:${norm[k].home}-${norm[k].away}`).join("|");
+  }
+  function _canonicalPicks(obj) {
+    const norm = _normPicks(obj);
+    return Object.keys(norm).sort().map(k => `${k}:${norm[k]}`).join("|");
+  }
+
   function hasUnsavedChanges(name) {
     if (!name) return false;
     const draft = loadUserDraft(name);
@@ -168,27 +180,15 @@ const App = (() => {
       specialEventPicks: {}
     };
 
-    const isDifferent = (obj1, obj2) => {
-      const keys1 = Object.keys(obj1 || {});
-      const keys2 = Object.keys(obj2 || {});
-      const allKeys = new Set([...keys1, ...keys2]);
-      for (const key of allKeys) {
-        const v1 = obj1?.[key];
-        const v2 = obj2?.[key];
-        if (typeof v1 === "object" && v1 !== null && typeof v2 === "object" && v2 !== null) {
-          if (v1.home !== v2.home || v1.away !== v2.away) return true;
-        } else if (v1 !== v2) {
-          return true;
-        }
-      }
-      return false;
-    };
-
+    // Comparación CANÓNICA: normalizamos ambos lados a la misma forma antes de
+    // comparar. Una cadena vacía / "undefined" / clave ausente se consideran
+    // equivalentes, y los marcadores se comparan como números. Esto elimina el
+    // aviso fantasma de "tienes cambios sin enviar" cuando en realidad no los hay.
     return (
-      isDifferent(draft.matchPredictions, published.matchPredictions) ||
-      isDifferent(draft.scorerPicks, published.scorerPicks) ||
-      isDifferent(draft.goalkeeperPicks, published.goalkeeperPicks) ||
-      isDifferent(draft.specialEventPicks, published.specialEventPicks)
+      _canonicalMatch(draft.matchPredictions) !== _canonicalMatch(published.matchPredictions) ||
+      _canonicalPicks(draft.scorerPicks) !== _canonicalPicks(published.scorerPicks) ||
+      _canonicalPicks(draft.goalkeeperPicks) !== _canonicalPicks(published.goalkeeperPicks) ||
+      _canonicalPicks(draft.specialEventPicks) !== _canonicalPicks(published.specialEventPicks)
     );
   }
 
@@ -381,7 +381,11 @@ const App = (() => {
       launchBrazilianCelebration();
       showToast("¡Listo! Tus pronósticos han sido enviados. La clasificación se actualizará en unos segundos.", "success");
       
-      _submissionsMap[name.trim().toLowerCase()] = JSON.parse(JSON.stringify(draft));
+      // Fusionamos el envío sobre lo ya publicado en lugar de reemplazarlo: así
+      // los pronósticos de partidos ya bloqueados (que el envío filtra a
+      // propósito) no desaparecen de la vista hasta la siguiente recarga.
+      const nameLower = name.trim().toLowerCase();
+      _submissionsMap[nameLower] = _mergeSubmission(_submissionsMap[nameLower], draft);
       
       updateFloatingSaveBar();
       handleRoute();
@@ -393,6 +397,71 @@ const App = (() => {
   // ---------------------------------------------------------------------------
   // Procesamiento & Puntuación en Caliente
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Normalización canónica de pronósticos
+  // ---------------------------------------------------------------------------
+  // Estas utilidades garantizan que un pronóstico tenga SIEMPRE la misma forma,
+  // sin importar si viene de un borrador local, de un envío del backend o de una
+  // mezcla de varios envíos. Es la base para (a) no perder pronósticos de
+  // partidos ya bloqueados al reenviar y (b) detectar correctamente si hay
+  // cambios sin enviar.
+
+  function _normMatchPredictions(obj) {
+    const out = {};
+    if (!obj) return out;
+    Object.entries(obj).forEach(([matchId, pred]) => {
+      if (!pred || typeof pred !== "object") return;
+      const h = pred.home;
+      const a = pred.away;
+      const hOk = h !== undefined && h !== null && h !== "";
+      const aOk = a !== undefined && a !== null && a !== "";
+      // Solo se considera válido un pronóstico COMPLETO (ambos marcadores).
+      if (hOk && aOk && !isNaN(Number(h)) && !isNaN(Number(a))) {
+        out[matchId] = { home: Number(h), away: Number(a) };
+      }
+    });
+    return out;
+  }
+
+  function _normPicks(obj) {
+    const out = {};
+    if (!obj) return out;
+    Object.entries(obj).forEach(([key, val]) => {
+      if (val === undefined || val === null) return;
+      const s = String(val).trim();
+      if (s === "" || s === "undefined") return;
+      out[key] = s;
+    });
+    return out;
+  }
+
+  // Devuelve un payload limpio y canónico a partir de uno crudo.
+  function _normalizeSubmission(payload) {
+    return {
+      name: payload && payload.name ? payload.name : "",
+      matchPredictions: _normMatchPredictions(payload && payload.matchPredictions),
+      scorerPicks: _normPicks(payload && payload.scorerPicks),
+      goalkeeperPicks: _normPicks(payload && payload.goalkeeperPicks),
+      specialEventPicks: _normPicks(payload && payload.specialEventPicks)
+    };
+  }
+
+  // Fusiona "incoming" (más reciente) sobre "base" (acumulado).
+  // Unión de claves; el valor más reciente gana por clave. Las claves que solo
+  // existen en "base" se conservan (p.ej. un partido ya bloqueado que no venía
+  // en el último reenvío).
+  function _mergeSubmission(base, incoming) {
+    const a = _normalizeSubmission(base || {});
+    const b = _normalizeSubmission(incoming || {});
+    return {
+      name: b.name || a.name,
+      matchPredictions: Object.assign({}, a.matchPredictions, b.matchPredictions),
+      scorerPicks: Object.assign({}, a.scorerPicks, b.scorerPicks),
+      goalkeeperPicks: Object.assign({}, a.goalkeeperPicks, b.goalkeeperPicks),
+      specialEventPicks: Object.assign({}, a.specialEventPicks, b.specialEventPicks)
+    };
+  }
 
   function processPredictions() {
     _submissionsMap = {};
@@ -408,6 +477,11 @@ const App = (() => {
     if (keys.length < 2) return;
     const jsonKey = keys[1];
 
+    // Las filas vienen en orden cronológico (el formulario añade al final), así
+    // que recorremos en orden y FUSIONAMOS cada envío sobre el acumulado del
+    // participante. De este modo, un pronóstico enviado en un envío anterior
+    // (por ejemplo el del primer partido) no se pierde cuando un reenvío
+    // posterior ya no lo incluye porque ese partido se ha bloqueado.
     _data.predictions.forEach(row => {
       const rawJson = row[jsonKey];
       if (!rawJson) return;
@@ -416,7 +490,7 @@ const App = (() => {
         const payload = JSON.parse(rawJson);
         if (payload && payload.name) {
           const nameLower = payload.name.trim().toLowerCase();
-          _submissionsMap[nameLower] = payload;
+          _submissionsMap[nameLower] = _mergeSubmission(_submissionsMap[nameLower], payload);
         }
       } catch (err) {
         console.warn("Error parsing prediction JSON:", rawJson, err);
@@ -1687,10 +1761,10 @@ const App = (() => {
                 <th>#</th>
                 <th>Participante</th>
                 <th>Total</th>
-                <th title="Módulo 1: Partidos">⚽ M1</th>
-                <th title="Módulo 2: Goleador">🎯 M2</th>
-                <th title="Módulo 3: Portero">🧤 M3</th>
-                <th title="Módulo 4: Eventos">🌟 M4</th>
+                <th title="Módulo 1: puntos por partidos">⚽ Partidos</th>
+                <th title="Módulo 2: goleador de la jornada">🎯 Goleador</th>
+                <th title="Módulo 3: portero de la jornada">🧤 Portero</th>
+                <th title="Módulo 4: eventos especiales">🌟 Eventos</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -1954,13 +2028,21 @@ const App = (() => {
     const roundMatches = getMatchesByRound(_currentRound);
     const roundOpen = isRoundOpen(_currentRound);
 
+    // Kickoff más temprano de la jornada = momento en que TODA la jornada se
+    // bloquea (regla: no se puede cambiar nada una vez empieza el primer partido
+    // de la jornada). Lo calculamos una sola vez para usarlo tanto en el banner
+    // como en el bloqueo de cada tarjeta de partido.
+    const roundKickoffs = roundMatches
+      .map(m => m.kickoff_utc).filter(Boolean)
+      .map(k => new Date(k).getTime()).filter(t => !isNaN(t));
+    const roundEarliestKickoff = roundKickoffs.length > 0 ? Math.min(...roundKickoffs) : null;
+    // Fecha de bloqueo de la jornada en ISO (o null si no hay kickoffs válidos).
+    const roundLockIso = roundEarliestKickoff ? new Date(roundEarliestKickoff).toISOString() : null;
+
     // Banner de cuenta atrás (jornada abierta) o candado (jornada cerrada)
     let roundStatusBanner = "";
     if (roundMatches.length > 0) {
-      const kickoffs = roundMatches
-        .map(m => m.kickoff_utc).filter(Boolean)
-        .map(k => new Date(k).getTime()).filter(t => !isNaN(t));
-      const earliestKickoff = kickoffs.length > 0 ? Math.min(...kickoffs) : null;
+      const earliestKickoff = roundEarliestKickoff;
 
       if (roundOpen && earliestKickoff) {
         // Jornada abierta: banner con cuenta atrás al primer partido
@@ -1999,7 +2081,15 @@ const App = (() => {
         const isFinished = match.status === "finished";
         const isLive = match.status === "live";
         const isWild = match.is_double_points === true || match.is_double_points === "true" || match.is_double_points === "TRUE";
-        const matchOpen = new Date(match.kickoff_utc) > new Date();
+        // El bloqueo es a nivel de JORNADA: todos los partidos de la jornada se
+        // bloquean a la vez, cuando empieza el primer partido de la jornada.
+        // (Si por algún motivo no hay kickoff de jornada, caemos al kickoff del
+        // propio partido como salvaguarda.)
+        const matchOpen = roundLockIso
+          ? new Date(roundLockIso) > new Date()
+          : (match.kickoff_utc ? new Date(match.kickoff_utc) > new Date() : true);
+        // Fecha que se muestra en el candado: inicio de la jornada.
+        const lockSinceIso = roundLockIso || match.kickoff_utc;
 
         const predictions = _data.matchPredictions.filter(mp => mp.match_id === match.id);
         const predictionsHtml = predictions.map(pred => {
@@ -2023,7 +2113,7 @@ const App = (() => {
         const lockOverlay = !matchOpen ? `
           <div class="match-card__lock-overlay" aria-hidden="true">
             <span>🔒</span>
-            <span>Pronósticos bloqueados desde ${formatDateTime(match.kickoff_utc)}</span>
+            <span>Pronósticos bloqueados desde el inicio de la jornada (${formatDateTime(lockSinceIso)})</span>
           </div>
         ` : "";
 
