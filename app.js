@@ -2684,6 +2684,7 @@ const App = (() => {
         <p class="text-muted">Fuerza la actualización inmediata de resultados y goleadores vía football-data.org (requiere que Apps Script esté configurado con el token FD_TOKEN).</p>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; margin-top:var(--space-2);">
           <button id="admin-refresh-btn" class="btn btn--primary">🔄 Actualizar resultados ahora</button>
+          <button id="admin-sync-players-btn" class="btn btn--ghost">👥 Sincronizar todos los jugadores</button>
           <button id="admin-close-round-btn" class="btn btn--ghost">🔒 Cerrar jornada…</button>
         </div>
         <div id="admin-api-result" class="text-muted" style="margin-top:var(--space-2); font-size:var(--font-sm); min-height:1.5em;"></div>
@@ -2698,9 +2699,8 @@ const App = (() => {
 
       <div class="card fade-in mt-2">
         <h2 class="card-title">✏️ Editar pronósticos (sin plazo)</h2>
-        <p class="text-muted">Corrige el pronóstico de cualquier participante aunque la jornada esté cerrada. Requiere la <strong>clave de administración del servidor</strong> (propiedad <code>ADMIN_KEY</code> del Apps Script).</p>
+        <p class="text-muted">Corrige el pronóstico de cualquier participante aunque la jornada esté cerrada. Se utiliza la contraseña con la que has iniciado sesión.</p>
         <div style="display:grid; gap:var(--space-2); margin-top:var(--space-2); max-width:540px;">
-          <input type="password" id="ov-key" class="form-input" placeholder="Clave de administración (ADMIN_KEY)">
           <select id="ov-name" class="form-input">
             <option value="">— Participante —</option>
             ${_data.participants.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("")}
@@ -2760,16 +2760,9 @@ const App = (() => {
 
     // --- Editor de pronósticos (override admin, sin plazo) ---
     (function setupOverrideEditor() {
-      const keyInput = $("#ov-key");
       const typeSel = $("#ov-type");
       const playerSel = $("#ov-player");
       if (!typeSel) return;
-
-      // Recordar la clave durante la sesión para no reescribirla
-      if (keyInput) {
-        keyInput.value = sessionStorage.getItem("admin_api_key") || "";
-        keyInput.addEventListener("change", () => sessionStorage.setItem("admin_api_key", keyInput.value));
-      }
 
       const outfield = (_data.players || []).filter(p => p.position !== "goalkeeper")
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -2797,10 +2790,10 @@ const App = (() => {
       $("#ov-apply-btn")?.addEventListener("click", async () => {
         const btn = $("#ov-apply-btn");
         const result = $("#ov-result");
-        const key = ($("#ov-key")?.value || "").trim();
+        const key = sessionStorage.getItem("admin_password") || "";
         const name = ($("#ov-name")?.value || "").trim();
         const type = typeSel.value;
-        if (!key) { result.textContent = "❌ Falta la clave de administración."; return; }
+        if (!key) { result.textContent = "❌ No se ha detectado contraseña de administrador en la sesión."; return; }
         if (!name) { result.textContent = "❌ Elige un participante."; return; }
 
         let params = "&key=" + encodeURIComponent(key) +
@@ -2835,7 +2828,6 @@ const App = (() => {
             result.textContent = "❌ " + json.error;
           } else {
             result.textContent = "✅ " + (json.message || "Override aplicado") + ". Recargando datos…";
-            sessionStorage.setItem("admin_api_key", key);
             setTimeout(() => location.reload(), 1500);
           }
         } catch (err) {
@@ -2871,6 +2863,29 @@ const App = (() => {
       } finally {
         btn.disabled = false;
         btn.textContent = "🔄 Actualizar resultados ahora";
+      }
+    });
+
+    // --- Botón sincronizar jugadores ---
+    $("#admin-sync-players-btn")?.addEventListener("click", async () => {
+      const btn = $("#admin-sync-players-btn");
+      const result = $("#admin-api-result");
+      btn.disabled = true;
+      btn.textContent = "⏳ Sincronizando…";
+      result.textContent = "";
+      try {
+        const resp = await fetch(CONFIG.appsScriptUrl + "?action=syncAllPlayerNames");
+        const json = await resp.json();
+        if (json.error) {
+          result.textContent = "❌ Error: " + json.error;
+        } else {
+          result.textContent = "✅ Listo — " + (json.message || "Jugadores sincronizados") + " · " + new Date().toLocaleTimeString("es-ES");
+        }
+      } catch (e) {
+        result.textContent = "❌ Error de red: " + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "👥 Sincronizar todos los jugadores";
       }
     });
 
@@ -4028,6 +4043,10 @@ const App = (() => {
       }
     };
     document.head.appendChild(musicScript);
+
+    const liveScript = document.createElement("script");
+    liveScript.src = "livescore.js?v=" + Date.now();
+    document.head.appendChild(liveScript);
 
     const hasUrls = Object.values(CONFIG.googleSheets).every(url => url && !url.startsWith("URL_CSV"));
 
