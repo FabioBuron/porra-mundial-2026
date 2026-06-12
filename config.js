@@ -22,10 +22,9 @@ const CONFIG = {
   // ---------------------------------------------------------------------------
   worldCup26: {
     apiBase: "https://worldcup26.ir",
-    // La API usa JWT (Authorization: Bearer ...). El endpoint público suele
-    // permitir lectura anónima; si en tu caso exige token, pega aquí uno válido
-    // obtenido en /auth/authenticate (caduca a los 84 días). Déjalo vacío para
-    // intentar la lectura sin autenticación.
+    // Token NO necesario: las rutas de lectura /get/* de worldcup26.ir son
+    // públicas (sin autenticación y con CORS abierto), así que déjalo vacío.
+    // Solo rellénalo si en el futuro la API empezara a exigir JWT.
     token: "",
     refreshMs: 60000 // cada cuánto refresca el marcador en vivo (ms)
   },
