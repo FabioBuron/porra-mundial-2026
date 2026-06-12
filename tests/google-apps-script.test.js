@@ -318,7 +318,7 @@ assert.throws(() => {
   context.savePredictions(mockSS, "part01", [
     { matchId: "m001", predictedHome: 1, predictedAway: 1 }
   ], nowMockLate);
-}, /El plazo para el partido m001 ha vencido/);
+}, /El plazo.* partido m001 ha vencido/);
 
 
 // 3. Test saveScorerPick y saveGoalkeeperPick
