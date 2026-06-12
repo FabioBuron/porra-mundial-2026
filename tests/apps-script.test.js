@@ -429,4 +429,41 @@ const playersDataAfterSyncAll = playersSheet.getDataRange().getValues();
 assert.equal(playersDataAfterSyncAll[3][5], "Camilo Vargas"); // pl03 api_name = Camilo Vargas
 
 console.log("Prueba de syncAllPlayerNames: OK");
+
+// =============================================================================
+// TEST: _playerNameMatches (Fuzzy/Aproximado)
+// =============================================================================
+console.log("Iniciando pruebas de matching difuso de nombres de jugadores...");
+
+assert.equal(context._playerNameMatches("Lionel Messi", "Lionel Andrés Messi Cuccittini"), true);
+assert.equal(context._playerNameMatches("Emiliano Martínez", "Damián Emiliano Martínez"), true);
+assert.equal(context._playerNameMatches("Casemiro", "Carlos Henrique Casimiro"), true);
+assert.equal(context._playerNameMatches("Léo Pereira", "Leonardo Pereira"), true);
+assert.equal(context._playerNameMatches("Vinicius Junior", "Vinícius José Paixão de Oliveira Júnior"), true);
+assert.equal(context._playerNameMatches("Rayan Aït Nouri", "Rayan Aït-Nouri"), true);
+assert.equal(context._playerNameMatches("Fares Chaïbi", "Farès Chaïbi"), true);
+assert.equal(context._playerNameMatches("Edin Džeko", "Edin Dzeko"), true);
+assert.equal(context._playerNameMatches("de Paul", "Rodrigo de Paul"), true);
+assert.equal(context._playerNameMatches("Mbappé", "Kylian Mbappé"), true);
+
+// Nuevos casos específicos agregados para el algoritmo optimizado
+assert.equal(context._playerNameMatches("Abdelatif Ramdane", "Abdellatif Ramdane"), true);
+assert.equal(context._playerNameMatches("Osman Hadzikic", "Osman Hadžikić"), true);
+assert.equal(context._playerNameMatches("Alexander Sorloth", "Alexander Sørloth"), true);
+assert.equal(context._playerNameMatches("Jorgen ⁠Strand Larsen", "Jørgen Strand Larsen"), true); // Con U+2060
+assert.equal(context._playerNameMatches("Martin Odegaard", "Martin Ødegaard"), true);
+assert.equal(context._playerNameMatches("Altay Bayindir", "Altay Bayındır"), true);
+assert.equal(context._playerNameMatches("Ferdi Kadioglu", "Ferdi Kadıoğlu"), true);
+assert.equal(context._playerNameMatches("Abde Ezzalzouli", "Abdessamad Ezzalzouli"), true);
+assert.equal(context._playerNameMatches("Arjany Martha", "Arjany Jainel Archenir Martha"), true);
+assert.equal(context._playerNameMatches("Kendry Páez", "Ray Kendry Páez Andrade"), true);
+assert.equal(context._playerNameMatches("Andy Robertson", "Andrew Robertson"), true);
+assert.equal(context._playerNameMatches("Billy Gilmour", "Billy Clifford Gilmour"), true);
+assert.equal(context._playerNameMatches("Tino Livramento", "Valentino Livramento"), true);
+assert.equal(context._playerNameMatches("Matt Garbett", "Matthew Garbett"), true);
+assert.equal(context._playerNameMatches("Alisson", "Alisson Becker"), true);
+assert.equal(context._playerNameMatches("Ederson Moraes", "Ederson"), true);
+assert.equal(context._playerNameMatches("Gavi", "Pablo Gavira"), true);
+
+console.log("Pruebas de matching difuso de jugadores: OK");
 console.log("apps-script.test.js: OK");

@@ -19,7 +19,7 @@
 //       (gratis en https://www.football-data.org/client/register; plan TIER ONE
 //       incluye el Mundial). Opcional FD_COMPETITION (def. WC).
 //
-//   Después: ejecuta syncMatchIds() UNA vez y luego installTrigger() (cron 2 min).
+//   Después: ejecuta syncMatchIds() UNA vez y luego installTrigger() (cron 5 min).
 //   La columna api_name de "players" se RELLENA SOLA cuando un jugador marca
 //   (updateScorers aprende el nombre exacto). Si quieres adelantarlo a mano,
 //   ejecuta syncPlayerNames() cuando ya haya goles (empareja por nombre los que
@@ -445,23 +445,158 @@ function syncMatchIds() {
 // api_name ya rellenados.
 
 function _playerNameNorm(s) {
-  return String(s || "")
-    .toLowerCase()
+  if (!s) return "";
+  var str = String(s)
+    .replace(/[øØ]/g, "o")
+    .replace(/[łŁ]/g, "l")
+    .replace(/[ß]/g, "ss")
+    .replace(/[æÆ]/g, "ae")
+    .replace(/[œŒ]/g, "oe")
+    .replace(/[đĐ]/g, "d")
+    .replace(/[ıİ]/g, "i")
+    .replace(/[\u200B-\u200D\uFEFF\u2060]/g, "") // Limpiar caracteres de ancho cero e invisibles
+    .toLowerCase();
+
+  return str
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quitar acentos
     .replace(/[^a-z0-9\s]/g, " ")                     // quitar puntuación
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// True si dos nombres de jugador coinciden (igual normalizado, o mismas palabras
-// en distinto orden — p.ej. nombres coreanos "In-beom Hwang" vs "Hwang In-beom").
+function _levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  var matrix = [];
+  for (var i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (var j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (var i = 1; i <= b.length; i++) {
+    for (var j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1,
+                       Math.min(matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1));
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function _wordSim(w1, w2) {
+  if (w1 === w2) return 1.0;
+  
+  // Prefijos (da 0.8)
+  if (w1.length >= 3 && w2.indexOf(w1) === 0) return 0.8;
+  if (w2.length >= 3 && w1.indexOf(w2) === 0) return 0.8;
+  
+  // Sufijos (da 0.8)
+  if (w1.length >= 3 && w2.slice(-w1.length) === w1) return 0.8;
+  if (w2.length >= 3 && w1.slice(-w2.length) === w2) return 0.8;
+  
+  // Levenshtein con distancia 1 (da 0.8)
+  if (w1.length >= 4 && w2.length >= 4) {
+    var dist = _levenshtein(w1, w2);
+    if (dist === 1) return 0.8;
+  }
+  
+  // Prefijo común de apodos (ej: Andy y Andrew comparten "And", da 0.6)
+  if (w1.length >= 3 && w2.length >= 3) {
+    if (w1.substring(0, 3) === w2.substring(0, 3)) return 0.6;
+  }
+  
+  // Levenshtein con distancia 2 (da 0.5)
+  if (w1.length >= 4 && w2.length >= 4) {
+    var dist = _levenshtein(w1, w2);
+    if (dist === 2 && (w1.length >= 5 || w2.length >= 5)) return 0.5;
+  }
+  
+  return 0.0;
+}
+
 function _playerNameMatches(a, b) {
   var na = _playerNameNorm(a), nb = _playerNameNorm(b);
   if (!na || !nb) return false;
   if (na === nb) return true;
-  var ta = na.split(" ").sort().join(" ");
-  var tb = nb.split(" ").sort().join(" ");
-  return ta === tb;
+
+  var wordsA = na.split(" ").filter(function(w) { return w.length > 0; });
+  var wordsB = nb.split(" ").filter(function(w) { return w.length > 0; });
+
+  var stopWords = {
+    "de": true, "del": true, "la": true, "las": true, "el": true, "los": true,
+    "y": true, "da": true, "do": true, "dos": true, "van": true, "der": true,
+    "von": true, "junior": true, "jr": true, "san": true, "santa": true
+  };
+
+  var sigA = wordsA.filter(function(w) { return w.length >= 2 && !stopWords[w]; });
+  var sigB = wordsB.filter(function(w) { return w.length >= 2 && !stopWords[w]; });
+
+  if (sigA.length === 0 || sigB.length === 0) return false;
+
+  // Casos especiales de nombres únicos o apodos de una sola palabra
+  if (sigA.length === 1 || sigB.length === 1) {
+    var singleWord = sigA.length === 1 ? sigA[0] : sigB[0];
+    var otherList = sigA.length === 1 ? sigB : sigA;
+    var maxSim = 0;
+    for (var i = 0; i < otherList.length; i++) {
+      var sim = _wordSim(singleWord, otherList[i]);
+      if (sim > maxSim) maxSim = sim;
+    }
+    return maxSim >= 0.8;
+  }
+
+  // Puntuación media de coincidencia de palabras
+  var sumSim = 0;
+  for (var i = 0; i < sigA.length; i++) {
+    var maxSim = 0;
+    for (var j = 0; j < sigB.length; j++) {
+      var sim = _wordSim(sigA[i], sigB[j]);
+      if (sim > maxSim) maxSim = sim;
+    }
+    sumSim += maxSim;
+  }
+
+  var scoreA = sumSim / sigA.length;
+  return scoreA >= 0.75;
+}
+
+function _findBestPlayerMatch(localName, localTeam, apiPlayers) {
+  var candidates = apiPlayers.filter(function (ap) {
+    return !localTeam || !ap.team || _teamMatches(ap.team, localTeam);
+  });
+
+  var bestPlayer = null;
+  var bestScore = -1;
+
+  for (var i = 0; i < candidates.length; i++) {
+    var ap = candidates[i];
+    if (_playerNameMatches(localName, ap.name)) {
+      var na = _playerNameNorm(localName);
+      var nb = _playerNameNorm(ap.name);
+      
+      var wordsA = na.split(" ").filter(function(w) { return w.length > 0; });
+      var wordsB = nb.split(" ").filter(function(w) { return w.length > 0; });
+      var exactWords = 0;
+      for (var x = 0; x < wordsA.length; x++) {
+        if (wordsB.indexOf(wordsA[x]) !== -1) {
+          exactWords++;
+        }
+      }
+      
+      var score = exactWords / wordsA.length;
+      if (na === nb) {
+        score = 1.5; // Coincidencia exacta de normalizados tiene la máxima prioridad
+      }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestPlayer = ap;
+      }
+    }
+  }
+
+  return bestPlayer;
 }
 
 function syncPlayerNames() {
@@ -498,16 +633,7 @@ function syncPlayerNames() {
     if (String(row[idxApiName]).trim() !== "") { already++; continue; } // ya tiene api_name
 
     var localTeam = idxTeam !== -1 ? String(row[idxTeam]).trim() : "";
-
-    // 1) nombre coincide Y (mismo equipo o equipo desconocido)
-    var found = apiPlayers.find(function (ap) {
-      return _playerNameMatches(ap.name, localName) &&
-             (!localTeam || !ap.team || _teamMatches(ap.team, localTeam));
-    });
-    // 2) si no, solo por nombre
-    if (!found) {
-      found = apiPlayers.find(function (ap) { return _playerNameMatches(ap.name, localName); });
-    }
+    var found = _findBestPlayerMatch(localName, localTeam, apiPlayers);
 
     if (found) {
       sheet.getRange(r + 1, idxApiName + 1).setValue(found.name);
@@ -568,16 +694,7 @@ function syncAllPlayerNames() {
     if (String(row[idxApiName]).trim() !== "") { already++; continue; } // ya tiene api_name
 
     var localTeam = idxTeam !== -1 ? String(row[idxTeam]).trim() : "";
-
-    // 1) nombre coincide Y (mismo equipo o equipo desconocido)
-    var found = apiPlayers.find(function (ap) {
-      return _playerNameMatches(ap.name, localName) &&
-             (!localTeam || !ap.team || _teamMatches(ap.team, localTeam));
-    });
-    // 2) si no, solo por nombre
-    if (!found) {
-      found = apiPlayers.find(function (ap) { return _playerNameMatches(ap.name, localName); });
-    }
+    var found = _findBestPlayerMatch(localName, localTeam, apiPlayers);
 
     if (found) {
       sheet.getRange(r + 1, idxApiName + 1).setValue(found.name);
@@ -1069,10 +1186,10 @@ function installTrigger() {
 
   ScriptApp.newTrigger("syncAndUpdate")
     .timeBased()
-    .everyMinutes(2)
+    .everyMinutes(5)
     .create();
 
-  Logger.log("✅ Trigger instalado: syncAndUpdate cada 2 min.");
+  Logger.log("✅ Trigger instalado: syncAndUpdate cada 5 min.");
 }
 
 // ---------------------------------------------------------------------------
