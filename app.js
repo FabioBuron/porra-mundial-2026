@@ -3893,15 +3893,17 @@ const App = (() => {
   // ---------------------------------------------------------------------------
 
   function detectCurrentPage() {
-    const path = window.location.pathname.toLowerCase();
-    if (path.includes("partidos")) return "partidos";
-    if (path.includes("mundial")) return "mundial";
-    if (path.includes("goleador") || path.includes("portero")) return "goleador-portero";
-    if (path.includes("eventos")) return "eventos";
-    if (path.includes("analisis")) return "analisis";
-    if (path.includes("periodico")) return "periodico";
-    if (path.includes("oraculo")) return "oraculo";
-    if (path.includes("admin")) return "admin";
+    const path = window.location.pathname;
+    const filename = path.substring(path.lastIndexOf('/') + 1).toLowerCase();
+    
+    if (filename.includes("partidos")) return "partidos";
+    if (filename.includes("mundial")) return "mundial";
+    if (filename.includes("goleador") || filename.includes("portero")) return "goleador-portero";
+    if (filename.includes("eventos")) return "eventos";
+    if (filename.includes("analisis")) return "analisis";
+    if (filename.includes("periodico")) return "periodico";
+    if (filename.includes("oraculo")) return "oraculo";
+    if (filename.includes("admin")) return "admin";
     return "index";
   }
 
