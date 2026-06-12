@@ -19,7 +19,7 @@
 //       (gratis en https://www.football-data.org/client/register; plan TIER ONE
 //       incluye el Mundial). Opcional FD_COMPETITION (def. WC).
 //
-//   Después: ejecuta syncMatchIds() UNA vez y luego installTrigger() (cron 10 min).
+//   Después: ejecuta syncMatchIds() UNA vez y luego installTrigger() (cron 2 min).
 //   La columna api_name de "players" se RELLENA SOLA cuando un jugador marca
 //   (updateScorers aprende el nombre exacto). Si quieres adelantarlo a mano,
 //   ejecuta syncPlayerNames() cuando ya haya goles (empareja por nombre los que
@@ -974,9 +974,25 @@ function detectAndCloseRounds() {
 
 function syncAndUpdate() {
   try {
-    const updatedMatches  = updateResults();
-    const updatedScorers  = updateScorers();
-    const closedRounds    = detectAndCloseRounds();
+    // 1. Ejecución del core de marcadores (muy ligera)
+    const updatedMatches = updateResults();
+    
+    // 2. Compuerta de tiempo para tareas pesadas
+    // Solo se ejecutan si hay goles/cambios en partidos, o cada 15 minutos exactos como rutina
+    const min = new Date().getMinutes();
+    const esMomentoRutinario = (min % 15 === 0);
+    
+    let updatedScorers = 0;
+    let closedRounds = [];
+    
+    if (esMomentoRutinario || updatedMatches > 0) {
+      Logger.log("⚙️ Activando tareas pesadas (Goleadores, cierres y crónicas de IA)...");
+      updatedScorers = updateScorers();
+      closedRounds = detectAndCloseRounds();
+    } else {
+      Logger.log("⏱️ Marcadores revisados. Sin novedades en los partidos.");
+    }
+    
     const summary = {
       matches_updated: updatedMatches,
       scorers_updated: updatedScorers,
@@ -1053,10 +1069,10 @@ function installTrigger() {
 
   ScriptApp.newTrigger("syncAndUpdate")
     .timeBased()
-    .everyMinutes(10)
+    .everyMinutes(2)
     .create();
 
-  Logger.log("✅ Trigger instalado: syncAndUpdate cada 10 min.");
+  Logger.log("✅ Trigger instalado: syncAndUpdate cada 2 min.");
 }
 
 // ---------------------------------------------------------------------------
