@@ -11,6 +11,25 @@
 (function initLiveScoreWidget() {
   "use strict";
 
+  const flagCodes = {
+    "algeria": "dz", "argentina": "ar", "australia": "au", "austria": "at",
+    "belgium": "be", "bosnia & herzegovina": "ba", "bosnia": "ba",
+    "bosnia and herzegovina": "ba", "brazil": "br", "canada": "ca",
+    "cape verde": "cv", "cabo verde": "cv", "colombia": "co",
+    "croatia": "hr", "curaçao": "cw", "curacao": "cw", "czech republic": "cz",
+    "czechia": "cz", "dr congo": "cd", "congo dr": "cd",
+    "democratic republic of the congo": "cd", "ecuador": "ec", "egypt": "eg",
+    "england": "gb-eng", "france": "fr", "germany": "de", "ghana": "gh",
+    "haiti": "ht", "iran": "ir", "iraq": "iq", "ivory coast": "ci",
+    "japan": "jp", "jordan": "jo", "mexico": "mx", "morocco": "ma",
+    "netherlands": "nl", "new zealand": "nz", "norway": "no", "panama": "pa",
+    "paraguay": "py", "portugal": "pt", "qatar": "qa", "saudi arabia": "sa",
+    "scotland": "gb-sct", "senegal": "sn", "south africa": "za",
+    "south korea": "kr", "spain": "es", "sweden": "se", "switzerland": "ch",
+    "tunisia": "tn", "turkey": "tr", "usa": "us", "uruguay": "uy",
+    "uzbekistan": "uz"
+  };
+
   function cfg() {
     const c = (typeof CONFIG !== "undefined" && CONFIG.worldCup26) || {};
     return {
@@ -68,11 +87,20 @@
     return false;
   }
 
-  function teamCell(team, align) {
-    const flag = team && team.flag
-      ? `<img src="${escapeHtml(team.flag)}" alt="" style="width:22px;height:16px;object-fit:cover;border-radius:2px;flex:0 0 auto;">`
-      : "";
-    const name = team ? (team.name_en || team.fifa_code || ("#" + team.id)) : "TBD";
+  function teamCell(team, align, fallbackName) {
+    const name = team ? (team.name_en || team.fifa_code) : (fallbackName || "TBD");
+    const clean = (name || "").trim().toLowerCase();
+    const code = flagCodes[clean] || (team && team.fifa_code ? flagCodes[team.fifa_code.toLowerCase()] : null);
+    
+    let flag = "";
+    if (code) {
+      flag = `<img src="https://flagcdn.com/w40/${code}.png" alt="" style="width:22px;height:16px;object-fit:cover;border-radius:2px;flex:0 0 auto;">`;
+    } else if (team && team.flag) {
+      flag = `<img src="${escapeHtml(team.flag)}" alt="" style="width:22px;height:16px;object-fit:cover;border-radius:2px;flex:0 0 auto;">`;
+    } else {
+      flag = "⚽";
+    }
+
     const dir = align === "right" ? "row-reverse" : "row";
     return `<span style="display:flex;align-items:center;gap:8px;flex-direction:${dir};flex:1;min-width:0;">
       ${flag}
@@ -129,9 +157,9 @@
       <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border-subtle,#131a29);background:${isLastFinished ? "rgba(27,139,67,0.03)" : "transparent"}">
         <div style="flex:0 0 auto;width:42px;display:flex;justify-content:flex-start;">${badge(live, finished, isLastFinished)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
-          ${teamCell(home, "left")}
+          ${teamCell(home, "left", game.home_team_name_en || game.home_team_name)}
           ${scoreCell(game, live, finished)}
-          ${teamCell(away, "right")}
+          ${teamCell(away, "right", game.away_team_name_en || game.away_team_name)}
         </div>
       </div>`;
   }
