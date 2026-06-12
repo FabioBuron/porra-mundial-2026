@@ -268,29 +268,29 @@ const PorraExtras = (() => {
 
     const sniper = entries.filter(s => s.exact > 0).sort((a, b) => b.exact - a.exact)[0];
     if (sniper) {
-      stats.push({ icon: "🎯", title: "Francotirador", value: sniper.name, detail: `${sniper.exact} ${sniper.exact === 1 ? "resultado exacto" : "resultados exactos"}` });
+      stats.push({ id: "sniper", title: "Francotirador", value: sniper.name, detail: `${sniper.exact} ${sniper.exact === 1 ? "resultado exacto" : "resultados exactos"}` });
     } else {
-      stats.push({ icon: "🎯", title: "Francotirador", value: "Nadie aún", detail: "Ningún resultado exacto acertado" });
+      stats.push({ id: "sniper", title: "Francotirador", value: "Nadie aún", detail: "Ningún resultado exacto acertado" });
     }
 
     const jinx = entries.filter(s => s.total >= 2).sort((a, b) => (b.zero / b.total) - (a.zero / a.total))[0];
     if (jinx && jinx.zero > 0) {
-      stats.push({ icon: "🧊", title: "El cenizo", value: jinx.name, detail: `${jinx.zero} de ${jinx.total} pronósticos sin puntuar` });
+      stats.push({ id: "jinx", title: "El cenizo", value: jinx.name, detail: `${jinx.zero} de ${jinx.total} pronósticos sin puntuar` });
     }
 
     const optimist = entries.filter(s => s.predCount >= 2).sort((a, b) => (b.goalsSum / b.predCount) - (a.goalsSum / a.predCount))[0];
     if (optimist) {
-      stats.push({ icon: "🎉", title: "El optimista", value: optimist.name, detail: `${(optimist.goalsSum / optimist.predCount).toFixed(1)} goles de media por pronóstico` });
+      stats.push({ id: "optimist", title: "El optimista", value: optimist.name, detail: `${(optimist.goalsSum / optimist.predCount).toFixed(1)} goles de media por pronóstico` });
     }
 
     const grinder = entries.sort((a, b) => b.predCount - a.predCount)[0];
     if (grinder && grinder.predCount > 0) {
-      stats.push({ icon: "📝", title: "El más aplicado", value: grinder.name, detail: `${grinder.predCount} pronósticos enviados` });
+      stats.push({ id: "grinder", title: "El más aplicado", value: grinder.name, detail: `${grinder.predCount} pronósticos enviados` });
     }
 
     if (groupTotal > 0) {
       const pct = Math.round((groupHits / groupTotal) * 100);
-      stats.push({ icon: "🤝", title: "Ojo del grupo", value: `${pct}%`, detail: `de pronósticos puntuando (${groupHits}/${groupTotal})` });
+      stats.push({ id: "group", title: "Ojo del grupo", value: `${pct}%`, detail: `de pronósticos puntuando (${groupHits}/${groupTotal})` });
     }
 
     return stats;
@@ -301,16 +301,24 @@ const PorraExtras = (() => {
     if (stats.length === 0) return "";
     return `
       <div class="fun-stats">
-        ${stats.map(s => `
-          <div class="fun-stat">
-            <div class="fun-stat__icon">${s.icon}</div>
-            <div class="fun-stat__body">
-              <div class="fun-stat__title">${esc(s.title)}</div>
-              <div class="fun-stat__value">${esc(s.value)}</div>
-              <div class="fun-stat__detail">${esc(s.detail)}</div>
+        ${stats.map(s => {
+          let accentColor = "#64748b";
+          if (s.id === "sniper") accentColor = "#f59e0b";
+          else if (s.id === "jinx") accentColor = "#06b6d4";
+          else if (s.id === "optimist") accentColor = "#f97316";
+          else if (s.id === "grinder") accentColor = "#10b981";
+          else if (s.id === "group") accentColor = "#8b5cf6";
+
+          return `
+            <div class="fun-stat" style="border-left: 4px solid ${accentColor};">
+              <div class="fun-stat__body">
+                <div class="fun-stat__title">${esc(s.title)}</div>
+                <div class="fun-stat__value">${esc(s.value)}</div>
+                <div class="fun-stat__detail">${esc(s.detail)}</div>
+              </div>
             </div>
-          </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
     `;
   }
