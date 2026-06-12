@@ -1284,3 +1284,230 @@ function calcularLeaderboardEnBackend(ss, targetRoundKey) {
   participants.sort(function(a, b) { return b.points - a.points; });
   return participants;
 }
+
+// =============================================================================
+// ADMINISTRACIÓN — editar pronósticos de cualquiera AUNQUE EL PLAZO HAYA PASADO
+// =============================================================================
+// El frontend lee los pronósticos de "Respuestas de formulario 1" y FUSIONA todos
+// los envíos por participante (lo más reciente gana por clave). Por eso un override
+// de admin es, simplemente, una fila NUEVA con el JSON corregido: al ser la última,
+// gana, y como no pasa por savePredictions() no se le aplica ningún límite de plazo.
+//
+// Dos formas de usarlo:
+//   A) Menú "🛠️ Porra Admin" (en la propia hoja): pide los datos y aplica el cambio.
+//   B) Hoja "admin_overrides": escribes los cambios en celdas y pulsas
+//      "Aplicar overrides…". Ideal para corregir varios de golpe desde el Excel.
+// =============================================================================
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("🛠️ Porra Admin")
+    .addItem("Editar pronóstico de partido…", "adminMenuEditMatch")
+    .addItem("Editar goleador (jornada)…", "adminMenuEditScorer")
+    .addItem("Editar portero (jornada)…", "adminMenuEditGoalkeeper")
+    .addItem("Editar evento especial…", "adminMenuEditEvent")
+    .addSeparator()
+    .addItem("Crear/abrir hoja 'admin_overrides'", "ensureAdminOverridesSheet")
+    .addItem("Aplicar overrides de 'admin_overrides'", "applyAdminOverrides")
+    .addToUi();
+}
+
+// Devuelve el nombre EXACTO del participante (tal y como está en 'participants'),
+// buscándolo sin distinguir mayúsculas/acentos. Lanza error si no existe.
+function _adminCanonicalName(ss, name) {
+  var sheet = ss.getSheetByName("participants");
+  if (!sheet) throw new Error("No se encontró la pestaña 'participants'.");
+  var data = sheet.getDataRange().getValues();
+  var nameIdx = data[0].indexOf("name");
+  if (nameIdx === -1) throw new Error("La hoja 'participants' no tiene columna 'name'.");
+
+  function norm(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  }
+  var target = norm(name);
+  for (var i = 1; i < data.length; i++) {
+    if (norm(data[i][nameIdx]) === target) return String(data[i][nameIdx]).trim();
+  }
+  throw new Error("Participante no encontrado en 'participants': " + name);
+}
+
+// Núcleo: añade una fila de override (JSON parcial) a "Respuestas de formulario 1".
+// partial = { matchPredictions?, scorerPicks?, goalkeeperPicks?, specialEventPicks? }
+function adminOverridePrediction(name, partial) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var canonical = _adminCanonicalName(ss, name);
+
+  var sheetResponse = ss.getSheetByName("Respuestas de formulario 1");
+  if (!sheetResponse) throw new Error("No se encontró la pestaña 'Respuestas de formulario 1'.");
+
+  var now = new Date();
+  var payload = {
+    name: canonical,
+    matchPredictions: partial.matchPredictions || {},
+    scorerPicks: partial.scorerPicks || {},
+    goalkeeperPicks: partial.goalkeeperPicks || {},
+    specialEventPicks: partial.specialEventPicks || {},
+    _admin: true,
+    _adminAt: now.toISOString()
+  };
+  sheetResponse.appendRow([now.toISOString(), JSON.stringify(payload)]);
+  Logger.log("Override admin aplicado para " + canonical + ": " + JSON.stringify(partial));
+  return "OK: override aplicado a " + canonical;
+}
+
+// --- Wrappers para un único cambio (se pueden ejecutar también desde el editor) ---
+function adminSetMatchScore(name, matchId, home, away) {
+  var h = Number(home), a = Number(away);
+  if (isNaN(h) || isNaN(a)) throw new Error("Marcador inválido: " + home + "-" + away);
+  var mp = {}; mp[String(matchId).trim()] = { home: h, away: a };
+  return adminOverridePrediction(name, { matchPredictions: mp });
+}
+function adminSetScorer(name, roundKey, playerId) {
+  var o = {}; o[String(roundKey).trim()] = String(playerId).trim();
+  return adminOverridePrediction(name, { scorerPicks: o });
+}
+function adminSetGoalkeeper(name, roundKey, playerId) {
+  var o = {}; o[String(roundKey).trim()] = String(playerId).trim();
+  return adminOverridePrediction(name, { goalkeeperPicks: o });
+}
+function adminSetEvent(name, eventId, value) {
+  var o = {}; o[String(eventId).trim()] = String(value).trim();
+  return adminOverridePrediction(name, { specialEventPicks: o });
+}
+
+// --- Handlers del menú (piden los datos por ventana emergente) ---
+function _prompt(ui, msg) {
+  var r = ui.prompt("🛠️ Porra Admin", msg, ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return null;
+  return r.getResponseText().trim();
+}
+
+function adminMenuEditMatch() {
+  var ui = SpreadsheetApp.getUi();
+  var name = _prompt(ui, "Nombre del participante:"); if (name === null) return;
+  var matchId = _prompt(ui, "ID del partido (p.ej. m001):"); if (matchId === null) return;
+  var home = _prompt(ui, "Goles LOCAL:"); if (home === null) return;
+  var away = _prompt(ui, "Goles VISITANTE:"); if (away === null) return;
+  try { adminSetMatchScore(name, matchId, home, away); ui.alert("✅ Hecho: " + name + " · " + matchId + " " + home + "-" + away); }
+  catch (e) { ui.alert("❌ " + e.message); }
+}
+function adminMenuEditScorer() {
+  var ui = SpreadsheetApp.getUi();
+  var name = _prompt(ui, "Nombre del participante:"); if (name === null) return;
+  var rk = _prompt(ui, "Jornada (round_key, p.ej. group_md1):"); if (rk === null) return;
+  var pid = _prompt(ui, "ID del jugador (player_id):"); if (pid === null) return;
+  try { adminSetScorer(name, rk, pid); ui.alert("✅ Goleador actualizado: " + name + " · " + rk + " → " + pid); }
+  catch (e) { ui.alert("❌ " + e.message); }
+}
+function adminMenuEditGoalkeeper() {
+  var ui = SpreadsheetApp.getUi();
+  var name = _prompt(ui, "Nombre del participante:"); if (name === null) return;
+  var rk = _prompt(ui, "Jornada (round_key, p.ej. group_md1):"); if (rk === null) return;
+  var pid = _prompt(ui, "ID del jugador/portero (player_id):"); if (pid === null) return;
+  try { adminSetGoalkeeper(name, rk, pid); ui.alert("✅ Portero actualizado: " + name + " · " + rk + " → " + pid); }
+  catch (e) { ui.alert("❌ " + e.message); }
+}
+function adminMenuEditEvent() {
+  var ui = SpreadsheetApp.getUi();
+  var name = _prompt(ui, "Nombre del participante:"); if (name === null) return;
+  var ev = _prompt(ui, "ID del evento (p.ej. E1):"); if (ev === null) return;
+  var val = _prompt(ui, "Valor del pronóstico:"); if (val === null) return;
+  try { adminSetEvent(name, ev, val); ui.alert("✅ Evento actualizado: " + name + " · " + ev + " → " + val); }
+  catch (e) { ui.alert("❌ " + e.message); }
+}
+
+// --- Vía hoja de cálculo: 'admin_overrides' ---
+// Columnas: name | tipo | clave | valor1 | valor2 | aplicado
+//   tipo=match       → clave=matchId   valor1=goles_local  valor2=goles_visitante
+//   tipo=scorer      → clave=round_key valor1=player_id
+//   tipo=goalkeeper  → clave=round_key valor1=player_id
+//   tipo=event       → clave=event_id  valor1=valor
+function ensureAdminOverridesSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("admin_overrides");
+  if (!sh) {
+    sh = ss.insertSheet("admin_overrides");
+    sh.appendRow(["name", "tipo", "clave", "valor1", "valor2", "aplicado"]);
+    sh.appendRow(["Juan", "match", "m001", "3", "1", ""]);
+    sh.appendRow(["Juan", "scorer", "group_md1", "pl_messi", "", ""]);
+    sh.appendRow(["Ana", "goalkeeper", "group_md1", "pl_courtois", "", ""]);
+    sh.appendRow(["Ana", "event", "E1", "Argentina", "", ""]);
+    sh.getRange(1, 1, 1, 6).setFontWeight("bold");
+  }
+  ss.setActiveSheet(sh);
+  try { SpreadsheetApp.getUi().alert("Rellena las filas de 'admin_overrides' y luego usa el menú → 'Aplicar overrides…'. Las filas de ejemplo puedes borrarlas."); } catch (e) {}
+  return "admin_overrides lista";
+}
+
+function applyAdminOverrides() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName("admin_overrides");
+  if (!sh) { ensureAdminOverridesSheet(); return "Se creó 'admin_overrides'. Rellénala y vuelve a aplicar."; }
+
+  var data = sh.getDataRange().getValues();
+  var H = data[0];
+  var ci = {
+    name: H.indexOf("name"), tipo: H.indexOf("tipo"), clave: H.indexOf("clave"),
+    valor1: H.indexOf("valor1"), valor2: H.indexOf("valor2"), aplicado: H.indexOf("aplicado")
+  };
+  for (var k in ci) if (ci[k] === -1) throw new Error("Falta la columna '" + k + "' en 'admin_overrides'.");
+
+  var applied = 0, errors = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var name = String(row[ci.name]).trim();
+    var tipo = String(row[ci.tipo]).trim().toLowerCase();
+    if (!name || !tipo) continue;
+    if (String(row[ci.aplicado]).trim() !== "") continue; // ya aplicada
+
+    var clave = String(row[ci.clave]).trim();
+    var v1 = String(row[ci.valor1]).trim();
+    var v2 = String(row[ci.valor2]).trim();
+
+    try {
+      if (tipo === "match")            adminSetMatchScore(name, clave, v1, v2);
+      else if (tipo === "scorer")      adminSetScorer(name, clave, v1);
+      else if (tipo === "goalkeeper")  adminSetGoalkeeper(name, clave, v1);
+      else if (tipo === "event")       adminSetEvent(name, clave, v1);
+      else throw new Error("tipo desconocido: " + tipo);
+
+      sh.getRange(r + 1, ci.aplicado + 1).setValue("SÍ " + new Date().toISOString());
+      applied++;
+    } catch (e) {
+      sh.getRange(r + 1, ci.aplicado + 1).setValue("ERROR: " + e.message);
+      errors.push("Fila " + (r + 1) + ": " + e.message);
+    }
+  }
+
+  var msg = "Overrides aplicados: " + applied + (errors.length ? (" · errores: " + errors.length) : "");
+  Logger.log(msg + (errors.length ? "\n" + errors.join("\n") : ""));
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) {}
+  return msg;
+}
+
+// --- Override desde la web de admin (?action=adminOverride) -------------------
+// Protegido con la propiedad de script ADMIN_KEY (NO el adminPassword del
+// config.js, que es público). Si ADMIN_KEY no está configurada, se rechaza.
+function adminOverrideFromParams(p) {
+  var adminKey = PropertiesService.getScriptProperties().getProperty("ADMIN_KEY");
+  if (!adminKey) {
+    throw new Error("ADMIN_KEY no configurada en Propiedades del script. Configúrala para habilitar los overrides desde la web.");
+  }
+  if (!p.key || String(p.key) !== String(adminKey)) {
+    throw new Error("Clave de administración incorrecta.");
+  }
+
+  var name = p.name;
+  var tipo = String(p.tipo || "").toLowerCase();
+  var clave = p.clave;
+  if (!name || !tipo || !clave) throw new Error("Faltan parámetros (name, tipo, clave).");
+
+  var msg;
+  if (tipo === "match")            msg = adminSetMatchScore(name, clave, p.valor1, p.valor2);
+  else if (tipo === "scorer")      msg = adminSetScorer(name, clave, p.valor1);
+  else if (tipo === "goalkeeper")  msg = adminSetGoalkeeper(name, clave, p.valor1);
+  else if (tipo === "event")       msg = adminSetEvent(name, clave, p.valor1);
+  else throw new Error("tipo desconocido: " + tipo);
+
+  return { message: msg, timestamp: new Date().toISOString() };
+}
