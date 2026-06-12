@@ -168,8 +168,8 @@ function _fdScorers() {
     var goals = Number(sc.goals && typeof sc.goals === "object" ? sc.goals.scored : sc.goals) || 0;
     return { name: name, goals: goals };
   }).filter(function (s) { return s.name; });
-  // CAMBIO: Subimos el tiempo de caché a 3600 segundos (1 hora)
-  try { cache.put("FD_SCORERS", JSON.stringify(scorers), 3600); } catch (e) {} // 60 min
+
+  try { cache.put("FD_SCORERS", JSON.stringify(scorers), 1800); } catch (e) {} // 30 min
   return scorers;
 }
 
@@ -903,52 +903,21 @@ function detectAndCloseRounds() {
 // ---------------------------------------------------------------------------
 
 function syncAndUpdate() {
-  // 1. Instanciar el bloqueo de script (exclusivo para esta ejecución)
-  const lock = LockService.getScriptLock();
-  
   try {
-    // Intenta adquirir el bloqueo. Si otra ejecución está activa, espera hasta 20 segundos.
-    // Si pasados 20 segundos sigue ocupado, aborta limpiamente esta ejecución.
-    if (!lock.tryLock(20000)) {
-      Logger.log("⏱️ Ejecución omitida: El ciclo anterior todavía está procesando datos.");
-      return { message: "Omitido por concurrencia" };
-    }
-
-    // 2. Ejecución del core de marcadores (Cada 1 minuto)
-    const updatedMatches = updateResults();
-    
-    // 3. Compuerta de tiempo para tareas pesadas
-    const min = new Date().getMinutes();
-    const esMomentoRutinario = (min % 15 === 0);
-    
-    let updatedScorers = 0;
-    let closedRounds = [];
-    
-    // Solo se ejecutan si hay goles/cambios o cada 15 minutos exactos
-    if (esMomentoRutinario || updatedMatches > 0) {
-      Logger.log("⚙️ Activando tareas pesadas (Goleadores, cierres y crónicas de IA)...");
-      updatedScorers = updateScorers();
-      closedRounds = detectAndCloseRounds();
-    } else {
-      Logger.log("⏱️ Marcadores revisados. Sin novedades en los partidos.");
-    }
-    
+    const updatedMatches  = updateResults();
+    const updatedScorers  = updateScorers();
+    const closedRounds    = detectAndCloseRounds();
     const summary = {
       matches_updated: updatedMatches,
       scorers_updated: updatedScorers,
       rounds_closed: closedRounds,
       timestamp: new Date().toISOString()
     };
-    
     Logger.log("syncAndUpdate completo: " + JSON.stringify(summary));
     return summary;
-
   } catch (e) {
-    Logger.log("❌ Error crítico en syncAndUpdate: " + e.message);
-    throw e; // Lanza el error para que quede registrado en la consola de Google
-  } finally {
-    // 4. CRUCIAL: Liberar siempre el bloqueo, incluso si el código de arriba falló
-    lock.releaseLock();
+    Logger.log("❌ Error en syncAndUpdate: " + e.message);
+    throw e;
   }
 }
 
@@ -982,10 +951,12 @@ function doGetResults(e) {
       result = { message: syncMatchIds(), timestamp: new Date().toISOString() };
     } else if (action === "syncPlayerNames") {
       result = { message: syncPlayerNames(), timestamp: new Date().toISOString() };
+    } else if (action === "adminOverride") {
+      result = adminOverrideFromParams(e.parameter);
     } else if (action === "ensureSchema") {
       result = { schema: ensureResultsSchema(), timestamp: new Date().toISOString() };
     } else {
-      throw new Error("Acción desconocida: " + action + ". Usar: refresh, closeRound, syncMatchIds, syncPlayerNames, ensureSchema.");
+      throw new Error("Acción desconocida: " + action + ". Usar: refresh, closeRound, syncMatchIds, syncPlayerNames, adminOverride, ensureSchema.");
     }
   } catch (err) {
     result = { error: err.message };
@@ -1010,10 +981,10 @@ function installTrigger() {
 
   ScriptApp.newTrigger("syncAndUpdate")
     .timeBased()
-    .everyMinutes(1)
+    .everyMinutes(10)
     .create();
 
-  Logger.log("✅ Trigger instalado: syncAndUpdate cada 1 min.");
+  Logger.log("✅ Trigger instalado: syncAndUpdate cada 10 min.");
 }
 
 // ---------------------------------------------------------------------------
