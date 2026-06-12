@@ -3,14 +3,23 @@
 // =============================================================================
 // Pegar este código en el mismo proyecto de Apps Script que google-apps-script.gs
 //
-// CONFIGURACIÓN INICIAL:
-//   1. Ve a Extensiones > Apps Script > ⚙️ Configuración del proyecto > Propiedades del script
-//   2. Añade la propiedad: FD_TOKEN = <tu token de football-data.org>
-//      Regístrate gratis en: https://www.football-data.org/client/register
-//   3. Ejecuta syncMatchIds() UNA vez a mano para emparejar partidos.
-//   4. Instala el trigger de tiempo: syncAndUpdate() cada 30 min.
+// FUENTES DE DATOS (híbrido):
+//   • Resultados/marcadores y estado de partidos → worldcup26.ir
+//       Repo: https://github.com/rezarahiminia/worldcup2026 · Docs: https://worldcup26.ir/api-docs/
+//   • Goleadores (Módulo 2, top scorers) → football-data.org
+//       Docs: https://www.football-data.org/documentation/quickstart (competición WC)
+//     Se usa football-data.org para los goleadores porque worldcup26.ir no los expone.
 //
-// PRESUPUESTO API: 2 requests/ejecución × 2 ejecuciones/hora ≈ 96 req/día. Límite: 10/min. ✅
+// CONFIGURACIÓN INICIAL (Extensiones > Apps Script > ⚙️ Configuración > Propiedades del script):
+//   worldcup26.ir (resultados): autenticación JWT opcional →
+//       a) WC_TOKEN = <token JWT>, o  b) WC_EMAIL + WC_PASSWORD (se autentica solo),
+//       o déjalas vacías si el endpoint público permite lectura anónima.
+//       (Opcional WC_API_BASE para cambiar la base, por defecto https://worldcup26.ir)
+//   football-data.org (goleadores): FD_TOKEN = <tu token de football-data.org>
+//       (gratis en https://www.football-data.org/client/register; plan TIER ONE
+//       incluye el Mundial). Opcional FD_COMPETITION (def. WC).
+//
+//   Después: ejecuta syncMatchIds() UNA vez y luego installTrigger() (cron 10 min).
 // =============================================================================
 
 // ---------------------------------------------------------------------------
@@ -19,13 +28,143 @@
 
 function _getConfig() {
   const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty("FD_TOKEN");
-  if (!token) throw new Error("FD_TOKEN no configurado. Ve a Propiedades del script y añade la clave FD_TOKEN.");
   return {
-    token: token,
-    base: "https://api.football-data.org/v4",
-    competition: "WC"
+    base: (props.getProperty("WC_API_BASE") || "https://worldcup26.ir").replace(/\/+$/, ""),
+    token: props.getProperty("WC_TOKEN") || "",
+    email: props.getProperty("WC_EMAIL") || "",
+    password: props.getProperty("WC_PASSWORD") || "",
+    // --- football-data.org — solo para GOLEADORES (top scorers) ---
+    // Resultados/marcadores siguen viniendo de worldcup26.ir; los goleadores de
+    // aquí porque worldcup26.ir no los expone. Necesita un token propio gratuito
+    // (https://www.football-data.org/client/register) en la propiedad FD_TOKEN.
+    // El plan gratuito (TIER ONE) incluye el Mundial (competición WC).
+    fdBase: "https://api.football-data.org/v4",
+    fdToken: props.getProperty("FD_TOKEN") || "",
+    fdCompetition: props.getProperty("FD_COMPETITION") || "WC"
   };
+}
+
+// Obtiene un token JWT válido: usa WC_TOKEN si existe; si no, intenta
+// autenticarse con WC_EMAIL/WC_PASSWORD y cachea el token resultante 12h.
+// Devuelve "" si no hay credenciales (se intentará lectura anónima).
+function _wcToken() {
+  const cfg = _getConfig();
+  if (cfg.token) return cfg.token;
+  if (!cfg.email || !cfg.password) return "";
+
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("WC_JWT");
+  if (cached) return cached;
+
+  const resp = UrlFetchApp.fetch(cfg.base + "/auth/authenticate", {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ email: cfg.email, password: cfg.password }),
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) {
+    throw new Error("Autenticación worldcup26.ir falló (" + resp.getResponseCode() + "): " + resp.getContentText().slice(0, 200));
+  }
+  const token = JSON.parse(resp.getContentText()).token;
+  if (token) cache.put("WC_JWT", token, 12 * 3600); // 12h
+  return token || "";
+}
+
+// GET genérico contra worldcup26.ir con Bearer opcional.
+function _apiGet(path) {
+  const cfg = _getConfig();
+  const headers = { "Accept": "application/json" };
+  const token = _wcToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+
+  const url = cfg.base + path;
+  const resp = UrlFetchApp.fetch(url, { headers: headers, muteHttpExceptions: true });
+  const code = resp.getResponseCode();
+  if (code !== 200) {
+    throw new Error("API error " + code + " en " + url + ": " + resp.getContentText().slice(0, 200));
+  }
+  return JSON.parse(resp.getContentText());
+}
+
+// Normaliza respuestas que pueden venir como array directo o envueltas.
+function _asArray(json) {
+  if (Array.isArray(json)) return json;
+  if (!json || typeof json !== "object") return [];
+  var keys = ["data", "games", "matches", "teams", "result", "results", "items"];
+  for (var i = 0; i < keys.length; i++) {
+    if (Array.isArray(json[keys[i]])) return json[keys[i]];
+  }
+  return [];
+}
+
+// Lista de partidos (104). Cada uno: { id, home_team_id, away_team_id,
+// home_score, away_score, group, matchday, local_date, finished, type, ... }
+function _wcGames() {
+  return _asArray(_apiGet("/get/games"));
+}
+
+// Mapa { String(teamId) → name_en } para emparejar contra los nombres del Sheet.
+function _wcTeamNameMap() {
+  var teams = _asArray(_apiGet("/get/teams"));
+  var map = {};
+  teams.forEach(function (t) {
+    if (t && t.id !== undefined) map[String(t.id)] = t.name_en || t.fifa_code || "";
+  });
+  return map;
+}
+
+// Estado local ("finished" | "live" | "scheduled") a partir de un partido de la API.
+function _wcStatus(game) {
+  if (game.finished === true || game.finished === "true") return "finished";
+  var status = String(game.status || game.state || "").toLowerCase();
+  if (status.indexOf("finish") !== -1) return "finished";
+  if (status.indexOf("live") !== -1 || status.indexOf("play") !== -1 || status.indexOf("progress") !== -1) return "live";
+  if (game.live === true || game.is_live === true) return "live";
+  var elapsed = Number(game.elapsed || game.minute || game.time);
+  if (!isNaN(elapsed) && elapsed > 0) return "live";
+  return "scheduled";
+}
+
+// --- Goleadores vía football-data.org -----------------------------------------
+// worldcup26.ir no expone goleadores, así que para el Módulo 2 usamos el endpoint
+// /competitions/WC/scorers de football-data.org. Devuelve el ranking ACUMULADO
+// del torneo: [{ name, goals }]. Se cachea 30 min porque el plan gratuito limita
+// las peticiones (10/min) y el ranking se actualiza despacio.
+function _fdGet(path) {
+  const cfg = _getConfig();
+  if (!cfg.fdToken) {
+    throw new Error("FD_TOKEN no configurado. Añádelo en Propiedades del script (token de football-data.org).");
+  }
+  const url = cfg.fdBase + path.replace("{comp}", cfg.fdCompetition);
+  const resp = UrlFetchApp.fetch(url, {
+    headers: { "X-Auth-Token": cfg.fdToken },
+    muteHttpExceptions: true
+  });
+  const code = resp.getResponseCode();
+  if (code !== 200) {
+    throw new Error("football-data error " + code + " en " + url + ": " + resp.getContentText().slice(0, 200));
+  }
+  return JSON.parse(resp.getContentText());
+}
+
+function _fdScorers() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("FD_SCORERS");
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) {}
+  }
+
+  const json = _fdGet("/competitions/{comp}/scorers?limit=200");
+  const rows = (json && json.scorers) || [];
+  const scorers = rows.map(function (sc) {
+    var name = (sc.player && sc.player.name) ? sc.player.name : "";
+    // En v4 "goals" es un número; toleramos también el formato antiguo {scored}.
+    var goals = Number(sc.goals && typeof sc.goals === "object" ? sc.goals.scored : sc.goals) || 0;
+    return { name: name, goals: goals };
+  }).filter(function (s) { return s.name; });
+
+  try { cache.put("FD_SCORERS", JSON.stringify(scorers), 1800); } catch (e) {} // 30 min
+  return scorers;
 }
 
 function _getSheet(name) {
@@ -64,24 +203,6 @@ function ensureResultsSchema() {
     players_has_api_name: true,
     api_snapshots_exists: true
   };
-}
-
-// ---------------------------------------------------------------------------
-// Llamadas a la API
-// ---------------------------------------------------------------------------
-
-function _apiGet(path) {
-  const cfg = _getConfig();
-  const url = cfg.base + path.replace("{comp}", cfg.competition);
-  const resp = UrlFetchApp.fetch(url, {
-    headers: { "X-Auth-Token": cfg.token },
-    muteHttpExceptions: true
-  });
-  const code = resp.getResponseCode();
-  if (code !== 200) {
-    throw new Error("API error " + code + " en " + url + ": " + resp.getContentText().slice(0, 200));
-  }
-  return JSON.parse(resp.getContentText());
 }
 
 // ---------------------------------------------------------------------------
@@ -251,13 +372,13 @@ function syncMatchIds() {
   const idxId = headers.indexOf("id");
   const idxHome = headers.indexOf("home_team");
   const idxAway = headers.indexOf("away_team");
-  const idxKickoff = headers.indexOf("kickoff_utc");
+  const idxMd = headers.indexOf("matchday");
   const idxApiId = headers.indexOf("api_id");
 
   if (idxApiId === -1) throw new Error("Columna 'api_id' no encontrada en hoja 'matches'. Añádela primero.");
 
-  const apiData = _apiGet("/competitions/{comp}/matches");
-  const apiMatches = apiData.matches || [];
+  const games = _wcGames();
+  const teamName = _wcTeamNameMap(); // { teamId → name_en }
 
   let matched = 0, skipped = 0, unmatched = [];
 
@@ -268,23 +389,30 @@ function syncMatchIds() {
 
     const sheetHome = row[idxHome];
     const sheetAway = row[idxAway];
-    const sheetKickoff = new Date(row[idxKickoff]).getTime();
+    const sheetMd = idxMd !== -1 ? String(row[idxMd]).trim() : "";
 
-    // Buscar el partido en la API: mismos equipos (con alias) y fecha ± 1 día
-    const found = apiMatches.find(am => {
-      const apiHome = am.homeTeam && am.homeTeam.name;
-      const apiAway = am.awayTeam && am.awayTeam.name;
-      const apiDate = new Date(am.utcDate).getTime();
-      const dateOk = Math.abs(apiDate - sheetKickoff) <= 86400000; // ±1 día
-      return dateOk && _teamMatches(apiHome, sheetHome) && _teamMatches(apiAway, sheetAway);
+    // La API solo da local_date (sin hora exacta), así que emparejamos por
+    // equipos (con alias) y, como desempate, por jornada (matchday) si existe.
+    const candidates = games.filter(g => {
+      const apiHome = teamName[String(g.home_team_id)] || "";
+      const apiAway = teamName[String(g.away_team_id)] || "";
+      return _teamMatches(apiHome, sheetHome) && _teamMatches(apiAway, sheetAway);
     });
+
+    let found = null;
+    if (candidates.length === 1) {
+      found = candidates[0];
+    } else if (candidates.length > 1 && sheetMd) {
+      found = candidates.find(g => String(g.matchday).trim() === sheetMd) || null;
+    }
 
     if (found) {
       sheet.getRange(r + 1, idxApiId + 1).setValue(found.id);
       matched++;
       Logger.log("✅ " + row[idxId] + " → api_id " + found.id + " (" + sheetHome + " vs " + sheetAway + ")");
     } else {
-      unmatched.push(row[idxId] + ": " + sheetHome + " vs " + sheetAway + " (" + row[idxKickoff] + ")");
+      unmatched.push(row[idxId] + ": " + sheetHome + " vs " + sheetAway +
+        (candidates.length > 1 ? " (ambiguo: " + candidates.length + " candidatos)" : ""));
     }
   }
 
@@ -313,32 +441,30 @@ function updateResults() {
 
   if (idxApiId === -1) throw new Error("Columna 'api_id' no encontrada.");
 
-  const apiData = _apiGet("/competitions/{comp}/matches");
+  const apiData = _wcGames();
   const apiMap = {};
-  (apiData.matches || []).forEach(m => { apiMap[m.id] = m; });
+  apiData.forEach(m => { apiMap[String(m.id)] = m; });
 
   let updated = 0;
 
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
     const apiId = row[idxApiId];
-    if (!apiId) continue;
+    if (apiId === "" || apiId === null || apiId === undefined) continue;
 
     const currStatus = row[idxStatus];
     if (currStatus === "finished") continue;
 
-    const am = apiMap[apiId];
+    const am = apiMap[String(apiId)];
     if (!am) continue;
 
-    // Mapear estado API → estado local
-    let newStatus;
-    const st = (am.status || "").toUpperCase();
-    if (st === "FINISHED" || st === "AWARDED") newStatus = "finished";
-    else if (st === "IN_PLAY" || st === "PAUSED" || st === "SUSPENDED") newStatus = "live";
-    else newStatus = "scheduled";
+    // Estado local a partir del partido de worldcup26.ir.
+    const newStatus = _wcStatus(am);
 
-    const newHome = am.score && am.score.fullTime ? am.score.fullTime.home : null;
-    const newAway = am.score && am.score.fullTime ? am.score.fullTime.away : null;
+    const rawHome = am.home_score;
+    const rawAway = am.away_score;
+    const newHome = (rawHome === null || rawHome === undefined || rawHome === "") ? null : Number(rawHome);
+    const newAway = (rawAway === null || rawAway === undefined || rawAway === "") ? null : Number(rawAway);
 
     // Si el partido empezó o finalizó pero los goles de la API son nulos,
     // significa que la API tiene datos incompletos. Omitimos esta actualización.
@@ -385,7 +511,6 @@ function updateScorers() {
   const sHeaders = snapData[0];
 
   const mIdxStatus  = mHeaders.indexOf("status");
-  const mIdxApiId   = mHeaders.indexOf("api_id");
   const mIdxPhase   = mHeaders.indexOf("phase");
   const mIdxMd      = mHeaders.indexOf("matchday");
 
@@ -394,8 +519,7 @@ function updateScorers() {
   const pIdxTeam    = pHeaders.indexOf("team");
   const pIdxPos     = pHeaders.indexOf("position");
 
-  // Determinar round_key actual: la última ronda con al menos 1 partido finished
-  // y cuya siguiente ronda aún no ha empezado (ningún partido finished)
+  // Determinar round_key actual: la última ronda con al menos 1 partido finished.
   const finishedRounds = new Set();
   for (let r = 1; r < matchData.length; r++) {
     const row = matchData[r];
@@ -408,21 +532,23 @@ function updateScorers() {
   const ROUND_ORDER = ["group_md1", "group_md2", "group_md3", "r32", "r16", "qf", "sf", "3rd", "final"];
   let currentRound = null;
   for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
-    if (finishedRounds.has(ROUND_ORDER[i])) {
-      currentRound = ROUND_ORDER[i];
-      break;
-    }
+    if (finishedRounds.has(ROUND_ORDER[i])) { currentRound = ROUND_ORDER[i]; break; }
   }
   if (!currentRound) {
     Logger.log("updateScorers: no hay jornadas terminadas aún.");
     return 0;
   }
 
-  // Obtener goles acumulados de la API
-  const scorersData = _apiGet("/competitions/{comp}/scorers?limit=200");
-  const apiScorers = scorersData.scorers || [];
+  // Ranking ACUMULADO de goleadores (football-data.org). [{ name, goals }]
+  let apiScorers;
+  try {
+    apiScorers = _fdScorers();
+  } catch (e) {
+    Logger.log("updateScorers: no se pudo leer goleadores de football-data.org (" + e.message + "). Se omite.");
+    return 0;
+  }
 
-  // Cargar snapshots previos: { player_api_name+round_key → goals_total }
+  // Snapshots previos: { round_key|player_name → goals_total }
   const snapMap = {};
   const sIdxRound  = sHeaders.indexOf("round_key");
   const sIdxPlayer = sHeaders.indexOf("player_api_name");
@@ -430,48 +556,43 @@ function updateScorers() {
   for (let r = 1; r < snapData.length; r++) {
     const sRow = snapData[r];
     if (!sRow[sIdxRound] || !sRow[sIdxPlayer]) continue;
-    const key = sRow[sIdxRound] + "|" + sRow[sIdxPlayer];
-    snapMap[key] = Number(sRow[sIdxGoals]) || 0;
+    snapMap[sRow[sIdxRound] + "|" + sRow[sIdxPlayer]] = Number(sRow[sIdxGoals]) || 0;
   }
 
-  // Calcular índice de jornada anterior
   const currentIdx = ROUND_ORDER.indexOf(currentRound);
   const prevRound  = currentIdx > 0 ? ROUND_ORDER[currentIdx - 1] : null;
 
-  // Buscar columna goals_<round> en players
   const goalsCol = "goals_" + currentRound;
-  let pIdxGoals  = pHeaders.indexOf(goalsCol);
+  const pIdxGoals = pHeaders.indexOf(goalsCol);
   if (pIdxGoals === -1) {
     Logger.log("⚠️ Columna '" + goalsCol + "' no existe en hoja players. Añádela y vuelve a ejecutar.");
     return 0;
   }
 
-  let updated = 0;
+  function _norm(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  }
 
+  let updated = 0;
   for (let r = 1; r < playerData.length; r++) {
     const pRow = playerData[r];
-    const apiName = pRow[pIdxApiName] ? String(pRow[pIdxApiName]).trim() : "";
+    const apiName   = pRow[pIdxApiName] ? String(pRow[pIdxApiName]).trim() : "";
     const localName = pRow[pIdxName] ? String(pRow[pIdxName]).trim() : "";
     const team = pRow[pIdxTeam] ? String(pRow[pIdxTeam]).trim() : "";
-    const pos = pRow[pIdxPos] ? String(pRow[pIdxPos]).trim().toLowerCase() : "";
+    const pos  = pRow[pIdxPos] ? String(pRow[pIdxPos]).trim().toLowerCase() : "";
+    if (pos === "goalkeeper") continue; // los porteros se calculan por encajados
 
-    if (pos === "goalkeeper") continue; // porteros se calculan por encajados, no goles
-
-    // Buscar en API: prioridad api_name; si está vacío, normalizar contra name
-    const apiEntry = apiScorers.find(sc => {
-      const n = sc.player && sc.player.name ? sc.player.name : "";
-      if (apiName) return n === apiName;
-      const normN = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const normL = localName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      return normN === normL;
+    // Buscar en el ranking: prioridad api_name exacto; si no, nombre normalizado.
+    const apiEntry = apiScorers.find(function (sc) {
+      if (apiName) return sc.name === apiName;
+      return _norm(sc.name) === _norm(localName);
     });
+    if (!apiEntry) continue; // todavía sin goles en el torneo → no sobreescribir
 
-    if (!apiEntry) continue; // jugador no en ranking de goleadores aún → 0 goles (no sobreescribir)
+    const totalGoals = Number(apiEntry.goals) || 0;
+    const playerApiName = apiEntry.name;
 
-    const totalGoals = Number(apiEntry.goals && typeof apiEntry.goals === 'object' ? apiEntry.goals.scored : apiEntry.goals) || 0;
-    const playerApiName = apiEntry.player.name;
-
-    // Goles de esta jornada = acumulado − snapshot jornada anterior
+    // Goles de ESTA jornada = acumulado − snapshot de la jornada anterior.
     const prevKey = prevRound ? prevRound + "|" + playerApiName : null;
     const prevGoals = prevKey ? (snapMap[prevKey] || 0) : 0;
     const jornada = Math.max(0, totalGoals - prevGoals);
@@ -504,23 +625,29 @@ function closeRound(roundKey) {
   const pHeaders   = playerData[0];
   const mHeaders   = matchData[0];
 
-  // --- 1) Snapshot de goleadores ---
-  const scorersData = _apiGet("/competitions/{comp}/scorers?limit=200");
-  const apiScorers = scorersData.scorers || [];
+  // --- 1) Snapshot de goleadores (football-data.org) ---
+  // Guarda el acumulado de goles por jugador al cierre de la jornada. Sirve para
+  // calcular los goles incrementales de la jornada siguiente y marca la jornada
+  // como cerrada para detectAndCloseRounds(). Si falla la API, escribimos una
+  // fila marcadora para no reprocesar la jornada en bucle.
   const takenAt = new Date().toISOString();
-
-  const snapRows = apiScorers.map(sc => [
-    roundKey,
-    sc.player ? sc.player.name : "",
-    Number(sc.goals && typeof sc.goals === 'object' ? sc.goals.scored : sc.goals) || 0,
-    takenAt
-  ]);
+  let scorerSnapRows = [];
+  try {
+    scorerSnapRows = _fdScorers().map(function (sc) {
+      return [roundKey, sc.name, Number(sc.goals) || 0, takenAt];
+    });
+  } catch (e) {
+    Logger.log("closeRound(" + roundKey + "): no se pudo leer goleadores de football-data.org (" + e.message + ").");
+  }
+  const snapRows = scorerSnapRows.length > 0
+    ? scorerSnapRows
+    : [[roundKey, "__round_closed__", 0, takenAt]];
 
   if (snapRows.length > 0) {
     // Añadir filas al final de api_snapshots
     const lastRow = snapSheet.getLastRow();
     snapSheet.getRange(lastRow + 1, 1, snapRows.length, 4).setValues(snapRows);
-    Logger.log("closeRound(" + roundKey + "): " + snapRows.length + " snapshots guardados.");
+    Logger.log("closeRound(" + roundKey + "): " + snapRows.length + " filas de snapshot guardadas.");
   }
 
   // --- 2) Goles encajados por portero ---
@@ -758,11 +885,21 @@ function _matchRoundKey(phase, matchday) {
   return validKeys.includes(p) ? p : null;
 }
 
-function testApiMatch001() {
+function testApiConnection() {
   try {
-    const match = _apiGet("/matches/537327");
-    Logger.log("Match 537327 details: " + JSON.stringify(match, null, 2));
+    const games = _wcGames();
+    Logger.log("worldcup26.ir OK — " + games.length + " partidos recibidos.");
+    if (games.length > 0) Logger.log("Ejemplo partido: " + JSON.stringify(games[0], null, 2));
+    const teams = _wcTeamNameMap();
+    Logger.log("Equipos recibidos: " + Object.keys(teams).length);
   } catch (err) {
-    Logger.log("Error fetching match 537327: " + err.toString());
+    Logger.log("Error conectando con worldcup26.ir: " + err.toString());
+  }
+  try {
+    const scorers = _fdScorers();
+    Logger.log("football-data.org goleadores OK — " + scorers.length + " jugadores.");
+    if (scorers.length > 0) Logger.log("Top goleador: " + JSON.stringify(scorers[0]));
+  } catch (err) {
+    Logger.log("Error conectando con football-data.org (goleadores): " + err.toString());
   }
 }
