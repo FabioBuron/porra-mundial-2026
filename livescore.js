@@ -108,6 +108,18 @@
     </span>`;
   }
 
+  function getFlagImageHtml(team, fallbackName) {
+    const name = team ? (team.name_en || team.fifa_code) : (fallbackName || "");
+    const clean = (name || "").trim().toLowerCase();
+    const code = flagCodes[clean] || (team && team.fifa_code ? flagCodes[team.fifa_code.toLowerCase()] : null);
+    if (code) {
+      return `<img src="https://flagcdn.com/w40/${code}.png" alt="" style="width:18px;height:13px;object-fit:cover;border-radius:1px;display:inline-block;vertical-align:middle;margin:0 2px;">`;
+    } else if (team && team.flag) {
+      return `<img src="${escapeHtml(team.flag)}" alt="" style="width:18px;height:13px;object-fit:cover;border-radius:1px;display:inline-block;vertical-align:middle;margin:0 2px;">`;
+    }
+    return "⚽";
+  }
+
   function scoreCell(game, live, finished) {
     const homeScore = game.home_score !== undefined && game.home_score !== null ? game.home_score : game.home_score_current;
     const awayScore = game.away_score !== undefined && game.away_score !== null ? game.away_score : game.away_score_current;
@@ -306,6 +318,10 @@
       const liveGames = games.filter(isLive);
       if (liveGames.length > 0) {
         const active = liveGames[0];
+        const home = _teamsCache[String(active.home_team_id)];
+        const away = _teamsCache[String(active.away_team_id)];
+        const homeFlag = getFlagImageHtml(home, active.home_team_name_en || active.home_team_name);
+        const awayFlag = getFlagImageHtml(away, active.away_team_name_en || active.away_team_name);
         const homeScore = active.home_score !== undefined && active.home_score !== null ? active.home_score : active.home_score_current;
         const awayScore = active.away_score !== undefined && active.away_score !== null ? active.away_score : active.away_score_current;
         const h = homeScore !== null ? homeScore : 0;
@@ -315,7 +331,7 @@
         else if (elapsed.indexOf("half") !== -1 || elapsed.indexOf("descanso") !== -1) elapsed = "Int";
         else if (!isNaN(Number(elapsed))) elapsed = elapsed + "'";
 
-        fabText.textContent = `${h}-${a} (${elapsed})`;
+        fabText.innerHTML = `<span style="display:flex;align-items:center;gap:6px;">${homeFlag} ${h}-${a} ${awayFlag} <span style="font-size:0.75rem;opacity:0.9;">(${elapsed})</span></span>`;
         fabText.style.display = "inline";
         fab.classList.add("live-fab--live");
       } else {
@@ -328,16 +344,20 @@
         const lastFinished = finishedGames.length > 0 ? finishedGames[finishedGames.length - 1] : null;
 
         if (lastFinished) {
+          const home = _teamsCache[String(lastFinished.home_team_id)];
+          const away = _teamsCache[String(lastFinished.away_team_id)];
+          const homeFlag = getFlagImageHtml(home, lastFinished.home_team_name_en || lastFinished.home_team_name);
+          const awayFlag = getFlagImageHtml(away, lastFinished.away_team_name_en || lastFinished.away_team_name);
           const homeScore = lastFinished.home_score !== undefined && lastFinished.home_score !== null ? lastFinished.home_score : lastFinished.home_score_current;
           const awayScore = lastFinished.away_score !== undefined && lastFinished.away_score !== null ? lastFinished.away_score : lastFinished.away_score_current;
           const h = homeScore !== null ? homeScore : 0;
           const a = awayScore !== null ? awayScore : 0;
           
-          fabText.textContent = `${h}-${a} (Fin)`;
+          fabText.innerHTML = `<span style="display:flex;align-items:center;gap:6px;">${homeFlag} ${h}-${a} ${awayFlag} <span style="font-size:0.75rem;opacity:0.75;font-weight:normal;">(Fin)</span></span>`;
           fabText.style.display = "inline";
         } else {
           fabText.style.display = "none";
-          fabText.textContent = "";
+          fabText.innerHTML = "";
         }
         fab.classList.remove("live-fab--live");
       }
