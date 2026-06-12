@@ -240,7 +240,7 @@ const PorraExtras = (() => {
 
     const byParticipant = {};
     (data.participants || []).forEach(p => {
-      byParticipant[p.id] = { name: p.name, exact: 0, zero: 0, scored: 0, total: 0, goalsSum: 0, predCount: 0 };
+      byParticipant[p.id] = { name: p.name, exact: 0, zero: 0, scored: 0, total: 0, goalsSum: 0, predCount: 0, ptsSum: 0, drawsCount: 0 };
     });
 
     let groupHits = 0, groupTotal = 0;
@@ -248,13 +248,19 @@ const PorraExtras = (() => {
     (data.matchPredictions || []).forEach(mp => {
       const st = byParticipant[mp.participant_id];
       if (!st) return;
-      if (mp.predicted_home !== null && mp.predicted_home !== undefined) {
-        st.goalsSum += (Number(mp.predicted_home) || 0) + (Number(mp.predicted_away) || 0);
+      if (mp.predicted_home !== null && mp.predicted_home !== undefined && mp.predicted_home !== "") {
+        const h = Number(mp.predicted_home) || 0;
+        const a = Number(mp.predicted_away) || 0;
+        st.goalsSum += h + a;
         st.predCount++;
+        if (h === a) {
+          st.drawsCount++;
+        }
       }
       if (!finishedIds.has(mp.match_id)) return;
       const pts = Number(mp.points_earned) || 0;
       st.total++;
+      st.ptsSum += pts;
       groupTotal++;
       if (pts >= 3) st.exact++;
       if (pts >= 1) { st.scored++; groupHits++; }
@@ -266,6 +272,15 @@ const PorraExtras = (() => {
 
     const stats = [];
 
+    // 1. El líder
+    const leader = entries.slice().sort((a, b) => b.ptsSum - a.ptsSum || b.exact - a.exact)[0];
+    if (leader && leader.ptsSum > 0) {
+      stats.push({ id: "leader", title: "El líder", value: leader.name, detail: `${leader.ptsSum} puntos acumulados` });
+    } else {
+      stats.push({ id: "leader", title: "El líder", value: "Sin líder", detail: "Nadie ha sumado puntos todavía" });
+    }
+
+    // 2. Francotirador
     const sniper = entries.filter(s => s.exact > 0).sort((a, b) => b.exact - a.exact)[0];
     if (sniper) {
       stats.push({ id: "sniper", title: "Francotirador", value: sniper.name, detail: `${sniper.exact} ${sniper.exact === 1 ? "resultado exacto" : "resultados exactos"}` });
@@ -273,21 +288,43 @@ const PorraExtras = (() => {
       stats.push({ id: "sniper", title: "Francotirador", value: "Nadie aún", detail: "Ningún resultado exacto acertado" });
     }
 
+    // 3. Mejor promedio
+    const avgPoints = entries.filter(s => s.total >= 2).sort((a, b) => (b.ptsSum / b.total) - (a.ptsSum / a.total))[0];
+    if (avgPoints && avgPoints.ptsSum > 0) {
+      stats.push({ id: "avg-points", title: "Mejor promedio", value: avgPoints.name, detail: `${(avgPoints.ptsSum / avgPoints.total).toFixed(2)} puntos por partido` });
+    }
+
+    // 4. El cenizo
     const jinx = entries.filter(s => s.total >= 2).sort((a, b) => (b.zero / b.total) - (a.zero / a.total))[0];
     if (jinx && jinx.zero > 0) {
       stats.push({ id: "jinx", title: "El cenizo", value: jinx.name, detail: `${jinx.zero} de ${jinx.total} pronósticos sin puntuar` });
     }
 
+    // 5. El optimista
     const optimist = entries.filter(s => s.predCount >= 2).sort((a, b) => (b.goalsSum / b.predCount) - (a.goalsSum / a.predCount))[0];
     if (optimist) {
       stats.push({ id: "optimist", title: "El optimista", value: optimist.name, detail: `${(optimist.goalsSum / optimist.predCount).toFixed(1)} goles de media por pronóstico` });
     }
 
+    // 6. El conservador
+    const conservative = entries.filter(s => s.predCount >= 2).sort((a, b) => (a.goalsSum / a.predCount) - (b.goalsSum / b.predCount))[0];
+    if (conservative) {
+      stats.push({ id: "conservative", title: "El conservador", value: conservative.name, detail: `${(conservative.goalsSum / conservative.predCount).toFixed(1)} goles de media por pronóstico` });
+    }
+
+    // 7. El pacifista
+    const pacifist = entries.filter(s => s.predCount >= 2 && s.drawsCount > 0).sort((a, b) => (b.drawsCount / b.predCount) - (a.drawsCount / a.predCount))[0];
+    if (pacifist) {
+      stats.push({ id: "draws", title: "El pacifista", value: pacifist.name, detail: `${pacifist.drawsCount} empates (${Math.round((pacifist.drawsCount / pacifist.predCount) * 100)}% de sus apuestas)` });
+    }
+
+    // 8. El más aplicado
     const grinder = entries.sort((a, b) => b.predCount - a.predCount)[0];
     if (grinder && grinder.predCount > 0) {
       stats.push({ id: "grinder", title: "El más aplicado", value: grinder.name, detail: `${grinder.predCount} pronósticos enviados` });
     }
 
+    // 9. Ojo del grupo
     if (groupTotal > 0) {
       const pct = Math.round((groupHits / groupTotal) * 100);
       stats.push({ id: "group", title: "Ojo del grupo", value: `${pct}%`, detail: `de pronósticos puntuando (${groupHits}/${groupTotal})` });
@@ -303,11 +340,15 @@ const PorraExtras = (() => {
       <div class="fun-stats">
         ${stats.map(s => {
           let accentColor = "#64748b";
-          if (s.id === "sniper") accentColor = "#f59e0b";
+          if (s.id === "leader") accentColor = "#ef4444";
+          else if (s.id === "sniper") accentColor = "#f59e0b";
+          else if (s.id === "avg-points") accentColor = "#8b5cf6";
           else if (s.id === "jinx") accentColor = "#06b6d4";
           else if (s.id === "optimist") accentColor = "#f97316";
+          else if (s.id === "conservative") accentColor = "#3b82f6";
+          else if (s.id === "draws") accentColor = "#ec4899";
           else if (s.id === "grinder") accentColor = "#10b981";
-          else if (s.id === "group") accentColor = "#8b5cf6";
+          else if (s.id === "group") accentColor = "#718096";
 
           return `
             <div class="fun-stat" style="border-left: 4px solid ${accentColor};">
