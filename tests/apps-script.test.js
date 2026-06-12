@@ -464,6 +464,12 @@ assert.equal(context._playerNameMatches("Matt Garbett", "Matthew Garbett"), true
 assert.equal(context._playerNameMatches("Alisson", "Alisson Becker"), true);
 assert.equal(context._playerNameMatches("Ederson Moraes", "Ederson"), true);
 assert.equal(context._playerNameMatches("Gavi", "Pablo Gavira"), true);
+assert.equal(context._playerNameMatches("Mohamed Amine Tougaï", "Amine Tougai"), true);
+assert.equal(context._playerNameMatches("Anis Hadj-Moussa", "Anis Moussa"), true);
+assert.equal(context._playerNameMatches("Mohamed Amine Amoura", "Mohammed Amoura"), true);
+assert.equal(context._playerNameMatches("Juan Fernando Quintero", "Juan Quintero"), true);
+assert.equal(context._playerNameMatches("João Paulo Fernandes", "João Paulo"), true);
+assert.equal(context._playerNameMatches("Nabil Emad Dunga", "Nabil Dunga"), true);
 
 console.log("Pruebas de matching difuso de jugadores: OK");
 console.log("apps-script.test.js: OK");

@@ -557,7 +557,7 @@ function _playerNameMatches(a, b) {
     sumSim += maxSim;
   }
 
-  var scoreA = sumSim / sigA.length;
+  var scoreA = sumSim / Math.min(sigA.length, sigB.length);
   return scoreA >= 0.75;
 }
 
