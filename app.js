@@ -3463,7 +3463,15 @@ const App = (() => {
     `).join("");
 
     container.innerHTML = `
-      <div class="newspaper-paper">
+      <div class="newspaper-actions" style="max-width: 900px; margin: 0 auto 16px; display: flex; justify-content: flex-end; padding: 0 16px;">
+        <button id="download-pdf-btn" class="btn btn--primary" style="display: flex; align-items: center; gap: 8px; font-family: system-ui, -apple-system, sans-serif; font-size: 13px;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display: inline-block;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Descargar Portada en PDF
+        </button>
+      </div>
+      <div class="newspaper-paper" id="newspaper-print-area">
         <div class="newspaper-header">
           <div class="newspaper-header__top">
             <span>Edición Especial</span>
@@ -3496,6 +3504,48 @@ const App = (() => {
         </div>
       </div>
     `;
+
+    const downloadBtn = $("#download-pdf-btn");
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", async function() {
+        downloadBtn.disabled = true;
+        const originalText = downloadBtn.innerHTML;
+        downloadBtn.innerHTML = `
+          <span class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px; margin: 0; display: inline-block; border-color: rgba(255,255,255,0.3) rgba(255,255,255,0.3) rgba(255,255,255,0.3) #fff;"></span>
+          Generando PDF...
+        `;
+
+        try {
+          if (typeof html2pdf === "undefined") {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+            document.head.appendChild(script);
+            await new Promise(resolve => script.onload = resolve);
+          }
+
+          const element = $("#newspaper-print-area");
+          const opt = {
+            margin:       [0.4, 0.4, 0.4, 0.4],
+            filename:     `El_Cunado_Deportivo_Edicion_${edicion}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+              scale: 2, 
+              useCORS: true, 
+              backgroundColor: "#f4efe2"
+            },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+          };
+          
+          await html2pdf().set(opt).from(element).save();
+        } catch (error) {
+          console.error("Error al generar el PDF:", error);
+          alert("No se pudo generar el PDF. Inténtalo de nuevo.");
+        } finally {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = originalText;
+        }
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
