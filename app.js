@@ -387,10 +387,6 @@ const App = (() => {
       // propósito) no desaparecen de la vista hasta la siguiente recarga.
       const nameLower = name.trim().toLowerCase();
       _submissionsMap[nameLower] = _mergeSubmission(_submissionsMap[nameLower], draft);
-      localStorage.setItem(
-        `porra_draft_${nameLower}`,
-        JSON.stringify(draft)
-      );
       
       updateFloatingSaveBar();
       handleRoute();
@@ -2701,6 +2697,51 @@ const App = (() => {
       </div>
 
       <div class="card fade-in mt-2">
+        <h2 class="card-title">✏️ Editar pronósticos (sin plazo)</h2>
+        <p class="text-muted">Corrige el pronóstico de cualquier participante aunque la jornada esté cerrada. Requiere la <strong>clave de administración del servidor</strong> (propiedad <code>ADMIN_KEY</code> del Apps Script).</p>
+        <div style="display:grid; gap:var(--space-2); margin-top:var(--space-2); max-width:540px;">
+          <input type="password" id="ov-key" class="form-input" placeholder="Clave de administración (ADMIN_KEY)">
+          <select id="ov-name" class="form-input">
+            <option value="">— Participante —</option>
+            ${_data.participants.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("")}
+          </select>
+          <select id="ov-type" class="form-input">
+            <option value="match">Partido</option>
+            <option value="scorer">Goleador (jornada)</option>
+            <option value="goalkeeper">Portero (jornada)</option>
+            <option value="event">Evento especial</option>
+          </select>
+
+          <div id="ov-match-fields">
+            <select id="ov-match" class="form-input">
+              ${_data.matches.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} · ${escapeHtml(m.home_team)} - ${escapeHtml(m.away_team)}</option>`).join("")}
+            </select>
+            <div style="display:flex; gap:var(--space-2); margin-top:var(--space-2);">
+              <input type="number" id="ov-home" class="form-input" placeholder="Local" min="0" style="max-width:120px;">
+              <input type="number" id="ov-away" class="form-input" placeholder="Visitante" min="0" style="max-width:120px;">
+            </div>
+          </div>
+
+          <div id="ov-round-fields" class="hidden">
+            <select id="ov-round" class="form-input">
+              ${Object.entries(CONFIG.roundLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
+            </select>
+            <select id="ov-player" class="form-input" style="margin-top:var(--space-2);"></select>
+          </div>
+
+          <div id="ov-event-fields" class="hidden">
+            <select id="ov-event" class="form-input">
+              ${_data.specialEvents.map(ev => `<option value="${escapeHtml(ev.id)}">${escapeHtml(ev.id)} · ${escapeHtml(ev.name)}</option>`).join("")}
+            </select>
+            <input type="text" id="ov-event-value" class="form-input" placeholder="Valor del pronóstico" style="margin-top:var(--space-2);">
+          </div>
+
+          <button id="ov-apply-btn" class="btn btn--primary">💾 Aplicar override</button>
+        </div>
+        <div id="ov-result" class="text-muted" style="margin-top:var(--space-2); font-size:var(--font-sm); min-height:1.5em;"></div>
+      </div>
+
+      <div class="card fade-in mt-2">
         <h2 class="card-title">🤖 El Diario (Gemini IA)</h2>
         <p class="text-muted">Genera la crónica satírica y cuñada de la jornada con inteligencia artificial basándote en la clasificación actual de la porra.</p>
         <div style="display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap; margin-top:var(--space-2);">
@@ -2716,6 +2757,95 @@ const App = (() => {
         <button id="admin-logout-btn" class="btn btn--danger">🚪 Cerrar sesión admin</button>
       </div>
     `;
+
+    // --- Editor de pronósticos (override admin, sin plazo) ---
+    (function setupOverrideEditor() {
+      const keyInput = $("#ov-key");
+      const typeSel = $("#ov-type");
+      const playerSel = $("#ov-player");
+      if (!typeSel) return;
+
+      // Recordar la clave durante la sesión para no reescribirla
+      if (keyInput) {
+        keyInput.value = sessionStorage.getItem("admin_api_key") || "";
+        keyInput.addEventListener("change", () => sessionStorage.setItem("admin_api_key", keyInput.value));
+      }
+
+      const outfield = (_data.players || []).filter(p => p.position !== "goalkeeper")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      const keepers = (_data.players || []).filter(p => p.position === "goalkeeper")
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+      function fillPlayers(list) {
+        if (!playerSel) return;
+        playerSel.innerHTML = list.map(pl =>
+          `<option value="${escapeHtml(pl.id)}">${escapeHtml(pl.name)}${pl.team ? " (" + escapeHtml(pl.team) + ")" : ""}</option>`
+        ).join("");
+      }
+
+      function toggleFields() {
+        const t = typeSel.value;
+        $("#ov-match-fields")?.classList.toggle("hidden", t !== "match");
+        $("#ov-round-fields")?.classList.toggle("hidden", !(t === "scorer" || t === "goalkeeper"));
+        $("#ov-event-fields")?.classList.toggle("hidden", t !== "event");
+        if (t === "scorer") fillPlayers(outfield);
+        else if (t === "goalkeeper") fillPlayers(keepers);
+      }
+      typeSel.addEventListener("change", toggleFields);
+      toggleFields();
+
+      $("#ov-apply-btn")?.addEventListener("click", async () => {
+        const btn = $("#ov-apply-btn");
+        const result = $("#ov-result");
+        const key = ($("#ov-key")?.value || "").trim();
+        const name = ($("#ov-name")?.value || "").trim();
+        const type = typeSel.value;
+        if (!key) { result.textContent = "❌ Falta la clave de administración."; return; }
+        if (!name) { result.textContent = "❌ Elige un participante."; return; }
+
+        let params = "&key=" + encodeURIComponent(key) +
+                     "&name=" + encodeURIComponent(name) +
+                     "&tipo=" + encodeURIComponent(type);
+        if (type === "match") {
+          const mid = $("#ov-match")?.value;
+          const home = $("#ov-home")?.value;
+          const away = $("#ov-away")?.value;
+          if (home === "" || away === "") { result.textContent = "❌ Indica ambos marcadores."; return; }
+          params += "&clave=" + encodeURIComponent(mid) + "&valor1=" + encodeURIComponent(home) + "&valor2=" + encodeURIComponent(away);
+        } else if (type === "scorer" || type === "goalkeeper") {
+          const round = $("#ov-round")?.value;
+          const pid = $("#ov-player")?.value;
+          if (!pid) { result.textContent = "❌ Elige un jugador."; return; }
+          params += "&clave=" + encodeURIComponent(round) + "&valor1=" + encodeURIComponent(pid);
+        } else if (type === "event") {
+          const ev = $("#ov-event")?.value;
+          const val = ($("#ov-event-value")?.value || "").trim();
+          if (!val) { result.textContent = "❌ Indica el valor del pronóstico."; return; }
+          params += "&clave=" + encodeURIComponent(ev) + "&valor1=" + encodeURIComponent(val);
+        }
+
+        btn.disabled = true;
+        const prevTxt = btn.textContent;
+        btn.textContent = "⏳ Aplicando…";
+        result.textContent = "";
+        try {
+          const resp = await fetch(CONFIG.appsScriptUrl + "?action=adminOverride" + params);
+          const json = await resp.json();
+          if (json.error) {
+            result.textContent = "❌ " + json.error;
+          } else {
+            result.textContent = "✅ " + (json.message || "Override aplicado") + ". Recargando datos…";
+            sessionStorage.setItem("admin_api_key", key);
+            setTimeout(() => location.reload(), 1500);
+          }
+        } catch (err) {
+          result.textContent = "❌ Error de conexión: " + err.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = prevTxt;
+        }
+      });
+    })();
 
     // --- Botón actualizar resultados ---
     $("#admin-refresh-btn")?.addEventListener("click", async () => {
