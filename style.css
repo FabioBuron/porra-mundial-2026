@@ -2333,8 +2333,20 @@ body {
 /* --- Estadísticas curiosas --- */
 .fun-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
+}
+
+@media (min-width: 600px) {
+  .fun-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .fun-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .fun-stat {
