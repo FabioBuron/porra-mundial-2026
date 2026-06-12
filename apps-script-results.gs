@@ -526,6 +526,76 @@ function syncPlayerNames() {
   return summary;
 }
 
+function syncAllPlayerNames() {
+  const sheet = _getSheet("players");
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idxName    = headers.indexOf("name");
+  const idxTeam    = headers.indexOf("team");
+  const idxApiName = headers.indexOf("api_name");
+
+  if (idxName === -1) throw new Error("Columna 'name' no encontrada en hoja 'players'.");
+  if (idxApiName === -1) throw new Error("Columna 'api_name' no encontrada en hoja 'players'. Añádela primero (o ejecuta ensureResultsSchema()).");
+
+  var json = _fdGet("/competitions/{comp}/teams");
+  var apiPlayers = [];
+  var teams = (json && json.teams) || [];
+  
+  teams.forEach(function (t) {
+    var teamName = t.name || "";
+    var squad = t.squad || [];
+    squad.forEach(function (p) {
+      if (p.name) {
+        apiPlayers.push({
+          name: p.name,
+          team: teamName
+        });
+      }
+    });
+  });
+
+  if (apiPlayers.length === 0) {
+    Logger.log("syncAllPlayerNames: No se encontraron jugadores en la API de football-data.org.");
+    return "syncAllPlayerNames: 0 jugadores encontrados en la API.";
+  }
+
+  var matched = 0, already = 0, unmatched = [];
+
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var localName = row[idxName] ? String(row[idxName]).trim() : "";
+    if (!localName) continue;
+    if (String(row[idxApiName]).trim() !== "") { already++; continue; } // ya tiene api_name
+
+    var localTeam = idxTeam !== -1 ? String(row[idxTeam]).trim() : "";
+
+    // 1) nombre coincide Y (mismo equipo o equipo desconocido)
+    var found = apiPlayers.find(function (ap) {
+      return _playerNameMatches(ap.name, localName) &&
+             (!localTeam || !ap.team || _teamMatches(ap.team, localTeam));
+    });
+    // 2) si no, solo por nombre
+    if (!found) {
+      found = apiPlayers.find(function (ap) { return _playerNameMatches(ap.name, localName); });
+    }
+
+    if (found) {
+      sheet.getRange(r + 1, idxApiName + 1).setValue(found.name);
+      matched++;
+      Logger.log("✅ " + localName + " → api_name '" + found.name + "'" + (found.team ? " (" + found.team + ")" : ""));
+    } else {
+      unmatched.push(localName + (localTeam ? " (" + localTeam + ")" : ""));
+    }
+  }
+
+  var summary = "syncAllPlayerNames: " + matched + " emparejados, " + already + " ya tenían api_name, " + unmatched.length + " sin emparejar.";
+  Logger.log(summary);
+  if (unmatched.length > 0) {
+    Logger.log("ℹ️ Sin emparejar:\n" + unmatched.join("\n"));
+  }
+  return summary;
+}
+
 // ---------------------------------------------------------------------------
 // 2. updateResults() — actualizar marcadores y estado de partidos
 // ---------------------------------------------------------------------------
@@ -951,12 +1021,14 @@ function doGetResults(e) {
       result = { message: syncMatchIds(), timestamp: new Date().toISOString() };
     } else if (action === "syncPlayerNames") {
       result = { message: syncPlayerNames(), timestamp: new Date().toISOString() };
+    } else if (action === "syncAllPlayerNames") {
+      result = { message: syncAllPlayerNames(), timestamp: new Date().toISOString() };
     } else if (action === "adminOverride") {
       result = adminOverrideFromParams(e.parameter);
     } else if (action === "ensureSchema") {
       result = { schema: ensureResultsSchema(), timestamp: new Date().toISOString() };
     } else {
-      throw new Error("Acción desconocida: " + action + ". Usar: refresh, closeRound, syncMatchIds, syncPlayerNames, adminOverride, ensureSchema.");
+      throw new Error("Acción desconocida: " + action + ". Usar: refresh, closeRound, syncMatchIds, syncPlayerNames, syncAllPlayerNames, adminOverride, ensureSchema.");
     }
   } catch (err) {
     result = { error: err.message };
