@@ -64,21 +64,23 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  // Indicador de "en vivo" tolerante con distintos nombres de campo, ya que la
-  // API documenta sobre todo `finished`; durante el torneo añade estado en vivo.
-  function isLive(game) {
-    if (game.finished === true || game.finished === "true") return false;
-    const status = String(game.status || game.state || "").toLowerCase();
-    if (status.includes("live") || status.includes("play") || status.includes("progress")) return true;
-    if (game.live === true || game.is_live === true) return true;
-    const elapsed = Number(game.elapsed || game.minute || game.time);
-    if (!isNaN(elapsed) && elapsed > 0) return true;
-    return false;
+  // Detección tolerante con el esquema REAL de worldcup26.ir:
+  //   finished: "TRUE"/"FALSE" (string en mayúsculas)
+  //   time_elapsed: "notstarted" hasta que arranca; minuto/valor cuando está en juego
+  function isFinished(game) {
+    var f = String(game.finished).trim().toLowerCase();
+    if (f === "true" || f === "1" || f === "yes") return true;
+    return String(game.status || "").toLowerCase().indexOf("finish") !== -1;
   }
 
-  function isFinished(game) {
-    return game.finished === true || game.finished === "true" ||
-      String(game.status || "").toLowerCase().includes("finish");
+  function isLive(game) {
+    if (isFinished(game)) return false;
+    var te = String(game.time_elapsed || "").trim().toLowerCase();
+    if (te && te !== "notstarted" && te !== "not started" && te !== "null") return true;
+    var status = String(game.status || game.state || "").toLowerCase();
+    if (status.indexOf("live") !== -1 || status.indexOf("play") !== -1 || status.indexOf("progress") !== -1) return true;
+    if (game.live === true || game.is_live === true) return true;
+    return false;
   }
 
   function teamCell(team, align) {
