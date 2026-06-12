@@ -28,6 +28,8 @@ const App = (() => {
   let _leaderboardRound = "global";
   let _submissionsMap = {}; // name (lowercase) -> latest submission payload
   let _chartFocusParticipantId = null;
+  let _mundialTab = "grupos";
+  let _mundialRound = "group_md1";
 
   // ---------------------------------------------------------------------------
   // Borradores & Persistencia Local
@@ -2021,6 +2023,296 @@ const App = (() => {
     return `<input type="text" class="form-input event-input" data-event-id="${ev.id}" placeholder="Tu apuesta" value="${draftValue || ""}" style="width:100%;">`;
   }
 
+  function renderMundial() {
+    const container = $("#app-content");
+    if (!container) return;
+
+    let html = `
+      <div class="hero">
+        <div class="hero__eyebrow">Mundial 2026 en Directo</div>
+        <h1>El Estado del Mundial</h1>
+        <div class="hero__meta">
+          <span class="hero__chip">Grupos</span>
+          <span class="hero__chip">Resultados</span>
+          <span class="hero__chip">Goleadores</span>
+        </div>
+      </div>
+
+      <!-- Pestañas del Mundial -->
+      <div class="sub-nav" style="display:flex; gap:12px; margin-bottom:24px; overflow-x:auto; padding-bottom:8px; border-bottom:1px solid var(--color-border-subtle);">
+        <button class="btn ${_mundialTab === 'grupos' ? 'btn--primary' : 'btn--secondary'}" id="btn-tab-grupos" style="white-space:nowrap;">Fase de Grupos</button>
+        <button class="btn ${_mundialTab === 'partidos' ? 'btn--primary' : 'btn--secondary'}" id="btn-tab-partidos" style="white-space:nowrap;">Resultados y Calendario</button>
+        <button class="btn ${_mundialTab === 'goleadores' ? 'btn--primary' : 'btn--secondary'}" id="btn-tab-goleadores" style="white-space:nowrap;">Máximos Goleadores</button>
+      </div>
+
+      <div id="mundial-tab-content" class="fade-in"></div>
+    `;
+
+    container.innerHTML = html;
+
+    $("#btn-tab-grupos")?.addEventListener("click", () => { _mundialTab = "grupos"; renderMundial(); });
+    $("#btn-tab-partidos")?.addEventListener("click", () => { _mundialTab = "partidos"; renderMundial(); });
+    $("#btn-tab-goleadores")?.addEventListener("click", () => { _mundialTab = "goleadores"; renderMundial(); });
+
+    const tabContent = $("#mundial-tab-content");
+    if (!tabContent) return;
+
+    if (_mundialTab === "grupos") {
+      renderMundialGroups(tabContent);
+    } else if (_mundialTab === "partidos") {
+      renderMundialMatches(tabContent);
+    } else if (_mundialTab === "goleadores") {
+      renderMundialScorers(tabContent);
+    }
+  }
+
+  function renderMundialGroups(container) {
+    const groupMatches = _data.matches.filter(m => m.phase === "group" && m.group);
+    if (groupMatches.length === 0) {
+      container.innerHTML = `<p class="text-muted text-center py-4">No se han encontrado partidos de la fase de grupos.</p>`;
+      return;
+    }
+
+    const groupNames = [...new Set(groupMatches.map(m => m.group))].sort();
+    const groupTables = {};
+
+    groupNames.forEach(g => {
+      const matches = groupMatches.filter(m => m.group === g);
+      const teams = {};
+      matches.forEach(m => {
+        if (m.home_team) teams[m.home_team] = { name: m.home_team, pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, pts: 0 };
+        if (m.away_team) teams[m.away_team] = { name: m.away_team, pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, pts: 0 };
+      });
+
+      matches.forEach(m => {
+        const hs = m.home_score !== "" && m.home_score !== null && m.home_score !== undefined ? parseInt(m.home_score, 10) : null;
+        const as = m.away_score !== "" && m.away_score !== null && m.away_score !== undefined ? parseInt(m.away_score, 10) : null;
+        const hasResult = hs !== null && !isNaN(hs) && as !== null && !isNaN(as);
+
+        if (hasResult) {
+          const tHome = teams[m.home_team];
+          const tAway = teams[m.away_team];
+          if (tHome && tAway) {
+            tHome.pj++;
+            tAway.pj++;
+            tHome.gf += hs;
+            tHome.gc += as;
+            tAway.gf += as;
+            tAway.gc += hs;
+
+            if (hs > as) {
+              tHome.pg++;
+              tHome.pts += 3;
+              tAway.pp++;
+            } else if (hs < as) {
+              tAway.pg++;
+              tAway.pts += 3;
+              tHome.pp++;
+            } else {
+              tHome.pe++;
+              tAway.pe++;
+              tHome.pts += 1;
+              tAway.pts += 1;
+            }
+          }
+        }
+      });
+
+      groupTables[g] = Object.values(teams).sort((t1, t2) => {
+        if (t1.pts !== t2.pts) return t2.pts - t1.pts;
+        const diff1 = t1.gf - t1.gc;
+        const diff2 = t2.gf - t2.gc;
+        if (diff1 !== diff2) return diff2 - diff1;
+        if (t1.gf !== t2.gf) return t2.gf - t1.gf;
+        return t1.name.localeCompare(t2.name);
+      });
+    });
+
+    let html = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+    `;
+
+    groupNames.forEach(g => {
+      const rows = groupTables[g].map((t, idx) => {
+        const isQualified = idx < 2;
+        return `
+          <tr style="background:${isQualified ? 'rgba(27,139,67,0.02)' : 'transparent'}; border-left:3px solid ${isQualified ? 'var(--color-green)' : 'transparent'};">
+            <td style="text-align:center;font-weight:700;padding:8px 6px;">${idx + 1}</td>
+            <td style="font-weight:600;padding:8px 6px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${getFlagEmoji(t.name)} ${escapeHtml(t.name)}
+            </td>
+            <td style="text-align:center;padding:8px 6px;color:var(--color-text-secondary);">${t.pj}</td>
+            <td style="text-align:center;padding:8px 6px;color:var(--color-text-secondary);">${t.pg}-${t.pe}-${t.pp}</td>
+            <td style="text-align:center;padding:8px 6px;color:var(--color-text-secondary);">${t.gf}:${t.gc}</td>
+            <td style="text-align:center;padding:8px 6px;font-weight:bold;color:${t.pts > 0 ? 'var(--color-text)' : 'var(--color-text-secondary)'};">${t.pts}</td>
+          </tr>
+        `;
+      }).join("");
+
+      html += `
+        <div class="card" style="padding:16px;">
+          <h2 class="card-title" style="margin-bottom:12px;border-bottom:1px solid var(--color-border-subtle);padding-bottom:6px;color:var(--color-gold);">Grupo ${g}</h2>
+          <div class="table-container" style="box-shadow:none;border:none;margin:0;">
+            <table class="picks-table" style="width:100%;font-size:var(--font-sm);">
+              <thead>
+                <tr>
+                  <th style="width:30px;text-align:center;padding:6px;">#</th>
+                  <th style="text-align:left;padding:6px;">Equipo</th>
+                  <th style="width:25px;text-align:center;padding:6px;">PJ</th>
+                  <th style="width:50px;text-align:center;padding:6px;">G-E-P</th>
+                  <th style="width:40px;text-align:center;padding:6px;">Goles</th>
+                  <th style="width:30px;text-align:center;padding:6px;">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+
+  function renderMundialMatches(container) {
+    const rounds = Object.keys(CONFIG.roundLabels);
+    if (!rounds.includes(_mundialRound)) {
+      _mundialRound = rounds[0] || "group_md1";
+    }
+
+    const roundMatches = getMatchesByRound(_mundialRound);
+
+    const options = rounds.map(r => `
+      <option value="${r}" ${r === _mundialRound ? "selected" : ""}>
+        ${CONFIG.roundLabels[r] || r}
+      </option>
+    `).join("");
+
+    let matchesListHtml = "";
+    if (roundMatches.length === 0) {
+      matchesListHtml = `<p class="text-muted text-center py-4">No hay partidos en esta jornada/fase.</p>`;
+    } else {
+      matchesListHtml = roundMatches.map(m => {
+        const isFinished = m.status === "finished";
+        const isLive = m.status === "live";
+        const hs = m.home_score !== null && m.home_score !== undefined && m.home_score !== "" ? m.home_score : "-";
+        const as = m.away_score !== null && m.away_score !== undefined && m.away_score !== "" ? m.away_score : "-";
+
+        let dateStr = "";
+        if (m.kickoff_utc) {
+          const d = new Date(m.kickoff_utc);
+          dateStr = isNaN(d.getTime()) ? m.kickoff_utc : d.toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        }
+
+        const badge = isLive ? `<span style="font-size:0.65rem;font-weight:700;color:#fff;background:#dc2626;border-radius:4px;padding:2px 6px;animation:lsBlink 1.2s ease-in-out infinite;">LIVE</span>`
+                    : isFinished ? `<span style="font-size:0.65rem;font-weight:700;color:var(--color-text-secondary);border:1px solid var(--color-border);border-radius:4px;padding:1px 5px;opacity:0.75;">Final</span>`
+                    : `<span style="font-size:0.65rem;font-weight:700;color:var(--color-primary,#1b8b43);border:1px solid rgba(27,139,67,0.3);border-radius:4px;padding:1px 5px;">Prev</span>`;
+
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--color-border-subtle);background:rgba(255,255,255,0.01);">
+            <div style="flex:1;text-align:right;font-weight:600;font-size:var(--font-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${getFlagEmoji(m.home_team)} ${escapeHtml(m.home_team)}
+            </div>
+            
+            <div style="margin:0 24px;text-align:center;min-width:70px;display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <span style="font-weight:800;font-size:1.1rem;color:${isLive ? '#dc2626' : 'var(--color-text)'};">${hs} - ${as}</span>
+              <span style="font-size:var(--font-xs);color:var(--color-text-secondary);white-space:nowrap;">${dateStr}</span>
+            </div>
+
+            <div style="flex:1;text-align:left;font-weight:600;font-size:var(--font-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${escapeHtml(m.away_team)} ${getFlagEmoji(m.away_team)}
+            </div>
+            
+            <div style="margin-left:16px;width:50px;text-align:right;">
+              ${badge}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    let html = `
+      <div class="card" style="padding:20px;max-width:800px;margin:0 auto;">
+        <div class="flex-between" style="margin-bottom:20px;gap:16px;flex-wrap:wrap;">
+          <h2 class="card-title" style="margin:0;">Partidos del Mundial</h2>
+          <select id="mundial-round-select" class="form-select" style="width:auto;min-width:200px;">
+            ${options}
+          </select>
+        </div>
+
+        <div style="border:1px solid var(--color-border-subtle);border-radius:6px;overflow:hidden;background:var(--color-surface-2);">
+          ${matchesListHtml}
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
+
+    $("#mundial-round-select")?.addEventListener("change", (e) => {
+      _mundialRound = e.target.value;
+      renderMundialMatches(container);
+    });
+  }
+
+  function renderMundialScorers(container) {
+    const scorers = _data.players.map(p => {
+      let totalGoals = 0;
+      for (const k in p) {
+        if (k.startsWith("goals_")) {
+          const val = parseInt(p[k], 10);
+          if (!isNaN(val)) totalGoals += val;
+        }
+      }
+      return {
+        name: p.name,
+        team: p.team,
+        position: p.position,
+        goals: totalGoals
+      };
+    }).filter(p => p.goals > 0)
+      .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name));
+
+    let rowsHtml = "";
+    if (scorers.length === 0) {
+      rowsHtml = `<tr><td colspan="4" class="text-muted text-center py-4">Aún no se han registrado goles en la base de datos.</td></tr>`;
+    } else {
+      rowsHtml = scorers.map((p, idx) => `
+        <tr>
+          <td style="text-align:center;font-weight:700;">${idx + 1}</td>
+          <td style="font-weight:600;">${escapeHtml(p.name)}</td>
+          <td>${getFlagEmoji(p.team)} ${escapeHtml(p.team)}</td>
+          <td style="text-align:center;font-weight:bold;color:var(--color-gold);">${p.goals}</td>
+        </tr>
+      `).join("");
+    }
+
+    let html = `
+      <div class="card" style="padding:20px;max-width:700px;margin:0 auto;">
+        <h2 class="card-title" style="margin-bottom:16px;">Máximos Goleadores del Mundial</h2>
+        <div class="table-container" style="margin:0;">
+          <table class="leaderboard-table" style="width:100%;">
+            <thead>
+              <tr>
+                <th style="width:50px;text-align:center;">Pos</th>
+                <th style="text-align:left;">Jugador</th>
+                <th style="text-align:left;">Equipo</th>
+                <th style="width:80px;text-align:center;">Goles</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  }
+
   function renderMatches() {
     const container = $("#app-content");
     if (!container) return;
@@ -3553,6 +3845,7 @@ const App = (() => {
   function detectCurrentPage() {
     const path = window.location.pathname.toLowerCase();
     if (path.includes("partidos")) return "partidos";
+    if (path.includes("mundial")) return "mundial";
     if (path.includes("goleador") || path.includes("portero")) return "goleador-portero";
     if (path.includes("eventos")) return "eventos";
     if (path.includes("analisis")) return "analisis";
@@ -3930,6 +4223,9 @@ const App = (() => {
     switch (page) {
       case "partidos":
         renderMatches();
+        break;
+      case "mundial":
+        renderMundial();
         break;
       case "goleador-portero":
         renderScorerGoalkeeper();
