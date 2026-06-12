@@ -2367,27 +2367,55 @@ body {
   border-color: rgba(255,255,255,0.1);
 }
 
+.fun-stat__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.fun-stat__svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2px;
+}
+
 .fun-stat__title {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-text-muted, #7e8b9b);
-  margin-bottom: 6px;
 }
 
 .fun-stat__value {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--color-text, #ffffff);
-  line-height: 1.25;
-  margin-bottom: 4px;
+  line-height: 1.2;
+  margin-bottom: 2px;
 }
 
 .fun-stat__detail {
   font-size: 0.8rem;
   color: var(--color-text-secondary, #a0aec0);
   line-height: 1.4;
+}
+
+.fun-stat__progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.fun-stat__progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* --- Footer discreto --- */

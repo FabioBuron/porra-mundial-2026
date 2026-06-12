@@ -297,7 +297,8 @@ const PorraExtras = (() => {
     // 4. El cenizo
     const jinx = entries.filter(s => s.total >= 2).sort((a, b) => (b.zero / b.total) - (a.zero / a.total))[0];
     if (jinx && jinx.zero > 0) {
-      stats.push({ id: "jinx", title: "El cenizo", value: jinx.name, detail: `${jinx.zero} de ${jinx.total} pronósticos sin puntuar` });
+      const pct = Math.round((jinx.zero / jinx.total) * 100);
+      stats.push({ id: "jinx", title: "El cenizo", value: jinx.name, detail: `${jinx.zero} de ${jinx.total} sin puntuar (${pct}%)`, progress: pct });
     }
 
     // 5. El optimista
@@ -315,7 +316,8 @@ const PorraExtras = (() => {
     // 7. El pacifista
     const pacifist = entries.filter(s => s.predCount >= 2 && s.drawsCount > 0).sort((a, b) => (b.drawsCount / b.predCount) - (a.drawsCount / a.predCount))[0];
     if (pacifist) {
-      stats.push({ id: "draws", title: "El pacifista", value: pacifist.name, detail: `${pacifist.drawsCount} empates (${Math.round((pacifist.drawsCount / pacifist.predCount) * 100)}% de sus apuestas)` });
+      const pct = Math.round((pacifist.drawsCount / pacifist.predCount) * 100);
+      stats.push({ id: "draws", title: "El pacifista", value: pacifist.name, detail: `${pacifist.drawsCount} empates (${pct}% de sus apuestas)`, progress: pct });
     }
 
     // 8. El más aplicado
@@ -327,7 +329,7 @@ const PorraExtras = (() => {
     // 9. Ojo del grupo
     if (groupTotal > 0) {
       const pct = Math.round((groupHits / groupTotal) * 100);
-      stats.push({ id: "group", title: "Ojo del grupo", value: `${pct}%`, detail: `de pronósticos puntuando (${groupHits}/${groupTotal})` });
+      stats.push({ id: "group", title: "Ojo del grupo", value: `${pct}%`, detail: `de pronósticos puntuando (${groupHits}/${groupTotal})`, progress: pct });
     }
 
     return stats;
@@ -340,23 +342,55 @@ const PorraExtras = (() => {
       <div class="fun-stats">
         ${stats.map(s => {
           let accentColor = "#64748b";
-          if (s.id === "leader") accentColor = "#ef4444";
-          else if (s.id === "sniper") accentColor = "#f59e0b";
-          else if (s.id === "avg-points") accentColor = "#8b5cf6";
-          else if (s.id === "jinx") accentColor = "#06b6d4";
-          else if (s.id === "optimist") accentColor = "#f97316";
-          else if (s.id === "conservative") accentColor = "#3b82f6";
-          else if (s.id === "draws") accentColor = "#ec4899";
-          else if (s.id === "grinder") accentColor = "#10b981";
-          else if (s.id === "group") accentColor = "#718096";
+          let svgIcon = "";
+
+          if (s.id === "leader") {
+            accentColor = "#ef4444";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>`;
+          } else if (s.id === "sniper") {
+            accentColor = "#f59e0b";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v20M2 12h20M12 9a3 3 0 100 6 3 3 0 000-6z"/></svg>`;
+          } else if (s.id === "avg-points") {
+            accentColor = "#8b5cf6";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>`;
+          } else if (s.id === "jinx") {
+            accentColor = "#06b6d4";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`;
+          } else if (s.id === "optimist") {
+            accentColor = "#f97316";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/></svg>`;
+          } else if (s.id === "conservative") {
+            accentColor = "#3b82f6";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>`;
+          } else if (s.id === "draws") {
+            accentColor = "#ec4899";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
+          } else if (s.id === "grinder") {
+            accentColor = "#10b981";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>`;
+          } else if (s.id === "group") {
+            accentColor = "#718096";
+            svgIcon = `<svg class="fun-stat__svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`;
+          }
+
+          let progressHtml = "";
+          if (s.progress !== undefined) {
+            progressHtml = `
+              <div class="fun-stat__progress-bar">
+                <div class="fun-stat__progress-fill" style="width: ${s.progress}%; background-color: ${accentColor};"></div>
+              </div>
+            `;
+          }
 
           return `
             <div class="fun-stat" style="border-left: 4px solid ${accentColor};">
-              <div class="fun-stat__body">
-                <div class="fun-stat__title">${esc(s.title)}</div>
-                <div class="fun-stat__value">${esc(s.value)}</div>
-                <div class="fun-stat__detail">${esc(s.detail)}</div>
+              <div class="fun-stat__header">
+                <span class="fun-stat__title">${esc(s.title)}</span>
+                <span style="color: ${accentColor}; opacity: 0.85; display: flex; align-items: center;">${svgIcon}</span>
               </div>
+              <div class="fun-stat__value">${esc(s.value)}</div>
+              <div class="fun-stat__detail">${esc(s.detail)}</div>
+              ${progressHtml}
             </div>
           `;
         }).join("")}
