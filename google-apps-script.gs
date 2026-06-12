@@ -168,22 +168,32 @@ function savePredictions(ss, participantId, predictionsArray, now) {
   
   if (!sheetPredictions || !sheetMatches) throw new Error("No se encontraron las pestañas necesarias");
   
-  // Mapear partidos para validar deadlines
+  // Mapear partidos para validar deadlines POR JORNADA.
+  // Regla (#5): una jornada se cierra cuando empieza su PRIMER partido. Por eso el
+  // plazo de CADA partido es el kickoff más temprano de su jornada, no el suyo
+  // propio. (Coincide con getRoundDeadline(), usado para goleador/portero.)
   var matchesData = sheetMatches.getDataRange().getValues();
   var mHeaders = matchesData[0];
   var mIdIdx = mHeaders.indexOf("id");
   var mKickoffIdx = mHeaders.indexOf("kickoff_utc");
   var mStatusIdx = mHeaders.indexOf("status");
-  
-  var matchesDeadlineMap = {};
+  var mPhaseIdx = mHeaders.indexOf("phase");
+  var mMdIdx = mHeaders.indexOf("matchday");
+
+  var matchInfoMap = {};         // matchId → { roundKey, status }
+  var roundEarliestKickoff = {}; // roundKey → ms del kickoff más temprano de la jornada
   for (var i = 1; i < matchesData.length; i++) {
-    var matchId = String(matchesData[i][mIdIdx]);
+    var rowMatchId = String(matchesData[i][mIdIdx]);
     var kickoffStr = matchesData[i][mKickoffIdx];
     var status = String(matchesData[i][mStatusIdx]);
-    matchesDeadlineMap[matchId] = {
-      kickoff: kickoffStr ? new Date(kickoffStr) : null,
-      status: status
-    };
+    var rKey = getMatchRoundKey_(matchesData[i][mPhaseIdx], mMdIdx === -1 ? "" : matchesData[i][mMdIdx]);
+    matchInfoMap[rowMatchId] = { roundKey: rKey, status: status };
+    if (rKey && kickoffStr) {
+      var t = new Date(kickoffStr).getTime();
+      if (!isNaN(t) && (roundEarliestKickoff[rKey] === undefined || t < roundEarliestKickoff[rKey])) {
+        roundEarliestKickoff[rKey] = t;
+      }
+    }
   }
   
   var predDataRange = sheetPredictions.getDataRange();
@@ -203,14 +213,15 @@ function savePredictions(ss, participantId, predictionsArray, now) {
     var homeScore = pred.predictedHome;
     var awayScore = pred.predictedAway;
     
-    // Validar deadline del partido
-    var matchInfo = matchesDeadlineMap[matchId];
+    // Validar deadline POR JORNADA del partido
+    var matchInfo = matchInfoMap[matchId];
     if (!matchInfo) throw new Error("Partido no encontrado: " + matchId);
     if (matchInfo.status === "finished" || matchInfo.status === "live") {
       throw new Error("El partido " + matchId + " ya ha comenzado o finalizado");
     }
-    if (matchInfo.kickoff && now >= matchInfo.kickoff) {
-      throw new Error("El plazo para el partido " + matchId + " ha vencido");
+    var roundStart = matchInfo.roundKey ? roundEarliestKickoff[matchInfo.roundKey] : null;
+    if (roundStart && now.getTime() >= roundStart) {
+      throw new Error("El plazo de la jornada del partido " + matchId + " ha vencido (la jornada ya ha comenzado)");
     }
     
     // Buscar si ya existe la fila para actualizarla
