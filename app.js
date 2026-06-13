@@ -3485,52 +3485,40 @@ const App = (() => {
 
     const adsPool = [
       {
-        highlight: "CLUB LA FLOR DE PACO",
-        desc: "El fútbol de la porra también es vida. Visita nuestro local en la Carretera Nacional, Km 124. Cubatas baratos y debate táctico con palillo gratis en barra."
+        highlight: "JARDINERÍA EL CÉSPED DE XAVI",
+        desc: "Cortamos la hierba a la altura exacta de 2.1 cm y medimos el nivel del sol para justificar cualquier empate. Presupuesto sin compromiso para talibanes de la posesión."
       },
       {
-        highlight: "¿TE CLAREA EL CARTÓN?",
-        desc: "Crecepelo milagroso 'El Cuñao'. Resultados garantizados en tres jornadas o te regalamos una boina de rosca. De venta en la trastienda de la taberna."
+        highlight: "RETRATOS Y BECARIOS PEDREROL",
+        desc: "Exclusivas dramáticas a las 2 AM con música de tensión. Si fallas tu pick, te ponemos el cartel de 'RETRATADO' en pantalla gigante. ¡Tila para los nervios y TIC TAC!"
       },
       {
-        highlight: "COMPRA DE PUNTOS",
-        desc: "Trato discreto. Se compran puntos de la clasificación general. Pago en cobre, baterías usadas o recambios para un Seat Ibiza del 98. Razón aquí."
+        highlight: "BODEGAS EL LLORATÓ",
+        desc: "Vino peleón ideal para pasar el mal trago de tus quejas sobre el VAR y el Tito Floren. Incluye babero oficial de 'robo histórico' de regalo."
       },
       {
-        highlight: "GAFAS ANTI-VAR HOMOLOGADAS",
-        desc: "Las únicas del mercado que borran las líneas del fuera de juego semiautomático en televisores de bar. Cristales oscuros. Garantía del fabricante."
+        highlight: "CONOS DE ENTRENAMIENTO ARBELOA",
+        desc: "Soportes de plástico naranja de alta visibilidad, ideales para el lateral derecho de tu equipo de fútbol 7. Máxima rigidez y estabilidad garantizadas."
       },
       {
-        highlight: "FUTUROLOGÍA Y CARAJILLOS",
-        desc: "Acierto garantizado en empates a cero y expulsiones rigurosas. Lectura del porvenir en la espuma del café de media mañana. Preguntar por Pepe."
+        highlight: "VIAJES DE PRETEMPORADA HAZARD",
+        desc: "Rutas gastronómicas por las mejores hamburgueserías de Bruselas. Olvídate de correr y concéntrate en lo importante: el buffet libre del hotel."
       },
       {
-        highlight: "SE ALQUILA CUÑADO",
-        desc: "Especialista para comidas dominicales o debates deportivos. Experto en táctica nacional, mecánica general y 'saber de fútbol'. Tarifas a convenir."
+        highlight: "SEGUROS ANTI-GAFE RONCERO",
+        desc: "Protege a tu equipo de las predicciones de Tomás Roncero. Si publica un tuit apoyando a tu rival, te garantizamos la victoria en el último minuto."
       },
       {
-        highlight: "TALLERES EL FIGURA",
-        desc: "Reparamos tu coche para que aguante el viaje de huida de las broncas de la parienta. Especialistas en embragues gastados y excusas para quedarte en el bar."
+        highlight: "ASOCIACIÓN DEL FÚTBOL DE BARRO",
+        desc: "Campos de tierra, balones que pesan 4 kilos cuando llueve y bocadillos de panceta en el descanso. El VAR y los extremos modernos de 100 millones están prohibidos."
       },
       {
-        highlight: "PENALTIS DE URGENCIA",
-        desc: "Servicio 24h para el Real Madrid. ¿Llega el minuto 90 y vais perdiendo? Te tramitamos una mano en el área o un tropiezo sospechoso. Efectividad garantizada."
+        highlight: "NEGREIRA & ASOCIADOS, CONSULTORÍA",
+        desc: "Informes arbitrales en VHS de máxima confidencialidad. Te explicamos de forma muy neutral si el árbitro pita con la mano izquierda o derecha. Pagos en cómodas facturas."
       },
       {
-        highlight: "ASESORÍA NEGREIRA",
-        desc: "Informes arbitrales de máxima confidencialidad. Asegura tus ligas de la porra sin levantar sospechas en el VAR. Pagos en cómodas facturas de consultoría."
-      },
-      {
-        highlight: "VITRINAS EL COLCHÓN",
-        desc: "Especialistas en estanterías reforzadas para guardar subcampeonatos de Champions League. Espacio de sobra garantizado. Descuento para socios del Atleti."
-      },
-      {
-        highlight: "PASAPORTES EXPRESS",
-        desc: "¿Sin físico en tu porra? Nacionalizamos atletas franceses en tiempo récord. Si corren los 100 metros en menos de 10 segundos, no hacemos preguntas sobre su origen."
-      },
-      {
-        highlight: "BENGALAS LAS RAMBLAS",
-        desc: "Banderas y bengalas para celebrar victorias de Marruecos en el centro de Barcelona. Descuento si traes un iPhone robado o sabes regatear a la autoridad como Achraf."
+        highlight: "ESTANTERÍAS EL PUPAS",
+        desc: "Muebles reforzados para almacenar subcampeonatos y derrotas dolorosas en el último suspiro. Descuento especial para sufridores profesionales del Atleti."
       }
     ];
 
