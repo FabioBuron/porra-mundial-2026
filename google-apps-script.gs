@@ -940,9 +940,25 @@ function _buildPorraContextFromSheet() {
       }
     }
 
+    // Calcular clasificación de la jornada actual
+    var clasificacionJornada = "";
+    try {
+      var lbJornada = calcularLeaderboardEnBackend(ss, currentRound);
+      if (lbJornada && lbJornada.length > 0) {
+        // Ordenamos por puntos descendente
+        lbJornada.sort(function(a, b) { return b.points - a.points; });
+        lbJornada.forEach(function(p, idx) {
+          clasificacionJornada += (idx + 1) + ". " + p.name + " — " + p.points + " pts\n";
+        });
+      }
+    } catch(e) {
+      clasificacionJornada = "No disponible";
+    }
+
     return {
       jornada: currentRound,
       clasificacion: clasificacion.trim() || "Sin datos aún",
+      clasificacionJornada: clasificacionJornada.trim() || "Sin datos aún",
       goleadores: scorerLines.join(", ") || "Sin picks aún",
       porteros: gkLines.join(", ") || "Sin picks aún"
     };
