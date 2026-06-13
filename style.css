@@ -3089,43 +3089,38 @@ body {
 
 /* --- Foto Vintage de Periódico --- */
 .newspaper-photo-card {
-  border: 1px solid #1a1a1a;
-  padding: 12px;
-  background-color: #fcfbf7;
-  box-shadow: 3px 3px 0px rgba(0,0,0,0.15);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 16px;
+  display: block;
+  margin-bottom: 14px;
   break-inside: avoid;
   -webkit-column-break-inside: avoid;
+  width: 100%;
 }
 
 .newspaper-photo-wrapper {
   width: 100%;
-  border: 1px solid #1a1a1a;
   overflow: hidden;
-  background-color: #fff;
+  line-height: 0;
 }
 
 .newspaper-photo {
   width: 100%;
   height: auto;
   display: block;
-  filter: grayscale(100%) contrast(1.2) brightness(0.95);
+  filter: grayscale(100%) contrast(1.15) brightness(0.97);
 }
 
 .newspaper-photo-caption {
   font-family: 'Georgia', serif;
   font-style: italic;
-  font-size: 11.5px;
-  color: #333;
-  margin-top: 10px;
-  text-align: center;
-  border-top: 1px dotted rgba(0,0,0,0.3);
-  padding-top: 8px;
+  font-size: 11px;
+  color: #444;
+  margin-top: 5px;
+  text-align: left;
+  border-top: 1px solid rgba(0,0,0,0.15);
+  padding-top: 5px;
   width: 100%;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
 }
 
 /* --- Sección Clasificados Footer --- */
@@ -3226,8 +3221,73 @@ body {
 
 .newspaper-text-columns {
   column-count: 2;
-  column-gap: 28px;
+  column-gap: 24px;
   column-rule: 1px solid rgba(0, 0, 0, 0.15);
+  text-align: justify;
+  orphans: 3;
+  widows: 3;
+}
+
+/* --- Sección Entrevista --- */
+.newspaper-interview {
+  border-top: 2px solid #000;
+  margin-top: 24px;
+  padding-top: 16px;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  column-span: all;
+}
+
+.newspaper-interview-header {
+  font-family: 'Playfair Display', 'Georgia', serif;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.newspaper-interview-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #1a1a1a;
+}
+
+.newspaper-interview-byline {
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 12px;
+}
+
+.newspaper-interview-qa {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 4px 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.newspaper-interview-q {
+  font-family: 'Georgia', serif;
+  font-weight: 700;
+  font-style: italic;
+  color: #1a1a1a;
+  text-align: right;
+  padding-right: 8px;
+  border-right: 2px solid #1a1a1a;
+}
+
+.newspaper-interview-a {
+  font-family: 'Georgia', serif;
+  color: #222;
   text-align: justify;
 }
 
