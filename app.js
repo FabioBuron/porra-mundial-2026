@@ -3530,6 +3530,32 @@ const App = (() => {
       ? info.pie_imagen
       : "FOTO DE PORTADA — Instantánea de los sucesos descritos en la crónica.";
 
+    let entrevistaHtml = "";
+    if (info.entrevista && info.entrevista.trim() !== "" && info.entrevista.trim() !== "{}") {
+      try {
+        let ev = typeof info.entrevista === "string" ? JSON.parse(info.entrevista) : info.entrevista;
+        if (ev && ev.entrevistado && Array.isArray(ev.preguntas) && ev.preguntas.length > 0) {
+          const qas = ev.preguntas.map(qa => `
+            <div class="newspaper-interview-qa">
+              <div class="newspaper-interview-q">${escapeHtml(qa.p)}</div>
+              <div class="newspaper-interview-a">${escapeHtml(qa.r)}</div>
+            </div>
+          `).join("");
+          entrevistaHtml = `
+            <div class="newspaper-interview">
+              <div class="newspaper-interview-header">Entrevista Exclusiva</div>
+              <div class="newspaper-interview-byline">
+                ${escapeHtml(ev.entrevistado)} — ${escapeHtml(ev.motivo || "")}
+              </div>
+              ${qas}
+            </div>
+          `;
+        }
+      } catch(e) {
+        console.warn("No se pudo parsear la entrevista:", e);
+      }
+    }
+
     const fotoHtml = (info.foto && info.foto.trim() !== "")
       ? `<div class="newspaper-photo-card">
           <div class="newspaper-photo-wrapper">
@@ -3588,6 +3614,7 @@ const App = (() => {
             <div class="newspaper-text-columns">
               ${fotoHtml}
               ${parrafosHtml}
+              ${entrevistaHtml}
             </div>
           </div>
           <div class="newspaper-sidebar">
