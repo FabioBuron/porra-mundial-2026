@@ -888,64 +888,46 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     data = JSON.parse(cleanText);
   }
 
-  // Generar imagen mediante la API de Stability AI (Stable Image Core) usando la API Key de Stability
+  // Generar imagen mediante la API de Cloudflare Workers AI (modelo FLUX-1 Schnell)
   let base64Image = "";
   let debugErrorImagen = "";
-  var stabilityApiKey = PropertiesService.getScriptProperties().getProperty("STABILITY_API_KEY") || "";
+  const cfAccountId = PropertiesService.getScriptProperties().getProperty("CLOUDFLARE_ACCOUNT_ID") || "";
+  const cfApiToken = PropertiesService.getScriptProperties().getProperty("CLOUDFLARE_API_TOKEN") || "";
   
-  if (!stabilityApiKey) {
-    debugErrorImagen = "No se encontro la clave STABILITY_API_KEY en Script Properties.";
+  if (!cfAccountId || !cfApiToken) {
+    debugErrorImagen = "No se encontraron las credenciales CLOUDFLARE_ACCOUNT_ID o CLOUDFLARE_API_TOKEN en Script Properties.";
     Logger.log(debugErrorImagen);
   } else if (data.prompt_imagen) {
     try {
-      const imagenUrl = "https://api.stability.ai/v2beta/stable-image/generate/core";
-      const boundary = "----WebKitFormBoundary" + Math.random().toString(36).substring(2);
-      const parts = [
-        "--" + boundary,
-        'Content-Disposition: form-data; name="prompt"',
-        '',
-        data.prompt_imagen,
-        "--" + boundary,
-        'Content-Disposition: form-data; name="aspect_ratio"',
-        '',
-        "5:4",
-        "--" + boundary,
-        'Content-Disposition: form-data; name="output_format"',
-        '',
-        "jpeg",
-        "--" + boundary + "--",
-        ''
-      ];
-      const multipartBody = parts.join("\r\n");
-
+      const imagenUrl = "https://api.cloudflare.com/client/v4/accounts/" + cfAccountId + "/ai/run/@cf/black-forest-labs/flux-1-schnell";
+      const payload = {
+        prompt: data.prompt_imagen
+      };
+      
       const imagenOptions = {
         method: "post",
-        contentType: "multipart/form-data; boundary=" + boundary,
+        contentType: "application/json",
         headers: {
-          "Authorization": "Bearer " + stabilityApiKey,
-          "Accept": "application/json"
+          "Authorization": "Bearer " + cfApiToken
         },
-        payload: multipartBody,
+        payload: JSON.stringify(payload),
         muteHttpExceptions: true
       };
+      
       const imagenResponse = UrlFetchApp.fetch(imagenUrl, imagenOptions);
       const imagenResponseCode = imagenResponse.getResponseCode();
-      const imagenResponseText = imagenResponse.getContentText();
       
       if (imagenResponseCode === 200) {
-        const imagenJsonResponse = JSON.parse(imagenResponseText);
-        if (imagenJsonResponse.image) {
-          base64Image = imagenJsonResponse.image;
-        } else {
-          debugErrorImagen = "La API de Stability respondio 200 pero el campo image esta vacio: " + imagenResponseText;
-        }
+        const bytes = imagenResponse.getContent();
+        base64Image = Utilities.base64Encode(bytes);
       } else {
-        debugErrorImagen = "Stability API Error " + imagenResponseCode + ": " + imagenResponseText;
-        Logger.log("Error al generar imagen con Stability: " + imagenResponseText);
+        const imagenResponseText = imagenResponse.getContentText();
+        debugErrorImagen = "Cloudflare Workers AI Error " + imagenResponseCode + ": " + imagenResponseText;
+        Logger.log("Error al generar imagen con Cloudflare: " + imagenResponseText);
       }
     } catch (e) {
-      debugErrorImagen = "Excepcion capturada en Stability: " + e.toString();
-      Logger.log("Excepcion al generar imagen con Stability: " + e.toString());
+      debugErrorImagen = "Excepcion capturada en Cloudflare: " + e.toString();
+      Logger.log("Excepcion al generar imagen con Cloudflare: " + e.toString());
     }
   } else {
     debugErrorImagen = "Gemini no devolvio prompt_imagen en el JSON.";
