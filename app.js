@@ -3881,11 +3881,21 @@ const App = (() => {
   }
 
   function getMatchesByRound(roundKey) {
+    let filtered = [];
     if (roundKey.startsWith("group_md")) {
       const md = parseInt(roundKey.replace("group_md", ""), 10);
-      return _data.matches.filter(m => m.phase === "group" && (m.matchday === md || m.matchday === String(md)));
+      filtered = _data.matches.filter(m => m.phase === "group" && (m.matchday === md || m.matchday === String(md)));
+    } else {
+      filtered = _data.matches.filter(m => m.phase === roundKey);
     }
-    return _data.matches.filter(m => m.phase === roundKey);
+    return filtered.sort((a, b) => {
+      const da = a.kickoff_utc ? new Date(a.kickoff_utc).getTime() : 0;
+      const db = b.kickoff_utc ? new Date(b.kickoff_utc).getTime() : 0;
+      const ta = isNaN(da) ? 0 : da;
+      const tb = isNaN(db) ? 0 : db;
+      if (ta !== tb) return ta - tb;
+      return String(a.id).localeCompare(String(b.id));
+    });
   }
 
   // ---------------------------------------------------------------------------

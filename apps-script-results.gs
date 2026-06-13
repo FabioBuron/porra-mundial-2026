@@ -742,7 +742,6 @@ function updateResults() {
     if (apiId === "" || apiId === null || apiId === undefined) continue;
 
     const currStatus = row[idxStatus];
-    if (currStatus === "finished") continue;
 
     const am = apiMap[String(apiId)];
     if (!am) continue;
@@ -768,6 +767,13 @@ function updateResults() {
 
     const currHome = row[idxHome];
     const currAway = row[idxAway];
+
+    // Si ya está finalizado localmente y coincide el marcador con la API, evitamos procesar
+    if (currStatus === "finished" && newStatus === "finished" && 
+        newHome !== null && String(newHome) === String(currHome) && 
+        newAway !== null && String(newAway) === String(currAway)) {
+      continue;
+    }
 
     const hasChange = newStatus !== currStatus ||
       (newHome !== null && String(newHome) !== String(currHome)) ||
