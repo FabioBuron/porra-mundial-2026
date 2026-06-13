@@ -60,6 +60,16 @@
 
   function parseLocalDate(s) {
     if (!s) return null;
+    // Si s tiene formato "MM/DD/YYYY HH:mm", lo parseamos manualmente para evitar inconsistencias
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+    if (m) {
+      const month = parseInt(m[1], 10) - 1;
+      const day = parseInt(m[2], 10);
+      const year = parseInt(m[3], 10);
+      const hour = parseInt(m[4], 10);
+      const min = parseInt(m[5], 10);
+      return new Date(year, month, day, hour, min);
+    }
     const t = Date.parse(s);
     return isNaN(t) ? null : new Date(t);
   }
@@ -98,7 +108,7 @@
     } else if (team && team.flag) {
       flag = `<img src="${escapeHtml(team.flag)}" alt="" style="width:22px;height:16px;object-fit:cover;border-radius:2px;flex:0 0 auto;">`;
     } else {
-      flag = "⚽";
+      flag = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;display:inline-block;vertical-align:middle;opacity:0.6;flex:0 0 auto;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`;
     }
 
     const dir = align === "right" ? "row-reverse" : "row";
@@ -117,7 +127,7 @@
     } else if (team && team.flag) {
       return `<img src="${escapeHtml(team.flag)}" alt="" style="width:18px;height:13px;object-fit:cover;border-radius:1px;display:inline-block;vertical-align:middle;margin:0 2px;">`;
     }
-    return "⚽";
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;display:inline-block;vertical-align:middle;opacity:0.6;margin:0 2px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`;
   }
 
   function scoreCell(game, live, finished) {
@@ -145,14 +155,33 @@
     }
 
     const d = parseLocalDate(game.local_date);
-    const label = d
-      ? d.toLocaleDateString("es-ES", { day: "numeric", month: "short" })
-      : (game.local_date || "VS");
+    if (d) {
+      const dateLabel = d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+      const timeLabel = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:60px;line-height:1.2;">
+          <span style="color:var(--color-text-secondary);font-size:0.8rem;font-weight:600;">${escapeHtml(dateLabel)}</span>
+          <span style="color:var(--color-text-muted,#718096);font-size:0.68rem;opacity:0.8;">${escapeHtml(timeLabel)}</span>
+        </div>`;
+    }
+    const label = game.local_date || "VS";
     return `<span style="min-width:60px;text-align:center;color:var(--color-text-secondary);font-size:0.8rem;">${escapeHtml(label)}</span>`;
   }
 
-  function badge(live, finished, isLastFinished) {
-    if (live) return `<span style="font-size:0.65rem;font-weight:700;color:#fff;background:#dc2626;border-radius:4px;padding:2px 6px;animation:lsBlink 1.2s ease-in-out infinite;">LIVE</span>`;
+  function badge(live, finished, isLastFinished, game) {
+    if (live) {
+      let te = game ? String(game.time_elapsed || "").trim().toLowerCase() : "";
+      let minStr = "";
+      if (te && te !== "null" && te !== "notstarted") {
+        if (te.indexOf("half") !== -1 || te.indexOf("descanso") !== -1) {
+          minStr = " (Int)";
+        } else {
+          if (!isNaN(Number(te))) te = te + "'";
+          minStr = ` ${te}`;
+        }
+      }
+      return `<span style="font-size:0.65rem;font-weight:700;color:#fff;background:#dc2626;border-radius:4px;padding:2px 6px;animation:lsBlink 1.2s ease-in-out infinite;">LIVE${escapeHtml(minStr)}</span>`;
+    }
     if (isLastFinished) return `<span style="font-size:0.65rem;font-weight:700;color:#1b8b43;background:rgba(27,139,67,0.15);border:1px solid rgba(27,139,67,0.3);border-radius:4px;padding:1px 5px;">Último</span>`;
     if (finished) return `<span style="font-size:0.65rem;font-weight:700;color:var(--color-text-secondary);border:1px solid var(--color-border);border-radius:4px;padding:1px 5px;opacity:0.75;">Final</span>`;
     return `<span style="font-size:0.65rem;font-weight:700;color:var(--color-primary,#1b8b43);border:1px solid rgba(27,139,67,0.3);border-radius:4px;padding:1px 5px;">Próx</span>`;
@@ -164,10 +193,11 @@
     const live = isLive(game);
     const finished = isFinished(game);
     const isLastFinished = finished && String(game.id) === String(lastFinishedId);
+    const rowClass = `live-game-row ${isLastFinished ? "live-game-row--last-finished" : ""}`;
 
     return `
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border-subtle,#131a29);background:${isLastFinished ? "rgba(27,139,67,0.03)" : "transparent"}">
-        <div style="flex:0 0 auto;width:42px;display:flex;justify-content:flex-start;">${badge(live, finished, isLastFinished)}</div>
+      <div class="${rowClass}">
+        <div style="flex:0 0 auto;width:60px;display:flex;justify-content:flex-start;">${badge(live, finished, isLastFinished, game)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
           ${teamCell(home, "left", game.home_team_name_en || game.home_team_name)}
           ${scoreCell(game, live, finished)}
@@ -247,7 +277,9 @@
       container.innerHTML = `
         <div class="live-panel" id="live-panel" style="display:none; flex-direction:column;">
           <div class="live-panel__header">
-            <span class="live-panel__header-emoji">⚽</span>
+            <span class="live-panel__header-emoji">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--color-primary,#1b8b43);"><rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line><circle cx="12" cy="12" r="4"></circle></svg>
+            </span>
             <div class="live-panel__header-title" id="live-panel-title">Marcadores en Vivo</div>
             <button class="live-panel__close" id="live-panel-close" aria-label="Cerrar panel">×</button>
           </div>
@@ -256,7 +288,9 @@
           </div>
         </div>
         <button class="live-fab" id="live-fab" aria-label="Marcadores en vivo">
-          <span class="live-fab__icon">⚽</span>
+          <span class="live-fab__icon" style="display:inline-flex;align-items:center;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;"><rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line><circle cx="12" cy="12" r="4"></circle></svg>
+          </span>
           <span class="live-fab__text" id="live-fab-text" style="display:none;"></span>
         </button>
       `;
@@ -331,7 +365,7 @@
         else if (elapsed.indexOf("half") !== -1 || elapsed.indexOf("descanso") !== -1) elapsed = "Int";
         else if (!isNaN(Number(elapsed))) elapsed = elapsed + "'";
 
-        fabText.innerHTML = `<span style="display:flex;align-items:center;gap:6px;">${homeFlag} ${h}-${a} ${awayFlag} <span style="font-size:0.75rem;opacity:0.9;">(${elapsed})</span></span>`;
+        fabText.innerHTML = `<span style="display:flex;align-items:center;gap:6px;">${homeFlag} ${h}-${a} ${awayFlag} <span style="font-size:0.65rem;font-weight:700;color:#fff;background:#dc2626;border-radius:12px;padding:1px 6px;text-transform:uppercase;margin-left:4px;">${elapsed}</span></span>`;
         fabText.style.display = "inline";
         fab.classList.add("live-fab--live");
       } else {
@@ -353,7 +387,7 @@
           const h = homeScore !== null ? homeScore : 0;
           const a = awayScore !== null ? awayScore : 0;
           
-          fabText.innerHTML = `<span style="display:flex;align-items:center;gap:6px;">${homeFlag} ${h}-${a} ${awayFlag} <span style="font-size:0.75rem;opacity:0.75;font-weight:normal;">(Fin)</span></span>`;
+          fabText.innerHTML = `<span style="display:flex;align-items:center;gap:6px;">${homeFlag} ${h}-${a} ${awayFlag} <span style="font-size:0.65rem;font-weight:700;color:var(--color-text-secondary);background:rgba(255,255,255,0.08);border:1px solid var(--color-border);border-radius:12px;padding:1px 6px;text-transform:uppercase;margin-left:4px;">Fin</span></span>`;
           fabText.style.display = "inline";
         } else {
           fabText.style.display = "none";
