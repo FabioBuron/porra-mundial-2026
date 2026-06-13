@@ -3489,8 +3489,8 @@ const App = (() => {
         desc: "Cortamos la hierba a la altura exacta de 2.1 cm y medimos el nivel del sol para justificar cualquier empate. Presupuesto sin compromiso para talibanes de la posesión."
       },
       {
-        highlight: "RETRATOS Y BECARIOS PEDREROL",
-        desc: "Exclusivas dramáticas a las 2 AM con música de tensión. Si fallas tu pick, te ponemos el cartel de 'RETRATADO' en pantalla gigante. ¡Tila para los nervios y TIC TAC!"
+        highlight: "ALQUILER DE BECARIOS PEDREROL",
+        desc: "Servicio 24h de redactores asustados listos para traerte cafés y escribir exclusivas a las 3 AM bajo música de tensión constante. Tarifa económica. ¡Becarios NO!"
       },
       {
         highlight: "BODEGAS EL LLORATÓ",
