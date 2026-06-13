@@ -3558,10 +3558,21 @@ const App = (() => {
 
     const chatHistory = []; // { role: "user"|"oracle", text: string }
 
+    // Sparkles SVG for Oracle avatar
+    const oracleSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`;
+    // User SVG for user avatar
+    const userSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
     container.innerHTML = `
       <div style="max-width:720px; margin:0 auto; padding: 0 0 2rem;">
         <div class="fade-in" style="text-align:center; padding: 2rem 1rem 1.5rem;">
-          <div style="font-size:4rem; margin-bottom:0.5rem;">🧙‍♂️</div>
+          <div class="oraculo-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5z"/>
+              <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z"/>
+            </svg>
+          </div>
           <h1 class="page-title" style="margin-bottom:0.25rem;">El Oráculo del Cuñao</h1>
           <p class="text-muted" style="font-size:var(--font-sm);">
             Consultor futbolístico de barra. Sabe un rato de esto. Alimentado por <strong>Gemma 4 31B</strong>.
@@ -3582,7 +3593,7 @@ const App = (() => {
           margin-bottom: 1rem;
         ">
           <div class="oraculo-msg oraculo-msg--oracle">
-            <span class="oraculo-avatar">🧙‍♂️</span>
+            <span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>
             <div class="oraculo-bubble oraculo-bubble--oracle">
               Buenas, buenas. El Oráculo de la Barra al aparato. Pregunta lo que quieras sobre fútbol, que de esto sé un rato. Y si no sé, me lo invento con mucha convicción, que para eso tengo palillo en la boca y veinte años viendo el fútbol en el bar del Paco.
             </div>
@@ -3597,8 +3608,8 @@ const App = (() => {
             rows="2"
             style="flex:1; resize:none; border-radius:var(--radius-md); font-family:inherit; font-size:var(--font-sm); padding: 0.75rem 1rem; line-height:1.5;"
           ></textarea>
-          <button id="oraculo-send-btn" class="btn btn--primary" style="height:52px; padding: 0 1.25rem; flex-shrink:0;">
-            Enviar 📨
+          <button id="oraculo-send-btn" class="btn btn--primary" style="height:52px; padding: 0 1.25rem; flex-shrink:0; display:inline-flex; align-items:center; gap:6px;">
+            Enviar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;display:inline-block;vertical-align:middle;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
         </div>
         <p class="text-muted" style="font-size:0.72rem; text-align:center; margin-top:0.5rem;">
@@ -3620,9 +3631,9 @@ const App = (() => {
       const div = document.createElement("div");
       div.className = `oraculo-msg ${isOracle ? "oraculo-msg--oracle" : "oraculo-msg--user"}`;
       div.innerHTML = `
-        ${isOracle ? '<span class="oraculo-avatar">🧙‍♂️</span>' : ""}
+        ${isOracle ? `<span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>` : ""}
         <div class="oraculo-bubble ${isOracle ? "oraculo-bubble--oracle" : "oraculo-bubble--user"}">${escapeHtml(text)}</div>
-        ${!isOracle ? '<span class="oraculo-avatar">👤</span>' : ""}
+        ${!isOracle ? `<span class="oraculo-avatar oraculo-avatar--user">${userSvg}</span>` : ""}
       `;
       chatBox.appendChild(div);
       scrollToBottom();
@@ -3637,7 +3648,7 @@ const App = (() => {
       const div = document.createElement("div");
       div.className = "oraculo-msg oraculo-msg--oracle";
       div.innerHTML = `
-        <span class="oraculo-avatar">🧙‍♂️</span>
+        <span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>
         <div class="oraculo-bubble oraculo-bubble--oracle oraculo-bubble--streaming"></div>
       `;
       chatBox.appendChild(div);
@@ -3662,7 +3673,7 @@ const App = (() => {
       div.className = "oraculo-msg oraculo-msg--oracle";
       div.id = "oraculo-typing";
       div.innerHTML = `
-        <span class="oraculo-avatar">🧙‍♂️</span>
+        <span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>
         <div class="oraculo-bubble oraculo-bubble--oracle oraculo-typing">
           <span></span><span></span><span></span>
         </div>

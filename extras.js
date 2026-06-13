@@ -955,6 +955,11 @@ const PorraExtras = (() => {
   let isOpen = false;
   let isBusy = false;
 
+  // Sparkles SVG for Oracle avatar & header
+  const oracleSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`;
+  // User SVG for user avatar
+  const userSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+
   // ── Build DOM ──────────────────────────────────────────────────────────────
   function mount() {
     const widget = document.createElement("div");
@@ -963,14 +968,16 @@ const PorraExtras = (() => {
     widget.innerHTML = `
       <div class="oracle-panel" id="oracle-panel" style="display:none;">
         <div class="oracle-panel__header">
-          <span class="oracle-panel__header-emoji">🧙‍♂️</span>
+          <span class="oracle-panel__header-emoji" style="display:inline-flex;align-items:center;color:var(--color-primary,#1b8b43);">
+            ${oracleSvg}
+          </span>
           <div>
             <div class="oracle-panel__header-title">El Oráculo del Cuñao</div>
           </div>
         </div>
         <div class="oracle-panel__messages" id="oracle-messages">
           <div class="oraculo-msg oraculo-msg--oracle">
-            <span class="oraculo-avatar">🧙‍♂️</span>
+            <span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>
             <div class="oraculo-bubble oraculo-bubble--oracle">Buenas. El Oráculo al aparato. Pregunta lo que quieras, que de esto sé un rato.</div>
           </div>
         </div>
@@ -980,7 +987,11 @@ const PorraExtras = (() => {
           <button id="oracle-send" class="oracle-panel__send" title="Enviar">➤</button>
         </div>
       </div>
-      <button class="oracle-fab" id="oracle-fab" aria-label="Abrir el Oráculo">🧙‍♂️</button>
+      <button class="oracle-fab" id="oracle-fab" aria-label="Abrir el Oráculo" style="display:inline-flex;align-items:center;justify-content:center;">
+        <span class="oracle-fab__icon" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </span>
+      </button>
     `;
     document.body.appendChild(widget);
 
@@ -999,12 +1010,12 @@ const PorraExtras = (() => {
     if (isOpen) {
       panel.style.display = "flex";
       panel.style.flexDirection = "column";
-      fab.textContent = "✕";
+      fab.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
       fab.classList.add("oracle-fab--open");
       document.getElementById("oracle-input").focus();
     } else {
       panel.style.display = "none";
-      fab.textContent = "🧙‍♂️";
+      fab.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`;
       fab.classList.remove("oracle-fab--open");
     }
   }
@@ -1020,9 +1031,9 @@ const PorraExtras = (() => {
     const div = document.createElement("div");
     div.className = `oraculo-msg ${isOracle ? "oraculo-msg--oracle" : "oraculo-msg--user"}`;
     div.innerHTML = `
-      ${isOracle ? '<span class="oraculo-avatar">🧙‍♂️</span>' : ""}
+      ${isOracle ? `<span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>` : ""}
       <div class="oraculo-bubble ${isOracle ? "oraculo-bubble--oracle" : "oraculo-bubble--user"}">${escHtml(text)}</div>
-      ${!isOracle ? '<span class="oraculo-avatar">👤</span>' : ""}
+      ${!isOracle ? `<span class="oraculo-avatar oraculo-avatar--user">${userSvg}</span>` : ""}
     `;
     document.getElementById("oracle-messages").appendChild(div);
     scrollBottom();
@@ -1032,7 +1043,7 @@ const PorraExtras = (() => {
     const div = document.createElement("div");
     div.className = "oraculo-msg oraculo-msg--oracle";
     div.innerHTML = `
-      <span class="oraculo-avatar">🧙‍♂️</span>
+      <span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>
       <div class="oraculo-bubble oraculo-bubble--oracle oraculo-bubble--streaming"></div>
     `;
     document.getElementById("oracle-messages").appendChild(div);
@@ -1050,7 +1061,7 @@ const PorraExtras = (() => {
     div.className = "oraculo-msg oraculo-msg--oracle";
     div.id = "oracle-typing";
     div.innerHTML = `
-      <span class="oraculo-avatar">🧙‍♂️</span>
+      <span class="oraculo-avatar oraculo-avatar--oracle">${oracleSvg}</span>
       <div class="oraculo-bubble oraculo-bubble--oracle oraculo-typing">
         <span></span><span></span><span></span>
       </div>`;
@@ -1096,7 +1107,7 @@ const PorraExtras = (() => {
         "Goleadores: " + ctx.goleadores + "\n" +
         "Porteros: " + ctx.porteros + "\n--- FIN ---";
     }
-    const system = "Eres 'El Oráculo de la Barra', un redactor deportivo ultra-cuñado, sarcástico e irónico de un periódico deportivo español de bar (estilo Marca o As pero de sátira pura, como en El Diario). Tu tono es castizo, resabiado y muy incisivo. Usa frases míticas de cuñado como 'lo de siempre', 'mano negra', 'mi de primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'. NUNCA uses jerga forocochera tipo 'shurmano' o similares. Te está hablando directamente el usuario: '" + activeUser + "'. Dirígete a él de forma muy sarcástica y burlona según su rendimiento y picks. Usa los datos de la porra con imaginación: invéntate metáforas sobre si sus picks de goleador/portero son dignos de tercera regional, haz bromas sobre sus puntos acumulados o ironiza con que su primo le sopla los resultados. Sé muy variado, creativo y punzante, no te limites a repetir que el colista es malo. Responde en máximo 3 frases cortas y contundentes, usando a lo sumo 1-2 emojis (como 🤡, 🤫, 🤦‍♂️, 🤣). Jamás digas que eres una IA.";
+    const system = "Eres 'El Oráculo de la Barra', un redactor deportivo ultra-cuñado, sarcástico e irónico de un periódico deportivo español de bar (estilo Marca o As pero de sátira pura, como en El Diario). Tu tono es castizo, resabiado y muy incisivo. Usa frases míticas de cuñado como 'lo de siempre', 'mano negra', 'mi de primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'. NUNCA uses jerga forocochera tipo 'shurmano' o similares. Te está hablando directamente el usuario: '" + activeUser + "'. Dirígete a él de forma muy sarcástica y burlona según su rendimiento y picks. Usa los datos de la porra con imaginación: invéntate metáforas sobre si sus picks de goleador/portero son dignos de tercera regional, haz bromas sobre sus puntos acumulados o ironiza con que su primo le sopla los resultados. Sé muy variado, creativo y punzante, no te limites a repetir que el colista es malo. Responde en máximo 3 frases cortas y contundentes. NO uses emojis bajo ningún concepto. Jamás digas que eres una IA.";
 
     let prompt = system + "\n\n";
     chatHistory.slice(-8).forEach(m => {
