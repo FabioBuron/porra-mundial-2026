@@ -3228,24 +3228,21 @@ body {
   widows: 3;
 }
 
-/* --- Sección Entrevista --- */
+/* --- Sección Entrevista (sidebar) --- */
 .newspaper-interview {
   border-top: 2px solid #000;
-  margin-top: 24px;
-  padding-top: 16px;
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  column-span: all;
+  margin-top: 20px;
+  padding-top: 14px;
 }
 
 .newspaper-interview-header {
   font-family: 'Playfair Display', 'Georgia', serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: #1a1a1a;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3261,18 +3258,19 @@ body {
 .newspaper-interview-byline {
   font-family: 'Georgia', serif;
   font-style: italic;
-  font-size: 12px;
+  font-size: 11px;
   color: #555;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  line-height: 1.4;
 }
 
 .newspaper-interview-qa {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 4px 16px;
+  grid-template-columns: 1fr;
+  gap: 2px;
   margin-bottom: 10px;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .newspaper-interview-q {
@@ -3280,15 +3278,20 @@ body {
   font-weight: 700;
   font-style: italic;
   color: #1a1a1a;
-  text-align: right;
-  padding-right: 8px;
-  border-right: 2px solid #1a1a1a;
+  text-align: left;
+  padding-bottom: 2px;
+}
+
+.newspaper-interview-q::before {
+  content: '— ';
 }
 
 .newspaper-interview-a {
   font-family: 'Georgia', serif;
-  color: #222;
+  color: #333;
   text-align: justify;
+  padding-left: 10px;
+  border-left: 2px solid rgba(0,0,0,0.2);
 }
 
 @media (max-width: 768px) {

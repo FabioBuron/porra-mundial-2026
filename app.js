@@ -3614,7 +3614,6 @@ const App = (() => {
             <div class="newspaper-text-columns">
               ${fotoHtml}
               ${parrafosHtml}
-              ${entrevistaHtml}
             </div>
           </div>
           <div class="newspaper-sidebar">
@@ -3622,6 +3621,7 @@ const App = (() => {
               <h3 class="newspaper-sec-news-title" style="border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 12px; font-size: 15px; text-transform: uppercase;">Breves de la Porra</h3>
               ${noticiasHtml}
             </div>
+            ${entrevistaHtml}
           </div>
         </div>
 
