@@ -3203,19 +3203,7 @@ body {
   margin-bottom: 16px;
 }
 
-.newspaper-ad::before {
-  content: "ANUNCIO CLASIFICADO";
-  position: absolute;
-  top: -8px;
-  left: 10px;
-  background-color: #f4efe2;
-  padding: 0 4px;
-  font-family: 'Georgia', serif;
-  font-size: 8px;
-  font-weight: bold;
-  color: #1a1a1a;
-  letter-spacing: 0.1em;
-}
+
 
 .newspaper-ad__highlight {
   font-family: 'Playfair Display', 'Georgia', serif;
