@@ -3050,13 +3050,14 @@ const App = (() => {
       </div>
 
       <div class="card fade-in mt-2">
-        <h2 class="card-title">🤖 El Diario (Gemini IA)</h2>
+        <h2 class="card-title">El Diario (Gemini IA)</h2>
         <p class="text-muted">Genera la crónica satírica y cuñada de la jornada con inteligencia artificial basándote en la clasificación actual de la porra.</p>
         <div style="display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap; margin-top:var(--space-2);">
           <select id="admin-cronica-round" class="form-input" style="max-width:200px;">
             ${Object.entries(CONFIG.roundLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
           </select>
-          <button id="admin-gen-cronica-btn" class="btn btn--primary">✍️ Redactar crónica con IA</button>
+          <button id="admin-gen-cronica-btn" class="btn btn--primary">Redactar crónica con IA</button>
+          <button id="admin-clear-cronica-btn" class="btn btn--danger">Borrar crónica actual</button>
         </div>
         <div id="admin-cronica-result" class="text-muted" style="margin-top:var(--space-2); font-size:var(--font-sm); min-height:1.5em;"></div>
       </div>
@@ -3269,7 +3270,7 @@ const App = (() => {
       if (!round) return;
 
       btn.disabled = true;
-      btn.textContent = "⏳ Generando crónica cuñada...";
+      btn.textContent = "Generando crónica cuñada...";
       result.textContent = "";
 
       try {
@@ -3324,15 +3325,53 @@ const App = (() => {
 
         const json = await resp.json();
         if (json.success) {
-          result.innerHTML = `<span style="color:var(--color-green)">✅ Crónica generada con éxito. ¡Recarga la app!</span>`;
+          result.innerHTML = `<span style="color:var(--color-green)">Crónica generada con éxito. ¡Recarga la app!</span>`;
         } else {
-          result.textContent = "❌ Error: " + (json.error || "Fallo de comunicación.");
+          result.textContent = "Error: " + (json.error || "Fallo de comunicación.");
         }
       } catch (e) {
-        result.textContent = "❌ Error de red: " + e.message;
+        result.textContent = "Error de red: " + e.message;
       } finally {
         btn.disabled = false;
-        btn.textContent = "✍️ Redactar crónica con IA";
+        btn.textContent = "Redactar crónica con IA";
+      }
+    });
+
+    $("#admin-clear-cronica-btn")?.addEventListener("click", async () => {
+      const btn = $("#admin-clear-cronica-btn");
+      const result = $("#admin-cronica-result");
+      const password = sessionStorage.getItem("admin_password") || "";
+
+      if (!confirm("¿De verdad querés borrar la crónica actual del periódico? Esta acción vaciará el Diario.")) {
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Borrando crónica...";
+      result.textContent = "";
+
+      try {
+        const resp = await fetch(CONFIG.appsScriptUrl, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({
+            action: "borrarCronica",
+            password: password
+          })
+        });
+
+        const json = await resp.json();
+        if (json.success) {
+          result.innerHTML = `<span style="color:var(--color-green)">Crónica borrada con éxito. ¡Recarga la app!</span>`;
+        } else {
+          result.textContent = "Error: " + (json.error || "Fallo de comunicación.");
+        }
+      } catch (e) {
+        result.textContent = "Error de red: " + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Borrar crónica actual";
       }
     });
 
@@ -3499,7 +3538,16 @@ const App = (() => {
     const shuffledAds = [...adsPool].sort(() => 0.5 - Math.random());
     const selectedAds = shuffledAds.slice(0, 3);
 
-    const publicidadHtml = selectedAds.map(ad => `
+    const fotoHtml = (info.foto && info.foto.trim() !== "")
+      ? `<div class="newspaper-photo-card">
+          <div class="newspaper-photo-wrapper">
+            <img src="data:image/jpeg;base64,${info.foto}" alt="Imagen de la jornada" class="newspaper-photo" />
+          </div>
+          <div class="newspaper-photo-caption">FOTO DE PORTADA — Instantánea de los sucesos descritos en la crónica.</div>
+        </div>`
+      : "";
+
+    const advertisingHtml = selectedAds.map(ad => `
       <div class="newspaper-ad">
         <div class="newspaper-ad__highlight">${escapeHtml(ad.highlight)}</div>
         <p class="newspaper-ad__desc">${escapeHtml(ad.desc)}</p>
@@ -3535,15 +3583,24 @@ const App = (() => {
         </div>
 
         <div class="newspaper-columns-container">
-          <div class="newspaper-text-columns">
-            ${parrafosHtml}
+          <div class="newspaper-main-content">
+            ${fotoHtml}
+            <div class="newspaper-text-columns">
+              ${parrafosHtml}
+            </div>
           </div>
           <div class="newspaper-sidebar">
             <div class="newspaper-sec-news-box">
               <h3 class="newspaper-sec-news-title" style="border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 12px; font-size: 15px; text-transform: uppercase;">Breves de la Porra</h3>
               ${noticiasHtml}
             </div>
-            ${publicidadHtml}
+          </div>
+        </div>
+
+        <div class="newspaper-classifieds">
+          <div class="newspaper-classifieds-title">Clasificados y Anuncios por Palabras</div>
+          <div class="newspaper-classifieds-grid">
+            ${advertisingHtml}
           </div>
         </div>
       </div>

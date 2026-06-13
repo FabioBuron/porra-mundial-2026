@@ -78,6 +78,19 @@ function processSaveRequest(payload) {
     }
     return generarCronicaConGemini(payload.round, payload.leaderboard, payload.leaderboardJornada);
   }
+
+  // Acción para borrar la crónica del periódico
+  if (payload.action === "borrarCronica") {
+    var adminPass = PropertiesService.getScriptProperties().getProperty("ADMIN_PASSWORD") || "CAMBIAR_ESTO";
+    if (payload.password !== adminPass) {
+      throw new Error("Contraseña de administrador incorrecta.");
+    }
+    var pSheet = ss.getSheetByName("periodico");
+    if (pSheet) {
+      pSheet.clear();
+    }
+    return "Crónica borrada con éxito.";
+  }
   
   // Devuelve solo el contexto de la porra (sin llamar a Gemini) para streaming en cliente
   if (payload.action === "getOracleContext") {
@@ -792,7 +805,29 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
 
   var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
   
-  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre una jornada de 'La Porra del Mundial 2026' basandote en el rendimiento de los participantes en esta jornada especifica y en la clasificacion general global.\n\nReglas del tono:\n1. Usa lenguaje muy castizo de cunado espanol: frases como 'lo de siempre', 'mano negra', 'mi primo el del bar', 'vaya tela', 'para habernos matao', 'palillo en la boca', 'cuidao con el figura'.\n2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo.\n3. Lanza comentarios ironicos sobre el lider general del torneo (insinua que tiene flor en el culo, que ha comprado al arbitro, o que su cunado le ha soplado los resultados) y elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n\nDebes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n{\n  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n  \"noticias_secundarias\": [\n    {\n      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n      \"resumen\": \"Texto corto, ironico y directo sobre esta noticia secundaria.\"\n    },\n    {\n      \"titular\": \"OTRO TITULO SECUNDARIO\",\n      \"resumen\": \"Otro chisme gracioso sobre otro participante.\"\n    }\n  ]\n}";
+  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre una jornada de 'La Porra del Mundial 2026' basandote en el rendimiento de los participantes en esta jornada especifica y en la clasificacion general global.\n\n" +
+    "Reglas del tono:\n" +
+    "1. Usa lenguaje castizo de cunado espanol, sarcastico e ironico: frases como 'lo de siempre', 'mano negra', 'vaya tela', 'cuidao con el figura'. EVITA hacer referencias a 'mi primo el del bar'.\n" +
+    "2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo.\n" +
+    "3. Lanza comentarios ironicos sobre el lider general del torneo (insinua que tiene flor en el culo, que ha comprado al arbitro, o que tiene contactos en las altas esferas) y elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n" +
+    "4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n" +
+    "5. CRITICAL: No utilices NINGUN emoji bajo ninguna circunstancia. La cronica, titulares, subtitulo y noticias secundarias deben estar 100% libres de emojis.\n\n" +
+    "Debes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n" +
+    "{\n" +
+    "  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n" +
+    "  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n" +
+    "  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n" +
+    "  \"prompt_imagen\": \"A detailed English prompt for an AI image generator (Imagen 3). It must describe a funny, satirical, vintage newspaper photo or caricature (black and white, high-contrast newsprint texture, slightly grainy, 1980s/1990s editorial cartoon style) depicting the key highlights or participants of this chronicle. Do not include emojis.\",\n" +
+    "  \"noticias_secundarias\": [\n" +
+    "    {\n" +
+    "      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n" +
+    "      \"resumen\": \"Texto corto, ironico y directo sobre esta noticia secundaria.\"\n" +
+    "    },\n    {\n" +
+    "      \"titular\": \"OTRO TITULO SECUNDARIO\",\n" +
+    "      \"resumen\": \"Otro chisme gracioso sobre otro participante.\"\n" +
+    "    }\n" +
+    "  ]\n" +
+    "}";
 
   const promptUsuario = "Jornada finalizada: " + labelEdicion + "\n\n" +
     "Puntos conseguidos SOLO en esta jornada (Rendimiento de la jornada):\n" + 
@@ -842,8 +877,48 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     var cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     data = JSON.parse(cleanText);
   }
+
+  // Generar imagen mediante la API de Imagen 3 (imagen-3.0-generate-002) usando la API Key
+  let base64Image = "";
+  if (data.prompt_imagen) {
+    try {
+      const imagenUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=" + apiKey;
+      const imagenRequestBody = {
+        instances: [
+          {
+            prompt: data.prompt_imagen
+          }
+        ],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "4:3",
+          outputMimeType: "image/jpeg"
+        }
+      };
+      const imagenOptions = {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(imagenRequestBody),
+        muteHttpExceptions: true
+      };
+      const imagenResponse = UrlFetchApp.fetch(imagenUrl, imagenOptions);
+      const imagenResponseCode = imagenResponse.getResponseCode();
+      const imagenResponseText = imagenResponse.getContentText();
+      
+      if (imagenResponseCode === 200) {
+        const imagenJsonResponse = JSON.parse(imagenResponseText);
+        if (imagenJsonResponse.predictions && imagenJsonResponse.predictions.length > 0) {
+          base64Image = imagenJsonResponse.predictions[0].bytesBase64Encoded;
+        }
+      } else {
+        Logger.log("Error al generar imagen con Imagen 3: " + imagenResponseText);
+      }
+    } catch (e) {
+      Logger.log("Excepcion al generar imagen: " + e.toString());
+    }
+  }
   
-  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias);
+  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias, base64Image, data.prompt_imagen);
 
   return "Cronica de IA generada y guardada con exito para " + labelEdicion;
 }
@@ -1024,7 +1099,7 @@ function responderPreguntaOracle(question, history) {
 }
 
 
-function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias) {
+function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias, foto, promptImagen) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("periodico");
   if (!sheet) {
@@ -1038,6 +1113,8 @@ function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSec
   sheet.appendRow(["edicion", edicion]);
   sheet.appendRow(["cronica", cronica]);
   sheet.appendRow(["noticias_secundarias", typeof noticiasSecundarias === 'string' ? noticiasSecundarias : JSON.stringify(noticiasSecundarias || [])]);
+  sheet.appendRow(["foto", foto || ""]);
+  sheet.appendRow(["prompt_imagen", promptImagen || ""]);
 }
 
 function _matchRoundKeyLocal(phase, matchday) {

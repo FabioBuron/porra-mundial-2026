@@ -3061,6 +3061,12 @@ body {
   margin-top: 16px;
 }
 
+.newspaper-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .newspaper-sidebar {
   display: flex;
   flex-direction: column;
@@ -3078,6 +3084,80 @@ body {
     border-top: 1px solid rgba(0,0,0,0.15);
     padding-left: 0;
     padding-top: 24px;
+  }
+}
+
+/* --- Foto Vintage de Periódico --- */
+.newspaper-photo-card {
+  border: 1px solid #1a1a1a;
+  padding: 12px;
+  background-color: #fcfbf7;
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.newspaper-photo-wrapper {
+  width: 100%;
+  border: 1px solid #1a1a1a;
+  overflow: hidden;
+  background-color: #000;
+}
+
+.newspaper-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: grayscale(100%) contrast(1.2) brightness(0.95);
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+.newspaper-photo-caption {
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  font-size: 11.5px;
+  color: #333;
+  margin-top: 10px;
+  text-align: center;
+  border-top: 1px dotted rgba(0,0,0,0.3);
+  padding-top: 8px;
+  width: 100%;
+  letter-spacing: 0.02em;
+}
+
+/* --- Sección Clasificados Footer --- */
+.newspaper-classifieds {
+  border-top: 3px double #1a1a1a;
+  margin-top: 32px;
+  padding-top: 20px;
+  width: 100%;
+}
+
+.newspaper-classifieds-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 900;
+  font-size: 15px;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  color: #1a1a1a;
+  border-bottom: 1px solid #1a1a1a;
+  padding-bottom: 6px;
+}
+
+.newspaper-classifieds-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .newspaper-classifieds-grid {
+    grid-template-columns: 1fr;
   }
 }
 
