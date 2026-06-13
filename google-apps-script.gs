@@ -846,10 +846,10 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     "Puntos conseguidos SOLO en esta jornada (Rendimiento de la jornada) con desglose de elecciones:\n" + 
     leaderboardJornada.map(function(p, i) { 
       const partId = p.id;
-      const pickInfo = detallePicks[partId] || { scorer: "Ninguno", scorerPoints: 0, gk: "Ninguno", gkPoints: 0 };
+      const pickInfo = detallePicks[partId] || { scorer: "No eligió", scorerPoints: "sin datos", gk: "No eligió", gkPoints: "sin datos" };
       return (i+1) + ". " + p.name + ": " + p.points + " puntos " +
-        "(Goleador elegido: " + pickInfo.scorer + " que dio " + pickInfo.scorerPoints + " puntos por goles; " +
-        "Portero elegido: " + pickInfo.gk + " que dio " + pickInfo.gkPoints + " puntos por goles concedidos)";
+        "(Goleador elegido: " + pickInfo.scorer + " — puntos por goles en la jornada: " + pickInfo.scorerPoints + "; " +
+        "Portero elegido: " + pickInfo.gk + " — puntos por valla en la jornada: " + pickInfo.gkPoints + ")";
     }).join("\n") + 
     "\n\nClasificacion General Global (Acumulado de todo el torneo):\n" +
     leaderboardGlobal.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
