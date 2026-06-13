@@ -3598,7 +3598,6 @@ const App = (() => {
         </div>
 
         <div class="newspaper-classifieds">
-          <div class="newspaper-classifieds-title">Clasificados y Anuncios por Palabras</div>
           <div class="newspaper-classifieds-grid">
             ${advertisingHtml}
           </div>
