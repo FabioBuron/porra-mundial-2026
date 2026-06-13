@@ -907,7 +907,7 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
         "--" + boundary,
         'Content-Disposition: form-data; name="aspect_ratio"',
         '',
-        "4:3",
+        "5:4",
         "--" + boundary,
         'Content-Disposition: form-data; name="output_format"',
         '',
