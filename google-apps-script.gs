@@ -811,7 +811,7 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     "Reglas del tono:\n" +
     "1. Usa lenguaje castizo de cunado espanol, sarcastico e ironico: frases como 'lo de siempre', 'mano negra', 'vaya tela', 'cuidao con el figura'. EVITA hacer referencias a 'mi primo el del bar'.\n" +
     "2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo. Se despiadadamente comico y acido.\n" +
-    "3. Lanza comentarios ironicos sobre el lider general del torneo variando el tipo de burla: insinua que tiene una flor en el trasero del tamaño de un cactus, que viaja en el tiempo, o que tiene un pacto con el VAR. Sin embargo, destaca tambien que va primero principalmente porque el resto de participantes son horrorosos apostando, unos negados absolutos de la tactica que parecen elegir sus picks con los ojos cerrados o tras tres carajillos en el bar. Haz burla del nivel general espantoso de la porra, retratando al lider como un rey tuerto en el pais de los ciegos que solo tiene que sentarse a mirar como los demas se estrellan de forma ridicula y catastrofica. Elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n" +
+    "3. Lanza comentarios ironicos sobre el lider general del torneo. Destaca que va primero principalmente porque el resto de participantes son horrorosos apostando, unos negados absolutos que parecen elegir sus picks al azar. Haz burla del nivel general espantoso de la porra, retratando al lider como un rey tuerto en el pais de los ciegos. Inventa tu propia metafora castiza o absurda para explicar su racha — que sea diferente y sorprendente, nada de recurrir siempre a lo mismo. Elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n" +
     "4. Analiza de forma comica las elecciones desastrosas o gloriosas de goleador y portero de los participantes en la jornada. Si el portero elegido por alguien encajo una goleada (quitandole puntos) o si su goleador estrella no le mete un gol ni al arcoiris, burlate abiertamente de esa eleccion cuñada.\n" +
     "5. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n" +
     "6. CRITICAL: No utilices NINGUN emoji bajo ninguna circunstancia. La cronica, titulares, subtitulo y noticias secundarias deben estar 100% libres de emojis.\n\n" +
@@ -1005,13 +1005,16 @@ function obtenerDetallePicksJornada(ss, roundKey) {
       const plId = String(scorerData[i][spPlayerIdx]).trim();
       const part = partMap[pId];
       const player = playersMap[plId];
-      if (part && player) {
-        part.scorer = player.name;
+      if (part) {
+        // Always set the name if we have the player, even if points are unknown
+        part.scorer = (player ? player.name : plId) || "(desconocido)";
         const colName = "goals_" + roundKey;
         const colIdx = plHeaders.indexOf(colName);
-        if (colIdx !== -1) {
-          const goals = Number(player.rowData[colIdx]) || 0;
-          part.scorerPoints = goals;
+        if (player && colIdx !== -1) {
+          const goals = Number(player.rowData[colIdx]);
+          part.scorerPoints = isNaN(goals) ? "(pendiente)" : goals;
+        } else {
+          part.scorerPoints = "(pendiente)";
         }
       }
     }
@@ -1031,11 +1034,11 @@ function obtenerDetallePicksJornada(ss, roundKey) {
       const plId = String(gkData[i][gpPlayerIdx]).trim();
       const part = partMap[pId];
       const player = playersMap[plId];
-      if (part && player) {
-        part.gk = player.name;
+      if (part) {
+        part.gk = (player ? player.name : plId) || "(desconocido)";
         const colName = "conceded_" + roundKey;
         const colIdx = plHeaders.indexOf(colName);
-        if (colIdx !== -1) {
+        if (player && colIdx !== -1) {
           const conceded = Number(player.rowData[colIdx]);
           if (!isNaN(conceded)) {
             let pts = 0;
@@ -1043,7 +1046,11 @@ function obtenerDetallePicksJornada(ss, roundKey) {
             else if (conceded === 1) pts = 1;
             else pts = (2 - conceded);
             part.gkPoints = pts;
+          } else {
+            part.gkPoints = "(pendiente)";
           }
+        } else {
+          part.gkPoints = "(pendiente)";
         }
       }
     }
