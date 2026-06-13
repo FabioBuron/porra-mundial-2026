@@ -889,6 +889,7 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
 
   // Generar imagen mediante la API de Imagen 4 (imagen-4.0-ultra-generate-001) usando la API Key
   let base64Image = "";
+  let debugErrorImagen = "";
   if (data.prompt_imagen) {
     try {
       const imagenUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=" + apiKey;
@@ -918,16 +919,22 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
         const imagenJsonResponse = JSON.parse(imagenResponseText);
         if (imagenJsonResponse.predictions && imagenJsonResponse.predictions.length > 0) {
           base64Image = imagenJsonResponse.predictions[0].bytesBase64Encoded;
+        } else {
+          debugErrorImagen = "La API respondio 200 pero predictions esta vacio: " + imagenResponseText;
         }
       } else {
-        Logger.log("Error al generar imagen con Imagen 3: " + imagenResponseText);
+        debugErrorImagen = "HTTP Error " + imagenResponseCode + ": " + imagenResponseText;
+        Logger.log("Error al generar imagen con Imagen 4: " + imagenResponseText);
       }
     } catch (e) {
+      debugErrorImagen = "Excepcion capturada: " + e.toString();
       Logger.log("Excepcion al generar imagen: " + e.toString());
     }
+  } else {
+    debugErrorImagen = "Gemini no devolvio prompt_imagen en el JSON.";
   }
   
-  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias, base64Image, data.prompt_imagen);
+  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias, base64Image, data.prompt_imagen, debugErrorImagen);
 
   return "Cronica de IA generada y guardada con exito para " + labelEdicion;
 }
@@ -1207,7 +1214,7 @@ function responderPreguntaOracle(question, history) {
 }
 
 
-function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias, foto, promptImagen) {
+function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias, foto, promptImagen, debugErrorImagen) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("periodico");
   if (!sheet) {
@@ -1223,6 +1230,7 @@ function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSec
   sheet.appendRow(["noticias_secundarias", typeof noticiasSecundarias === 'string' ? noticiasSecundarias : JSON.stringify(noticiasSecundarias || [])]);
   sheet.appendRow(["foto", foto || ""]);
   sheet.appendRow(["prompt_imagen", promptImagen || ""]);
+  sheet.appendRow(["debug_error_imagen", debugErrorImagen || ""]);
 }
 
 function _matchRoundKeyLocal(phase, matchday) {
