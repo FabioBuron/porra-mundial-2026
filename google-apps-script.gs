@@ -898,18 +898,33 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
   } else if (data.prompt_imagen) {
     try {
       const imagenUrl = "https://api.stability.ai/v2beta/stable-image/generate/core";
-      const imagenPayload = {
-        prompt: data.prompt_imagen,
-        aspect_ratio: "4:3",
-        output_format: "jpeg"
-      };
+      const boundary = "----WebKitFormBoundary" + Math.random().toString(36).substring(2);
+      const parts = [
+        "--" + boundary,
+        'Content-Disposition: form-data; name="prompt"',
+        '',
+        data.prompt_imagen,
+        "--" + boundary,
+        'Content-Disposition: form-data; name="aspect_ratio"',
+        '',
+        "4:3",
+        "--" + boundary,
+        'Content-Disposition: form-data; name="output_format"',
+        '',
+        "jpeg",
+        "--" + boundary + "--",
+        ''
+      ];
+      const multipartBody = parts.join("\r\n");
+
       const imagenOptions = {
         method: "post",
+        contentType: "multipart/form-data; boundary=" + boundary,
         headers: {
           "Authorization": "Bearer " + stabilityApiKey,
           "Accept": "application/json"
         },
-        payload: imagenPayload,
+        payload: multipartBody,
         muteHttpExceptions: true
       };
       const imagenResponse = UrlFetchApp.fetch(imagenUrl, imagenOptions);
