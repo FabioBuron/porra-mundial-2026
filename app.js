@@ -1161,6 +1161,10 @@ const App = (() => {
 
     // Track original select change events
     selectEl.addEventListener("change", updateTriggerText);
+    selectEl.addEventListener("optionsUpdated", () => {
+      renderOptions(searchInput.value);
+      updateTriggerText();
+    });
 
     const cleanStr = str => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -1170,6 +1174,7 @@ const App = (() => {
       const normalizedQuery = cleanStr(filterQuery);
 
       Array.from(selectEl.options).forEach(opt => {
+        if (opt.style.display === "none") return;
         const text = opt.textContent;
         const matchesQuery = cleanStr(text).includes(normalizedQuery);
 
@@ -3005,12 +3010,19 @@ const App = (() => {
           </select>
 
           <div id="ov-match-fields">
+            <select id="ov-match-round" class="form-input" style="margin-bottom:var(--space-2);">
+              <option value="all">— Filtrar por Jornada (Todas) —</option>
+              ${Object.entries(CONFIG.roundLabels).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
+            </select>
             <select id="ov-match" class="form-input">
               ${(_data.matches || []).slice().sort((a, b) => {
                 const da = a.kickoff_utc ? new Date(a.kickoff_utc).getTime() : 0;
                 const db = b.kickoff_utc ? new Date(b.kickoff_utc).getTime() : 0;
                 return da - db;
-              }).map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} · ${escapeHtml(m.home_team)} - ${escapeHtml(m.away_team)}</option>`).join("")}
+              }).map(m => {
+                const rKey = m.phase === "group" ? "group_md" + m.matchday : m.phase.toLowerCase();
+                return `<option value="${escapeHtml(m.id)}" data-round="${escapeHtml(rKey)}">${escapeHtml(m.id)} · ${escapeHtml(m.home_team)} - ${escapeHtml(m.away_team)}</option>`;
+              }).join("")}
             </select>
             <div style="display:flex; gap:var(--space-2); margin-top:var(--space-2);">
               <input type="number" id="ov-home" class="form-input" placeholder="Local" min="0" style="max-width:120px;">
@@ -3084,8 +3096,36 @@ const App = (() => {
       typeSel.addEventListener("change", toggleFields);
       toggleFields();
 
+      // Filtrar partidos por jornada
+      const matchRoundSel = $("#ov-match-round");
+      const matchSel = $("#ov-match");
+      if (matchRoundSel && matchSel) {
+        matchRoundSel.addEventListener("change", () => {
+          const roundVal = matchRoundSel.value;
+          const options = matchSel.querySelectorAll("option");
+          let firstVisible = null;
+          options.forEach(opt => {
+            const optRound = opt.dataset.round;
+            if (roundVal === "all" || optRound === roundVal) {
+              opt.style.display = "";
+              if (!firstVisible) firstVisible = opt;
+            } else {
+              opt.style.display = "none";
+            }
+          });
+          if (firstVisible) {
+            matchSel.value = firstVisible.value;
+          } else {
+            matchSel.value = "";
+          }
+          // Notificar al buscador personalizado que cambie sus opciones visibles
+          matchSel.dispatchEvent(new Event("optionsUpdated"));
+        });
+      }
+
       // Convertir a selectores buscables de la app normal
       convertSelectToSearchable($("#ov-name"));
+      convertSelectToSearchable($("#ov-match-round"));
       convertSelectToSearchable($("#ov-match"));
       convertSelectToSearchable($("#ov-player"));
       convertSelectToSearchable($("#ov-event"));
