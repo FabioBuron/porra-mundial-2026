@@ -3538,12 +3538,16 @@ const App = (() => {
     const shuffledAds = [...adsPool].sort(() => 0.5 - Math.random());
     const selectedAds = shuffledAds.slice(0, 3);
 
+    const pieImagen = (info.pie_imagen && info.pie_imagen.trim() !== "")
+      ? info.pie_imagen
+      : "FOTO DE PORTADA — Instantánea de los sucesos descritos en la crónica.";
+
     const fotoHtml = (info.foto && info.foto.trim() !== "")
       ? `<div class="newspaper-photo-card">
           <div class="newspaper-photo-wrapper">
             <img src="data:image/jpeg;base64,${info.foto}" alt="Imagen de la jornada" class="newspaper-photo" />
           </div>
-          <div class="newspaper-photo-caption">FOTO DE PORTADA — Instantánea de los sucesos descritos en la crónica.</div>
+          <div class="newspaper-photo-caption">${escapeHtml(pieImagen)}</div>
         </div>`
       : "";
 
