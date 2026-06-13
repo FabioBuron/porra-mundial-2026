@@ -887,11 +887,11 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     data = JSON.parse(cleanText);
   }
 
-  // Generar imagen mediante la API de Imagen 3 (imagen-3.0-generate-002) usando la API Key
+  // Generar imagen mediante la API de Imagen 4 (imagen-4.0-ultra-generate-001) usando la API Key
   let base64Image = "";
   if (data.prompt_imagen) {
     try {
-      const imagenUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=" + apiKey;
+      const imagenUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=" + apiKey;
       const imagenRequestBody = {
         instances: [
           {
