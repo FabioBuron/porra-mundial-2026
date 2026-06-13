@@ -822,6 +822,15 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     "  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n" +
     "  \"prompt_imagen\": \"A detailed English prompt for an AI image generator. The image MUST be in the style of 'Garabatos Random' webcomic / doodles: simple, funny, hand-drawn illustration with thick shaky black lines, minimalist raw caricature drawing, very simple and basic coloring with flat colors, blank or solid light background. It MUST represent a highly literal, absurd, and comical visualization of the specific situations of our participants (like Fabio, Ariel, etc.) in this round. DO NOT create a generic or normal soccer scene. Translate the funny metaphors or ironies from the text into literal, bizarre, and surreal visual situations. For example: if the leader Fabio is said to have a flower in his butt, describe a soccer player running on the field with a giant comical flower blooming out of their shorts. If Ariel was playing Candy Crush, describe a player sitting on the bench during a match, fully distracted and playing a match-3 puzzle game on a bright colorful smartphone. If a participant chose a goalie who conceded many goals, describe a goalkeeper staring in disbelief at giant cartoon holes in the palms of his hands while a soccer ball flies past him. Make it weird, extremely silly, and cartoonish. Do not include emojis or text in the image. Keep it safe and generic (no real full names, use descriptive terms like 'the lucky leader' or 'the distracted player' to avoid safety filters).\",\n" +
     "  \"pie_imagen\": \"Un pie de foto en espanol extremadamente gracioso, ironico y sarscastico que describa de forma corta la situacion absurda y comica mostrada en la imagen (maximo 15-20 palabras). Debe mantener el tono castizo y de cuñado.\",\n" +
+    "  \"entrevista\": {\n" +
+    "    \"entrevistado\": \"Nombre del participante entrevistado (el lider, el MVP de la jornada o el mayor desastre, elige el mas comico)\",\n" +
+    "    \"motivo\": \"Por que va bien o va mal — una frase corta y castiza\",\n" +
+    "    \"preguntas\": [\n" +
+    "      { \"p\": \"Pregunta uno al entrevistado, ironica y de cuñado\", \"r\": \"Respuesta del entrevistado, en modo cuñado negacionista o eufórico segun el caso\" },\n" +
+    "      { \"p\": \"Pregunta dos, mas incisiva o absurda\", \"r\": \"Respuesta aun mas cuñada y descarada\" },\n" +
+    "      { \"p\": \"Pregunta tres opcional si da para ello — omitela si las dos anteriores ya son suficientes\", \"r\": \"Respuesta final lapidaria o ridicula\" }\n" +
+    "    ]\n" +
+    "  },\n" +
     "  \"noticias_secundarias\": [\n" +
     "    {\n" +
     "      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n" +
@@ -918,8 +927,14 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
       const imagenResponseCode = imagenResponse.getResponseCode();
       
       if (imagenResponseCode === 200) {
-        const bytes = imagenResponse.getContent();
-        base64Image = Utilities.base64Encode(bytes);
+        const imagenResponseText = imagenResponse.getContentText();
+        const imagenJson = JSON.parse(imagenResponseText);
+        if (imagenJson.result && imagenJson.result.image) {
+          base64Image = imagenJson.result.image;
+        } else {
+          debugErrorImagen = "Cloudflare respondio 200 pero result.image esta vacio: " + imagenResponseText;
+          Logger.log(debugErrorImagen);
+        }
       } else {
         const imagenResponseText = imagenResponse.getContentText();
         debugErrorImagen = "Cloudflare Workers AI Error " + imagenResponseCode + ": " + imagenResponseText;
@@ -933,7 +948,7 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     debugErrorImagen = "Gemini no devolvio prompt_imagen en el JSON.";
   }
   
-  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias, base64Image, data.prompt_imagen, debugErrorImagen, data.pie_imagen);
+  guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias, base64Image, data.prompt_imagen, debugErrorImagen, data.pie_imagen, data.entrevista);
 
   return "Cronica de IA generada y guardada con exito para " + labelEdicion;
 }
@@ -1213,7 +1228,7 @@ function responderPreguntaOracle(question, history) {
 }
 
 
-function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias, foto, promptImagen, debugErrorImagen, pieImagen) {
+function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSecundarias, foto, promptImagen, debugErrorImagen, pieImagen, entrevista) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName("periodico");
   if (!sheet) {
@@ -1231,6 +1246,7 @@ function guardarCronicaEnSheet(titular, subtitulo, cronica, edicion, noticiasSec
   sheet.appendRow(["prompt_imagen", promptImagen || ""]);
   sheet.appendRow(["debug_error_imagen", debugErrorImagen || ""]);
   sheet.appendRow(["pie_imagen", pieImagen || ""]);
+  sheet.appendRow(["entrevista", typeof entrevista === 'string' ? entrevista : JSON.stringify(entrevista || {})]);
 }
 
 function _matchRoundKeyLocal(phase, matchday) {
