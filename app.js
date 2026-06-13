@@ -3006,7 +3006,11 @@ const App = (() => {
 
           <div id="ov-match-fields">
             <select id="ov-match" class="form-input">
-              ${_data.matches.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} · ${escapeHtml(m.home_team)} - ${escapeHtml(m.away_team)}</option>`).join("")}
+              ${(_data.matches || []).slice().sort((a, b) => {
+                const da = a.kickoff_utc ? new Date(a.kickoff_utc).getTime() : 0;
+                const db = b.kickoff_utc ? new Date(b.kickoff_utc).getTime() : 0;
+                return da - db;
+              }).map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.id)} · ${escapeHtml(m.home_team)} - ${escapeHtml(m.away_team)}</option>`).join("")}
             </select>
             <div style="display:flex; gap:var(--space-2); margin-top:var(--space-2);">
               <input type="number" id="ov-home" class="form-input" placeholder="Local" min="0" style="max-width:120px;">
