@@ -4,6 +4,18 @@ World Cup prediction game for friends. Static web app deployed on GitHub Pages, 
 
 ---
 
+## 🌟 Key Features
+
+* **⚽ Interactive Match Predictions (M1):** Predict outcomes, exact scores, or differences, featuring double-points Wild Matches.
+* **🎯 Scorer & Goalkeeper Selections (M2/M3):** Round-by-round player and goalkeeper picks.
+* **🏆 Special Events Bets (M4):** Custom tournament-wide side bets (e.g. World Cup champion, first top-8 team eliminated).
+* **📊 "El Mundial" Dashboard:** Real-time standings for the 12 groups, fixture calendars, and tournament top scorer charts built dynamically from the sheets database.
+* **📰 "El Diario de la Porra" (Newspaper):** Dynamically generated cuñado-style newspaper cover page with an interactive PDF export option to download and print.
+* **⚽ Floating Livescore Widget:** Global floating marker displaying live/last finished games with team flags using `worldcup26.ir` API.
+* **📈 Rich Stats & KPIs:** Emoji-free, clean dashboard cards featuring custom SVG icons and progress bars displaying participant stats, averages, and leadership records.
+
+---
+
 ## 🚀 Setup Guide
 
 ### 1. Import Database Template to Google Sheets
