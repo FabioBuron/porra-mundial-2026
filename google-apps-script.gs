@@ -887,28 +887,29 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     data = JSON.parse(cleanText);
   }
 
-  // Generar imagen mediante la API de Imagen 4 (imagen-4.0-ultra-generate-001) usando la API Key
+  // Generar imagen mediante la API de Stability AI (Stable Image Core) usando la API Key de Stability
   let base64Image = "";
   let debugErrorImagen = "";
-  if (data.prompt_imagen) {
+  var stabilityApiKey = PropertiesService.getScriptProperties().getProperty("STABILITY_API_KEY") || "";
+  
+  if (!stabilityApiKey) {
+    debugErrorImagen = "No se encontro la clave STABILITY_API_KEY en Script Properties.";
+    Logger.log(debugErrorImagen);
+  } else if (data.prompt_imagen) {
     try {
-      const imagenUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict?key=" + apiKey;
-      const imagenRequestBody = {
-        instances: [
-          {
-            prompt: data.prompt_imagen
-          }
-        ],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: "4:3",
-          outputMimeType: "image/jpeg"
-        }
+      const imagenUrl = "https://api.stability.ai/v2beta/stable-image/generate/core";
+      const imagenPayload = {
+        prompt: data.prompt_imagen,
+        aspect_ratio: "4:3",
+        output_format: "jpeg"
       };
       const imagenOptions = {
         method: "post",
-        contentType: "application/json",
-        payload: JSON.stringify(imagenRequestBody),
+        headers: {
+          "Authorization": "Bearer " + stabilityApiKey,
+          "Accept": "application/json"
+        },
+        payload: imagenPayload,
         muteHttpExceptions: true
       };
       const imagenResponse = UrlFetchApp.fetch(imagenUrl, imagenOptions);
@@ -917,18 +918,18 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
       
       if (imagenResponseCode === 200) {
         const imagenJsonResponse = JSON.parse(imagenResponseText);
-        if (imagenJsonResponse.predictions && imagenJsonResponse.predictions.length > 0) {
-          base64Image = imagenJsonResponse.predictions[0].bytesBase64Encoded;
+        if (imagenJsonResponse.image) {
+          base64Image = imagenJsonResponse.image;
         } else {
-          debugErrorImagen = "La API respondio 200 pero predictions esta vacio: " + imagenResponseText;
+          debugErrorImagen = "La API de Stability respondio 200 pero el campo image esta vacio: " + imagenResponseText;
         }
       } else {
-        debugErrorImagen = "HTTP Error " + imagenResponseCode + ": " + imagenResponseText;
-        Logger.log("Error al generar imagen con Imagen 4: " + imagenResponseText);
+        debugErrorImagen = "Stability API Error " + imagenResponseCode + ": " + imagenResponseText;
+        Logger.log("Error al generar imagen con Stability: " + imagenResponseText);
       }
     } catch (e) {
-      debugErrorImagen = "Excepcion capturada: " + e.toString();
-      Logger.log("Excepcion al generar imagen: " + e.toString());
+      debugErrorImagen = "Excepcion capturada en Stability: " + e.toString();
+      Logger.log("Excepcion al generar imagen con Stability: " + e.toString());
     }
   } else {
     debugErrorImagen = "Gemini no devolvio prompt_imagen en el JSON.";
