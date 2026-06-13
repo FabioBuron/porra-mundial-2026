@@ -805,19 +805,22 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
 
   var apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY") || "AIzaSyC8C3hRR31m6M59BqwYprA8gnmFXep3NS4";
   
-  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre una jornada de 'La Porra del Mundial 2026' basandote en el rendimiento de los participantes en esta jornada especifica y en la clasificacion general global.\n\n" +
+  const detallePicks = obtenerDetallePicksJornada(ss, round);
+
+  const systemPrompt = "Actua como un redactor deportivo ultra-cunado, sarcastico e ironico de un periodico deportivo espanol (como Marca o As, pero muy satirico). Escribe una cronica burlona sobre una jornada de 'La Porra del Mundial 2026' basandote en el rendimiento de los participantes en esta jornada especifica, sus aciertos/fallos y la clasificacion general global.\n\n" +
     "Reglas del tono:\n" +
     "1. Usa lenguaje castizo de cunado espanol, sarcastico e ironico: frases como 'lo de siempre', 'mano negra', 'vaya tela', 'cuidao con el figura'. EVITA hacer referencias a 'mi primo el del bar'.\n" +
-    "2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo.\n" +
+    "2. Burla cariñosa de los participantes que han tenido el peor rendimiento en esta jornada especifica y del colista general del torneo. Se despiadadamente comico y acido.\n" +
     "3. Lanza comentarios ironicos sobre el lider general del torneo (insinua que tiene flor en el culo, que ha comprado al arbitro, o que tiene contactos en las altas esferas) y elogia de forma exageradamente ironica al participante que haya sido el 'figura' / MVP de esta jornada especifica por haber conseguido mas puntos en ella.\n" +
-    "4. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n" +
-    "5. CRITICAL: No utilices NINGUN emoji bajo ninguna circunstancia. La cronica, titulares, subtitulo y noticias secundarias deben estar 100% libres de emojis.\n\n" +
+    "4. Analiza de forma comica las elecciones desastrosas o gloriosas de goleador y portero de los participantes en la jornada. Si el portero elegido por alguien encajo una goleada (quitandole puntos) o si su goleador estrella no le mete un gol ni al arcoiris, burlate abiertamente de esa eleccion cuñada.\n" +
+    "5. Genera ademas de la cronica principal, 2 o 3 noticias secundarias breves e igual de comicas sobre otros participantes de la clasificación.\n" +
+    "6. CRITICAL: No utilices NINGUN emoji bajo ninguna circunstancia. La cronica, titulares, subtitulo y noticias secundarias deben estar 100% libres de emojis.\n\n" +
     "Debes devolver obligatoriamente un JSON plano con la siguiente estructura (no añadas markdown ni envoltorios de codigo ```json):\n" +
     "{\n" +
     "  \"titular\": \"UN TITULAR SENSACIONALISTA EN MAYUSCULAS\",\n" +
     "  \"subtitulo\": \"Un subtitulo que resuma la mofa de la jornada.\",\n" +
     "  \"cronica\": \"El cuerpo de la noticia con varios parrafos. Usa saltos de linea '\\\\n' para separar los parrafos.\",\n" +
-    "  \"prompt_imagen\": \"A detailed English prompt for an AI image generator (Imagen 3). It must describe a funny, satirical, vintage newspaper photo or caricature (black and white, high-contrast newsprint texture, slightly grainy, 1980s/1990s editorial cartoon style) depicting the key highlights or participants of this chronicle. Do not include emojis.\",\n" +
+    "  \"prompt_imagen\": \"A detailed English prompt for an AI image generator (Imagen 3). The generated image MUST be in the style of 'Garabatos Random' webcomic / doodles: simple, funny, hand-drawn illustration with thick shaky black lines, minimalist raw caricature drawing, very simple and basic coloring with flat tosco colors, blank or solid background. It should represent the funniest, most absurd or ridiculous situation described in the chronicle. Make it cartoonish, weird and comical. Do not include emojis.\",\n" +
     "  \"noticias_secundarias\": [\n" +
     "    {\n" +
     "      \"titular\": \"TITULO DE NOTICIA SECUNDARIA EN MAYUSCULAS\",\n" +
@@ -830,8 +833,14 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
     "}";
 
   const promptUsuario = "Jornada finalizada: " + labelEdicion + "\n\n" +
-    "Puntos conseguidos SOLO en esta jornada (Rendimiento de la jornada):\n" + 
-    leaderboardJornada.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
+    "Puntos conseguidos SOLO en esta jornada (Rendimiento de la jornada) con desglose de elecciones:\n" + 
+    leaderboardJornada.map(function(p, i) { 
+      const partId = p.id;
+      const pickInfo = detallePicks[partId] || { scorer: "Ninguno", scorerPoints: 0, gk: "Ninguno", gkPoints: 0 };
+      return (i+1) + ". " + p.name + ": " + p.points + " puntos " +
+        "(Goleador elegido: " + pickInfo.scorer + " que dio " + pickInfo.scorerPoints + " puntos por goles; " +
+        "Portero elegido: " + pickInfo.gk + " que dio " + pickInfo.gkPoints + " puntos por goles concedidos)";
+    }).join("\n") + 
     "\n\nClasificacion General Global (Acumulado de todo el torneo):\n" +
     leaderboardGlobal.map(function(p, i) { return (i+1) + ". " + p.name + ": " + p.points + " puntos"; }).join("\n") + 
     "\n\nGenera la cronica con la estructura JSON solicitada.";
@@ -921,6 +930,105 @@ function generarCronicaConGemini(round, leaderboardGlobal, leaderboardJornada) {
   guardarCronicaEnSheet(data.titular, data.subtitulo, data.cronica, labelEdicion, data.noticias_secundarias, base64Image, data.prompt_imagen);
 
   return "Cronica de IA generada y guardada con exito para " + labelEdicion;
+}
+
+function obtenerDetallePicksJornada(ss, roundKey) {
+  const sheetParticipants = ss.getSheetByName("participants");
+  const sheetPlayers = ss.getSheetByName("players");
+  const sheetScorerPicks = ss.getSheetByName("scorer_picks");
+  const sheetGkPicks = ss.getSheetByName("goalkeeper_picks");
+
+  if (!sheetParticipants || !sheetPlayers || !sheetScorerPicks || !sheetGkPicks) {
+    return {};
+  }
+
+  const participantsData = sheetParticipants.getDataRange().getValues();
+  const pHeaders = participantsData[0];
+  const pIdIdx = pHeaders.indexOf("id");
+  const pNameIdx = pHeaders.indexOf("name");
+
+  const partMap = {};
+  for (let i = 1; i < participantsData.length; i++) {
+    const pId = String(participantsData[i][pIdIdx]).trim();
+    const pName = String(participantsData[i][pNameIdx]).trim();
+    if (pId) {
+      partMap[pId] = { name: pName, scorer: "Ninguno", scorerPoints: 0, gk: "Ninguno", gkPoints: 0 };
+    }
+  }
+
+  const playersData = sheetPlayers.getDataRange().getValues();
+  const plHeaders = playersData[0];
+  const plIdIdx = plHeaders.indexOf("id");
+  const plNameIdx = plHeaders.indexOf("name");
+  
+  const playersMap = {};
+  for (let i = 1; i < playersData.length; i++) {
+    const plId = String(playersData[i][plIdIdx]).trim();
+    const plName = String(playersData[i][plNameIdx]).trim();
+    if (plId) {
+      playersMap[plId] = { name: plName, rowData: playersData[i] };
+    }
+  }
+
+  // Goleador picks
+  const scorerData = sheetScorerPicks.getDataRange().getValues();
+  const spHeaders = scorerData[0];
+  const spPartIdx = spHeaders.indexOf("participant_id");
+  const spRoundIdx = spHeaders.indexOf("round_key");
+  const spPlayerIdx = spHeaders.indexOf("player_id");
+
+  for (let i = 1; i < scorerData.length; i++) {
+    const rKey = String(scorerData[i][spRoundIdx]).trim();
+    if (rKey === roundKey) {
+      const pId = String(scorerData[i][spPartIdx]).trim();
+      const plId = String(scorerData[i][spPlayerIdx]).trim();
+      const part = partMap[pId];
+      const player = playersMap[plId];
+      if (part && player) {
+        part.scorer = player.name;
+        const colName = "goals_" + roundKey;
+        const colIdx = plHeaders.indexOf(colName);
+        if (colIdx !== -1) {
+          const goals = Number(player.rowData[colIdx]) || 0;
+          part.scorerPoints = goals;
+        }
+      }
+    }
+  }
+
+  // Portero picks
+  const gkData = sheetGkPicks.getDataRange().getValues();
+  const gpHeaders = gkData[0];
+  const gpPartIdx = gpHeaders.indexOf("participant_id");
+  const gpRoundIdx = gpHeaders.indexOf("round_key");
+  const gpPlayerIdx = gpHeaders.indexOf("player_id");
+
+  for (let i = 1; i < gkData.length; i++) {
+    const rKey = String(gkData[i][gpRoundIdx]).trim();
+    if (rKey === roundKey) {
+      const pId = String(gkData[i][gpPartIdx]).trim();
+      const plId = String(gkData[i][gpPlayerIdx]).trim();
+      const part = partMap[pId];
+      const player = playersMap[plId];
+      if (part && player) {
+        part.gk = player.name;
+        const colName = "conceded_" + roundKey;
+        const colIdx = plHeaders.indexOf(colName);
+        if (colIdx !== -1) {
+          const conceded = Number(player.rowData[colIdx]);
+          if (!isNaN(conceded)) {
+            let pts = 0;
+            if (conceded === 0) pts = 2;
+            else if (conceded === 1) pts = 1;
+            else pts = (2 - conceded);
+            part.gkPoints = pts;
+          }
+        }
+      }
+    }
+  }
+
+  return partMap;
 }
 
 function _buildPorraContextFromSheet() {
