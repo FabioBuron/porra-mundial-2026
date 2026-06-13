@@ -3584,8 +3584,8 @@ const App = (() => {
 
         <div class="newspaper-columns-container">
           <div class="newspaper-main-content">
-            ${fotoHtml}
             <div class="newspaper-text-columns">
+              ${fotoHtml}
               ${parrafosHtml}
             </div>
           </div>
